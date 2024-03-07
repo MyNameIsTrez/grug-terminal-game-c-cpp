@@ -1,6 +1,6 @@
 #pragma once
 
-#include "typedefs.h"
+#include "../typedefs.h"
 
 struct tool {
 	string name;

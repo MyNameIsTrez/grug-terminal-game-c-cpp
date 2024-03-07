@@ -1,6 +1,9 @@
 #include "data.h"
 #include "grug.h"
 
+// TODO: REMOVE
+#include "game/tool.h"
+
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +64,7 @@ struct data data;
 // }
 
 // TODO: REMOVE
-typedef void (*foo_fn)(int n);
+typedef struct tool (*define_tool_fn)();
 
 // TODO: REMOVE
 static void print_dlerror(char *function_name) {
@@ -91,7 +94,7 @@ int main() {
 
 		// update();
 
-		void *dll = dlopen("./foo.so", RTLD_NOW);
+		void *dll = dlopen("./dlls/magic/potions/health.so", RTLD_NOW);
 		if (!dll) {
 			print_dlerror("load_dynamic_library");
 		}
@@ -99,13 +102,13 @@ int main() {
 		// This suppresses the warning "ISO C forbids conversion of object pointer to function pointer type"
 		#pragma GCC diagnostic push
 		#pragma GCC diagnostic ignored "-Wpedantic"
-		foo_fn foo = dlsym(dll, "foo");
+		define_tool_fn define_tool = dlsym(dll, "define_tool");
 		#pragma GCC diagnostic pop
-		if (!foo) {
+		if (!define_tool) {
 			print_dlerror("load_dynamic_function");
 		}
 
-		foo(42);
+		printf("The Health Potion's monetary_value is %d\n", define_tool().monetary_value);
 
 		if (dlclose(dll)) {
 			print_dlerror("free_dynamic_library");

@@ -18,20 +18,46 @@
 // https://eklitzke.org/path-max-is-tricky
 #define STUPID_MAX_PATH 4096
 
+static char *read_file(char *path) {
+	FILE *f = fopen(path, "rb");
+	if (!f) {
+        perror("fopen()");
+        exit(EXIT_FAILURE);
+	}
+
+	if (fseek(f, 0, SEEK_END)) {
+        perror("fseek()");
+        exit(EXIT_FAILURE);
+	}
+
+	long count = ftell(f);
+	if (count == -1) {
+        perror("ftell()");
+        exit(EXIT_FAILURE);
+	}
+
+	rewind(f);
+
+	char *text = malloc(count + 1);
+	if (!text) {
+		perror("malloc()");
+        exit(EXIT_FAILURE);
+	}
+
+	ssize_t bytes_read = fread(text, 1, count, f);
+	if (bytes_read != count) {
+        perror("fread()");
+        exit(EXIT_FAILURE);
+	}
+
+	text[count] = '\0';
+
+	return text;
+}
+
 static void handle_error(void *opaque, const char *msg) {
     fprintf(opaque, "%s\n", msg);
 }
-
-// TODO: REMOVE
-char my_program[] =
-"#include <tcclib.h>\n" /* include the "Simple libc header for TCC" */
-"extern int add(int a, int b);\n"
-"\n"
-"int foo(int n)\n"
-"{\n"
-"    printf(\"add(%d, %d) = %d\\n\", n, 2 * n, add(n, 2 * n));\n"
-"    return 0;\n"
-"}\n";
 
 static void reload_grug_file(char *grug_file_path, char *dll_path) {
 	printf("Reloading grug file '%s'\n", grug_file_path);
@@ -54,8 +80,9 @@ static void reload_grug_file(char *grug_file_path, char *dll_path) {
         fprintf(stderr, "tcc_set_output_type() error\n");
         exit(EXIT_FAILURE);
     }
-    
-    if (tcc_compile_string(s, my_program) == -1) {
+
+	char *c_text = read_file(grug_file_path);
+    if (tcc_compile_string(s, c_text) == -1) {
         fprintf(stderr, "tcc_compile_string() error\n");
         exit(EXIT_FAILURE);
     }
@@ -66,7 +93,7 @@ static void reload_grug_file(char *grug_file_path, char *dll_path) {
     }
 
     tcc_delete(s);
-
+	free(c_text);
 	errno = 0;
 }
 
