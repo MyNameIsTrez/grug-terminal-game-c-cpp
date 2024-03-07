@@ -114,8 +114,6 @@ int main() {
 			print_dlerror("free_dynamic_library");
 		}
 
-		printf("\n");
-
 		sleep(1);
 	}
 	

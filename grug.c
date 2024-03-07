@@ -130,7 +130,7 @@ static char *get_file_extension(char *filename) {
 	return "";
 }
 
-static void fill_dll_path(char *dll_path, char *grug_file_path) {
+static void use_dll_extension(char *dll_path, char *grug_file_path) {
 	dll_path[0] = '\0';
 	strncat(dll_path, grug_file_path, STUPID_MAX_PATH - 1);
 	char *ext = get_file_extension(dll_path);
@@ -158,8 +158,8 @@ void grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
 		snprintf(entry_path, sizeof(entry_path), "%s/%s", mods_dir_path, dp->d_name);
 		// printf("entry_path is %s\n", entry_path);
 
-		struct stat buf;
-		if (stat(entry_path, &buf) == -1) {
+		struct stat entry_stat;
+		if (stat(entry_path, &entry_stat) == -1) {
 			perror("stat");
 			exit(EXIT_FAILURE);
 		}
@@ -167,24 +167,27 @@ void grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
 		char dll_entry_path[STUPID_MAX_PATH];
 		snprintf(dll_entry_path, sizeof(dll_entry_path), "%s/%s", dll_dir_path, dp->d_name);
 
-		if (S_ISDIR(buf.st_mode)) {
+		if (S_ISDIR(entry_stat.st_mode)) {
 			grug_reload_modified_mods(entry_path, dll_entry_path);
-		} else if (S_ISREG(buf.st_mode) && strcmp(get_file_extension(dp->d_name), ".c") == 0) {
+		} else if (S_ISREG(entry_stat.st_mode) && strcmp(get_file_extension(dp->d_name), ".c") == 0) {
 			char dll_path[STUPID_MAX_PATH];
-			fill_dll_path(dll_path, dll_entry_path);
+			use_dll_extension(dll_path, dll_entry_path);
 			// printf("dll path: %s\n", dll_path);
 
-			errno = 0;
-			if (access(dll_path, F_OK) && errno == ENOENT) {
-				try_create_parent_dirs(dll_path);
+			struct stat dll_stat;
+			if (stat(dll_path, &dll_stat) == -1 || entry_stat.st_mtime > dll_stat.st_mtime) {
 				errno = 0;
-			}
-			if (errno != 0 && errno != ENOENT) {
-				fprintf(stderr, "errno was not 0 after access()\n");
-				exit(EXIT_FAILURE);
-			}
+				if (access(dll_path, F_OK) && errno == ENOENT) {
+					try_create_parent_dirs(dll_path);
+					errno = 0;
+				}
+				if (errno != 0 && errno != ENOENT) {
+					fprintf(stderr, "errno was not 0 after access()\n");
+					exit(EXIT_FAILURE);
+				}
 
-			reload_grug_file(entry_path, dll_path);
+				reload_grug_file(entry_path, dll_path);
+			}
 		}
 	}
 	if (errno != 0) {
