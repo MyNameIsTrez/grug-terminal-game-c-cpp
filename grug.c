@@ -1,5 +1,7 @@
 #include "grug.h"
 
+#include "libtcc.h" // TODO: Get rid of this eventually
+
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
@@ -7,11 +9,58 @@
 #include <string.h>
 #include <sys/stat.h>
 
-// static void load_mod(char *mod_name) {
-// 	printf("Loading mod '%s'\n", mod_name);
+static void handle_error(void *opaque, const char *msg)
+{
+    fprintf(opaque, "%s\n", msg);
+}
 
-// 	// TODO: DLL loading logic
-// }
+// TODO: REMOVE
+char my_program[] =
+"#include <tcclib.h>\n" /* include the "Simple libc header for TCC" */
+"extern int add(int a, int b);\n"
+"\n"
+"int foo(int n)\n"
+"{\n"
+"    printf(\"add(%d, %d) = %d\\n\", n, 2 * n, add(n, 2 * n));\n"
+"    return 0;\n"
+"}\n";
+
+static void reload_grug_file(char *grug_file_path) {
+	printf("Reloading grug file '%s'\n", grug_file_path);
+
+    TCCState *s = tcc_new();
+    if (!s) {
+        fprintf(stderr, "tcc_new() error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    tcc_set_error_func(s, stderr, handle_error);
+
+	// TODO: This will probably be needed when files are moved around?
+    /* if tcclib.h and libtcc1.a are not installed, where can we find them */
+    // tcc_set_lib_path(s, a+2);
+    // tcc_add_include_path(s, a+2);
+    // tcc_add_library_path(s, a+2);
+	
+    if (tcc_set_output_type(s, TCC_OUTPUT_DLL)) {
+        fprintf(stderr, "tcc_set_output_type() error\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (tcc_compile_string(s, my_program) == -1) {
+        fprintf(stderr, "tcc_compile_string() error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (tcc_output_file(s, "foo.so")) {
+        fprintf(stderr, "tcc_output_file() error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    tcc_delete(s);
+
+	errno = 0;
+}
 
 static char *get_file_extension(char *filename) {
 	char *ext = strrchr(filename, '.');
@@ -37,7 +86,7 @@ void grug_reload_modified_mods(char *dir_path) {
 		}
 
 		char entry_path[1024];
-		sprintf(entry_path, "%s/%s", dir_path, dp->d_name);
+		snprintf(entry_path, sizeof(entry_path), "%s/%s", dir_path, dp->d_name);
 		// printf("entry_path is %s\n", entry_path);
 
 		struct stat buf;
@@ -49,7 +98,7 @@ void grug_reload_modified_mods(char *dir_path) {
 		if (S_ISDIR(buf.st_mode)) {
 			grug_reload_modified_mods(entry_path);
 		} else if (S_ISREG(buf.st_mode) && strcmp(get_file_extension(dp->d_name), ".c") == 0) {
-			printf("%s detected\n", dp->d_name);
+			reload_grug_file(entry_path);
 		}
 	}
 	if (errno != 0) {

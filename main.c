@@ -1,7 +1,9 @@
 #include "data.h"
 #include "grug.h"
 
+#include <dlfcn.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 struct data data;
@@ -58,6 +60,27 @@ struct data data;
 // 	}
 // }
 
+// TODO: REMOVE
+typedef void (*foo_fn)(int n);
+
+// TODO: REMOVE
+static void print_dlerror(char *function_name) {
+	char *err = dlerror();
+	if (!err) {
+		printf("dlerror was asked to find an error string, but it couldn't find one\n");
+		exit(EXIT_FAILURE);
+	}
+	printf("dlerror in %s():\n%s\n", function_name, err);
+	exit(EXIT_FAILURE);
+}
+
+// TODO: REMOVE
+/* this function is called by the generated code */
+int add(int a, int b)
+{
+    return a + b;
+}
+
 int main() {
 	init_data();
 
@@ -67,6 +90,26 @@ int main() {
 		grug_reload_modified_mods("mods");
 
 		// update();
+
+		void *dll = dlopen("./foo.so", RTLD_NOW);
+		if (!dll) {
+			print_dlerror("load_dynamic_library");
+		}
+
+		// This suppresses the warning "ISO C forbids conversion of object pointer to function pointer type"
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored "-Wpedantic"
+		foo_fn foo = dlsym(dll, "foo");
+		#pragma GCC diagnostic pop
+		if (!foo) {
+			print_dlerror("load_dynamic_function");
+		}
+
+		foo(42);
+
+		if (dlclose(dll)) {
+			print_dlerror("free_dynamic_library");
+		}
 
 		printf("\n");
 
