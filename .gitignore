@@ -1,4 +1,6 @@
 .vscode
+dlls
 a.exe
 a.out
+log.log
 foo.so

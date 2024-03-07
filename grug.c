@@ -2,15 +2,23 @@
 
 #include "libtcc.h" // TODO: Get rid of this eventually
 
+#include <assert.h>
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-static void handle_error(void *opaque, const char *msg)
-{
+// "The problem is that you can't meaningfully define a constant like this
+// in a header file. The maximum path size is actually to be something
+// like a filesystem limitation, or at the very least a kernel parameter.
+// This means that it's a dynamic value, not something preordained."
+// https://eklitzke.org/path-max-is-tricky
+#define STUPID_MAX_PATH 4096
+
+static void handle_error(void *opaque, const char *msg) {
     fprintf(opaque, "%s\n", msg);
 }
 
@@ -25,7 +33,7 @@ char my_program[] =
 "    return 0;\n"
 "}\n";
 
-static void reload_grug_file(char *grug_file_path) {
+static void reload_grug_file(char *grug_file_path, char *dll_path) {
 	printf("Reloading grug file '%s'\n", grug_file_path);
 
     TCCState *s = tcc_new();
@@ -52,7 +60,7 @@ static void reload_grug_file(char *grug_file_path) {
         exit(EXIT_FAILURE);
     }
 
-    if (tcc_output_file(s, "foo.so")) {
+    if (tcc_output_file(s, dll_path)) {
         fprintf(stderr, "tcc_output_file() error\n");
         exit(EXIT_FAILURE);
     }
@@ -60,6 +68,31 @@ static void reload_grug_file(char *grug_file_path) {
     tcc_delete(s);
 
 	errno = 0;
+}
+
+static void try_create_parent_dirs(char *file_path) {
+	// printf("file_path: %s\n", file_path);
+
+	char parent_dir_path[STUPID_MAX_PATH];
+	size_t i = 0;
+
+	errno = 0;
+	while (*file_path) {
+		parent_dir_path[i] = *file_path;
+		parent_dir_path[i + 1] = '\0';
+
+		// printf("parent_dir_path: '%s'\n", parent_dir_path);
+
+		if (*file_path == '/' || *file_path == '\\') {
+			if (mkdir(parent_dir_path, 0777) && errno != EEXIST) {
+				perror("mkdir");
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		file_path++;
+		i++;
+	}
 }
 
 static char *get_file_extension(char *filename) {
@@ -70,9 +103,18 @@ static char *get_file_extension(char *filename) {
 	return "";
 }
 
-void grug_reload_modified_mods(char *dir_path) {
-	// printf("opendir(\"%s\")\n", dir_path);
-	DIR *dirp = opendir(dir_path);
+static void fill_dll_path(char *dll_path, char *grug_file_path) {
+	dll_path[0] = '\0';
+	strncat(dll_path, grug_file_path, STUPID_MAX_PATH - 1);
+	char *ext = get_file_extension(dll_path);
+	assert(*ext);
+	ext[1] = '\0';
+	strncat(ext + 1, "so", STUPID_MAX_PATH - 1 - strlen(dll_path));
+}
+
+void grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
+	// printf("opendir(\"%s\")\n", mods_dir_path);
+	DIR *dirp = opendir(mods_dir_path);
 	if (!dirp) {
 		perror("opendir");
 		exit(EXIT_FAILURE);
@@ -85,8 +127,8 @@ void grug_reload_modified_mods(char *dir_path) {
 			continue;
 		}
 
-		char entry_path[1024];
-		snprintf(entry_path, sizeof(entry_path), "%s/%s", dir_path, dp->d_name);
+		char entry_path[STUPID_MAX_PATH];
+		snprintf(entry_path, sizeof(entry_path), "%s/%s", mods_dir_path, dp->d_name);
 		// printf("entry_path is %s\n", entry_path);
 
 		struct stat buf;
@@ -95,10 +137,27 @@ void grug_reload_modified_mods(char *dir_path) {
 			exit(EXIT_FAILURE);
 		}
 
+		char dll_entry_path[STUPID_MAX_PATH];
+		snprintf(dll_entry_path, sizeof(dll_entry_path), "%s/%s", dll_dir_path, dp->d_name);
+
 		if (S_ISDIR(buf.st_mode)) {
-			grug_reload_modified_mods(entry_path);
+			grug_reload_modified_mods(entry_path, dll_entry_path);
 		} else if (S_ISREG(buf.st_mode) && strcmp(get_file_extension(dp->d_name), ".c") == 0) {
-			reload_grug_file(entry_path);
+			char dll_path[STUPID_MAX_PATH];
+			fill_dll_path(dll_path, dll_entry_path);
+			// printf("dll path: %s\n", dll_path);
+
+			errno = 0;
+			if (access(dll_path, F_OK) && errno == ENOENT) {
+				try_create_parent_dirs(dll_path);
+				errno = 0;
+			}
+			if (errno != 0 && errno != ENOENT) {
+				fprintf(stderr, "errno was not 0 after access()\n");
+				exit(EXIT_FAILURE);
+			}
+
+			reload_grug_file(entry_path, dll_path);
 		}
 	}
 	if (errno != 0) {

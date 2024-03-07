@@ -87,7 +87,7 @@ int main() {
 	printf("Hello, grug!\n");
 
 	while (true) {
-		grug_reload_modified_mods("mods");
+		grug_reload_modified_mods("mods", "dlls");
 
 		// update();
 
