@@ -323,6 +323,9 @@ ST_FUNC size_t section_add(Section *sec, addr_t size, int align)
 ST_FUNC void *section_ptr_add(Section *sec, addr_t size)
 {
     size_t offset = section_add(sec, size, 1);
+    if (sec->data == NULL) {
+        return sec->data;
+    }
     return sec->data + offset;
 }
 
