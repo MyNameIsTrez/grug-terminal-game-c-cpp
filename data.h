@@ -1,8 +1,11 @@
 #pragma once
 
+#include "grug.h"
+
 #include <stdbool.h>
 
 struct data {
+	struct mod_directory mods;
 	bool fighting;
 	struct human *humans;
 };

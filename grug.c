@@ -139,7 +139,9 @@ static void use_dll_extension(char *dll_path, char *grug_file_path) {
 	strncat(ext + 1, "so", STUPID_MAX_PATH - 1 - strlen(dll_path));
 }
 
-void grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
+struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
+	static struct mod_directory mods;
+
 	// printf("opendir(\"%s\")\n", mods_dir_path);
 	DIR *dirp = opendir(mods_dir_path);
 	if (!dirp) {
@@ -196,4 +198,6 @@ void grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
 	}
 
 	closedir(dirp);
+
+	return mods;
 }
