@@ -303,23 +303,3 @@ void grug_print_mods(struct mod_directory dir) {
 	}
 	depth--;
 }
-
-void *grug_get_fn_address(void *dll, char *fn_name) {
-	// From man page: "Since the value of the symbol could actually be NULL
-	// (so that a NULL return from dlsym() need not indicate an error),
-	// the correct way to test for an error is to call dlerror()
-	// to clear any old error conditions, then call dlsym(),
-	// and then call dlerror() again, saving its return value into a variable,
-	// and check whether this saved value is not NULL."
-	dlerror();
-
-	void *fn = dlsym(dll, fn_name);
-
-	char *err = dlerror();
-	if (err) {
-		fprintf(stderr, "dlsym: %s\n", err);
-		exit(EXIT_FAILURE);
-	}
-
-	return fn;
-}
