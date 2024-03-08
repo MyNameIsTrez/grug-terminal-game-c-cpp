@@ -76,8 +76,8 @@ static void handle_error(void *opaque, const char *msg) {
     fprintf(opaque, "%s\n", msg);
 }
 
-static void reload_grug_file(char *grug_file_path, char *dll_path) {
-	printf("Reloading grug file '%s'\n", grug_file_path);
+static void regenerate_dll(char *grug_file_path, char *dll_path) {
+	printf("Regenerating grug file '%s' its dll\n", grug_file_path);
 
     TCCState *s = tcc_new();
     if (!s) {
@@ -156,24 +156,44 @@ static void use_dll_extension(char *dll_path, char *grug_file_path) {
 	strncat(ext + 1, "so", STUPID_MAX_PATH - 1 - strlen(dll_path));
 }
 
+static void print_dlerror(char *function_name) {
+	char *err = dlerror();
+	if (!err) {
+		fprintf(stderr, "dlerror was asked to find an error string, but it couldn't find one\n");
+		exit(EXIT_FAILURE);
+	}
+	fprintf(stderr, "%s: %s\n", function_name, err);
+	exit(EXIT_FAILURE);
+}
+
 // TODO: Don't free and realloc everything every time our function gets called
 // TODO: Also, stop presuming the game developer will always call this before grug_reload_modified_mods()
 void grug_free_mods(struct mod_directory dir) {
 	free(dir.name);
+
 	for (size_t i = 0; i < dir.dirs_size; i++) {
 		grug_free_mods(dir.dirs[i]);
 	}
 	free(dir.dirs);
+
 	for (size_t i = 0; i < dir.files_size; i++) {
-		free(dir.name);
+		free(dir.files[i].name);
+
+		if (dir.files[i].dll && dlclose(dir.files[i].dll)) {
+			print_dlerror("dlclose");
+		}
 	}
 	free(dir.files);
 }
 
 struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
-	struct mod_directory mod_dir = {
-		.name = strdup(mods_dir_name),
-	};
+	struct mod_directory mod_dir = {0};
+
+	mod_dir.name = strdup(mods_dir_name);
+	if (!mod_dir.name) {
+		perror("strdup");
+		exit(EXIT_FAILURE);
+	}
 
 	// printf("opendir(\"%s\")\n", mods_dir_path);
 	DIR *dirp = opendir(mods_dir_path);
@@ -233,8 +253,33 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_d
 					exit(EXIT_FAILURE);
 				}
 
-				reload_grug_file(entry_path, dll_path);
+				regenerate_dll(entry_path, dll_path);
 			}
+
+			struct grug_file file = {0};
+
+			file.name = strdup(dp->d_name);
+			if (!file.name) {
+				perror("strdup");
+				exit(EXIT_FAILURE);
+			}
+
+			file.dll = dlopen(dll_path, RTLD_NOW);
+			if (!file.dll) {
+				print_dlerror("dlopen");
+			}
+
+			// Make sure there's enough room for pushing file
+			if (mod_dir.files_size + 1 > mod_dir.files_capacity) {
+				mod_dir.files_capacity = mod_dir.files_capacity == 0 ? 1 : mod_dir.files_capacity * 2;
+				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(struct grug_file));
+				if (!mod_dir.files) {
+					perror("realloc");
+					exit(EXIT_FAILURE);
+				}
+			}
+
+			mod_dir.files[mod_dir.files_size++] = file;
 		}
 	}
 	if (errno != 0) {
@@ -247,17 +292,17 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_d
 	return mod_dir;
 }
 
-void grug_print_mods(struct mod_directory mods) {
+void grug_print_mods(struct mod_directory dir) {
 	static int depth;
 
-	printf("%*s%s/\n", depth * 2, "", mods.name);
+	printf("%*s%s/\n", depth * 2, "", dir.name);
 
 	depth++;
-	for (size_t i = 0; i < mods.dirs_size; i++) {
-		grug_print_mods(mods.dirs[i]);
+	for (size_t i = 0; i < dir.dirs_size; i++) {
+		grug_print_mods(dir.dirs[i]);
 	}
-	for (size_t i = 0; i < mods.files_size; i++) {
-		printf("%*s%s\n", depth, "", mods.files[i].name);
+	for (size_t i = 0; i < dir.files_size; i++) {
+		printf("%*s%s\n", depth * 2, "", dir.files[i].name);
 	}
 	depth--;
 }
