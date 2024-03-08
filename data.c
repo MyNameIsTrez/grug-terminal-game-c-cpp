@@ -9,5 +9,6 @@ void init_data() {
 }
 
 void free_data() {
+	grug_free_mods(data.mods);
 	free(data.humans);
 }

@@ -18,9 +18,21 @@
 // https://eklitzke.org/path-max-is-tricky
 #define STUPID_MAX_PATH 4096
 
-// The game developer is required to create the definitions of these
-char **get_define_fn_names();
-char **get_on_fn_names();
+// TODO: USE
+// static char **get_define_fn_names() {
+// 	return (char *[]){
+// 		"define_tool",
+// 		NULL
+// 	};
+// }
+
+// TODO: USE
+// static char **get_on_fn_names() {
+// 	return (char *[]){
+// 		"on_use",
+// 		NULL
+// 	};
+// }
 
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
@@ -143,8 +155,24 @@ static void use_dll_extension(char *dll_path, char *grug_file_path) {
 	strncat(ext + 1, "so", STUPID_MAX_PATH - 1 - strlen(dll_path));
 }
 
-struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
-	static struct mod_directory mods;
+// TODO: Don't free and realloc everything every time our function gets called
+// TODO: Also, stop presuming the game developer will always call this before grug_reload_modified_mods()
+void grug_free_mods(struct mod_directory dir) {
+	free(dir.name);
+	for (size_t i = 0; i < dir.dirs_size; i++) {
+		grug_free_mods(dir.dirs[i]);
+	}
+	free(dir.dirs);
+	for (size_t i = 0; i < dir.files_size; i++) {
+		free(dir.name);
+	}
+	free(dir.files);
+}
+
+struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
+	struct mod_directory mod_dir = {
+		.name = strdup(mods_dir_name),
+	};
 
 	// printf("opendir(\"%s\")\n", mods_dir_path);
 	DIR *dirp = opendir(mods_dir_path);
@@ -174,7 +202,19 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *dll_di
 		snprintf(dll_entry_path, sizeof(dll_entry_path), "%s/%s", dll_dir_path, dp->d_name);
 
 		if (S_ISDIR(entry_stat.st_mode)) {
-			grug_reload_modified_mods(entry_path, dll_entry_path);
+			struct mod_directory mod_subdir = grug_reload_modified_mods(entry_path, dp->d_name, dll_entry_path);
+			
+			// Make sure there's enough room for pushing mod_subdir
+			if (mod_dir.dirs_size + 1 > mod_dir.dirs_capacity) {
+				mod_dir.dirs_capacity = mod_dir.dirs_capacity == 0 ? 1 : mod_dir.dirs_capacity * 2;
+				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(struct mod_directory));
+				if (!mod_dir.dirs) {
+					perror("realloc");
+					exit(EXIT_FAILURE);
+				}
+			}
+
+			mod_dir.dirs[mod_dir.dirs_size++] = mod_subdir;
 		} else if (S_ISREG(entry_stat.st_mode) && strcmp(get_file_extension(dp->d_name), ".c") == 0) {
 			char dll_path[STUPID_MAX_PATH];
 			use_dll_extension(dll_path, dll_entry_path);
@@ -203,5 +243,20 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *dll_di
 
 	closedir(dirp);
 
-	return mods;
+	return mod_dir;
+}
+
+void grug_print_mods(struct mod_directory mods) {
+	static int depth;
+
+	printf("%*s%s/\n", depth * 2, "", mods.name);
+
+	depth++;
+	for (size_t i = 0; i < mods.dirs_size; i++) {
+		grug_print_mods(mods.dirs[i]);
+	}
+	for (size_t i = 0; i < mods.files_size; i++) {
+		printf("%*s%s\n", depth, "", mods.files[i].name);
+	}
+	depth--;
 }

@@ -77,27 +77,14 @@ static void print_dlerror(char *function_name) {
 	exit(EXIT_FAILURE);
 }
 
-char **get_define_fn_names() {
-	return (char **){
-		"define_tool",
-		NULL
-	};
-}
-
-char **get_on_fn_names() {
-	return (char **){
-		"on_use",
-		NULL
-	};
-}
-
 int main() {
 	init_data();
 
 	printf("Hello, grug!\n");
 
 	while (true) {
-		data.mods = grug_reload_modified_mods("mods", "dlls");
+		grug_free_mods(data.mods);
+		data.mods = grug_reload_modified_mods("mods", "mods", "dlls");
 
 		// update();
 
@@ -120,6 +107,8 @@ int main() {
 		if (dlclose(dll)) {
 			print_dlerror("dlclose");
 		}
+
+		grug_print_mods(data.mods);
 
 		sleep(1);
 	}
