@@ -74,7 +74,8 @@ static void print_tools(struct mod_directory dir) {
 
 			typedef struct tool (*define_tool)();
 
-			// This suppresses the warning "ISO C forbids conversion of object pointer to function pointer type"
+			// This suppresses this warning:
+			// "ISO C forbids conversion of object pointer to function pointer type"
 			#pragma GCC diagnostic push
 			#pragma GCC diagnostic ignored "-Wpedantic"
 			struct tool tool = ((define_tool)fn)();
