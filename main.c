@@ -70,10 +70,10 @@ typedef struct tool (*define_tool_fn)();
 static void print_dlerror(char *function_name) {
 	char *err = dlerror();
 	if (!err) {
-		printf("dlerror was asked to find an error string, but it couldn't find one\n");
+		fprintf(stderr, "dlerror was asked to find an error string, but it couldn't find one\n");
 		exit(EXIT_FAILURE);
 	}
-	printf("dlerror in %s():\n%s\n", function_name, err);
+	fprintf(stderr, "%s: %s\n", function_name, err);
 	exit(EXIT_FAILURE);
 }
 
@@ -86,6 +86,8 @@ int main() {
 		grug_free_mods(data.mods);
 		data.mods = grug_reload_modified_mods("mods", "mods", "dlls");
 
+		grug_print_mods(data.mods);
+
 		// update();
 
 		void *dll = dlopen("./dlls/magic/potions/health.so", RTLD_NOW);
@@ -96,10 +98,12 @@ int main() {
 		// This suppresses the warning "ISO C forbids conversion of object pointer to function pointer type"
 		#pragma GCC diagnostic push
 		#pragma GCC diagnostic ignored "-Wpedantic"
-		define_tool_fn define_tool = dlsym(dll, "define_tool");
+		define_tool_fn define_tool = grug_get_fn_address(dll, "define_tool");
 		#pragma GCC diagnostic pop
+
 		if (!define_tool) {
-			print_dlerror("dlsym");
+			fprintf(stderr, "dlsym failed to find the symbol\n");
+			exit(EXIT_FAILURE);
 		}
 
 		printf("The Health Potion's monetary_value is %d\n", define_tool().monetary_value);
@@ -107,8 +111,6 @@ int main() {
 		if (dlclose(dll)) {
 			print_dlerror("dlclose");
 		}
-
-		grug_print_mods(data.mods);
 
 		sleep(1);
 	}

@@ -23,3 +23,4 @@ struct mod_directory {
 void grug_free_mods(struct mod_directory dir);
 struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path);
 void grug_print_mods(struct mod_directory mods);
+void *grug_get_fn_address(void *dll, char *fn_name);
