@@ -3,6 +3,6 @@
 struct tool define_tool() {
 	return (struct tool){
 		.name = "Club",
-		.monetary_value = 1,
+		.cost = 1,
 	};
 }

@@ -4,5 +4,5 @@
 
 struct tool {
 	string name;
-	i32 monetary_value;
+	i32 cost;
 };

@@ -81,7 +81,7 @@ static void print_tools(struct mod_directory dir) {
 			struct tool tool = ((define_tool)fn)();
 			#pragma GCC diagnostic pop
 
-			printf("%s has %d monetary value\n", tool.name, tool.monetary_value);
+			printf("%s costs %d\n", tool.name, tool.cost);
 		}
 	}
 }

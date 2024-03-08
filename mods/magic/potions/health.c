@@ -3,7 +3,7 @@
 struct tool define_tool() {
 	return (struct tool){
 		.name = "Health potion",
-		.monetary_value = 5,
+		.cost = 5,
 	};
 }
 
