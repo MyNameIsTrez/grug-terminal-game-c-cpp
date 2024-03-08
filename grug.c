@@ -87,11 +87,7 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
 
     tcc_set_error_func(s, stderr, handle_error);
 
-	// TODO: This will probably be needed when files are moved around?
-    /* if tcclib.h and libtcc1.a are not installed, where can we find them */
-    // tcc_set_lib_path(s, a+2);
-    // tcc_add_include_path(s, a+2);
-    // tcc_add_library_path(s, a+2);
+    tcc_add_include_path(s, ".");
 	
     if (tcc_set_output_type(s, TCC_OUTPUT_DLL)) {
         fprintf(stderr, "tcc_set_output_type() error\n");
@@ -241,6 +237,7 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_d
 			use_dll_extension(dll_path, dll_entry_path);
 			// printf("dll path: %s\n", dll_path);
 
+			// Regenerate the dll if it doesn't exist/is outdated
 			struct stat dll_stat;
 			if (stat(dll_path, &dll_stat) == -1 || entry_stat.st_mtime > dll_stat.st_mtime) {
 				errno = 0;

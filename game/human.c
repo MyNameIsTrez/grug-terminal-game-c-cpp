@@ -1,7 +1,7 @@
 #include "human.h"
 
 #include "data.h"
-#include "../typedefs.h"
+#include "typedefs.h"
 
 static struct human *get_human() {
 	return &data.humans[0];
