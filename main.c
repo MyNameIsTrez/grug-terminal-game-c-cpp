@@ -96,7 +96,7 @@ int main() {
 
 		void *dll = dlopen("./dlls/magic/potions/health.so", RTLD_NOW);
 		if (!dll) {
-			print_dlerror("load_dynamic_library");
+			print_dlerror("dlopen");
 		}
 
 		// This suppresses the warning "ISO C forbids conversion of object pointer to function pointer type"
@@ -105,13 +105,13 @@ int main() {
 		define_tool_fn define_tool = dlsym(dll, "define_tool");
 		#pragma GCC diagnostic pop
 		if (!define_tool) {
-			print_dlerror("load_dynamic_function");
+			print_dlerror("dlsym");
 		}
 
 		printf("The Health Potion's monetary_value is %d\n", define_tool().monetary_value);
 
 		if (dlclose(dll)) {
-			print_dlerror("free_dynamic_library");
+			print_dlerror("dlclose");
 		}
 
 		sleep(1);
