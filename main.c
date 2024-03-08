@@ -77,11 +77,18 @@ static void print_dlerror(char *function_name) {
 	exit(EXIT_FAILURE);
 }
 
-// TODO: REMOVE
-/* this function is called by the generated code */
-int add(int a, int b)
-{
-    return a + b;
+char **get_define_fn_names() {
+	return (char **){
+		"define_tool",
+		NULL
+	};
+}
+
+char **get_on_fn_names() {
+	return (char **){
+		"on_use",
+		NULL
+	};
 }
 
 int main() {

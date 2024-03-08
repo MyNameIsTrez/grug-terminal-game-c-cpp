@@ -18,6 +18,10 @@
 // https://eklitzke.org/path-max-is-tricky
 #define STUPID_MAX_PATH 4096
 
+// The game developer is required to create the definitions of these
+char **get_define_fn_names();
+char **get_on_fn_names();
+
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
