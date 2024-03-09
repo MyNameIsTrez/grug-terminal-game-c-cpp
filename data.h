@@ -1,13 +1,20 @@
 #pragma once
 
+#include "game/human.h"
 #include "grug.h"
 
 #include <stdbool.h>
 
 struct data {
 	struct mod_directory mods;
-	bool fighting;
-	struct human *humans;
+	enum {
+		STATE_PICKING_HUMANS,
+		STATE_PICKING_TOOLS,
+		STATE_FIGHTING,
+	} state;
+	struct human humans[2];
+	void *fns;
+	size_t fn_count;
 };
 
 extern struct data data;

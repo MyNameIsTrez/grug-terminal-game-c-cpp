@@ -1,14 +1,14 @@
 #include "data.h"
 
-#include "game/human.h"
-
 #include <stdlib.h>
 
+struct data data;
+
 void init_data() {
-	data.humans = calloc(2, sizeof(struct human));
+	data.fns = calloc(420, sizeof(void *));
 }
 
 void free_data() {
 	grug_free_mods(data.mods);
-	free(data.humans);
+	free(data.fns);
 }
