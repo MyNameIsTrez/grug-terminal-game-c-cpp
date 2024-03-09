@@ -1,8 +1,8 @@
 #include "mod.h"
 
-struct tool define_tool() {
-	return (struct tool){
+tool define_tool() {
+	return (tool){
 		.name = "Club",
-		.cost = 1,
+		.gold_cost = 1,
 	};
 }

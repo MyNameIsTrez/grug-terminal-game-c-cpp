@@ -12,7 +12,7 @@ static void fight() {
 	printf("In fight()\n");
 }
 
-static void get_fns(struct mod_directory dir, char *fn_name) {
+static void get_fns(mod_directory dir, char *fn_name) {
 	for (size_t i = 0; i < dir.dirs_size; i++) {
 		get_fns(dir.dirs[i], fn_name);
 	}
@@ -30,12 +30,12 @@ static void pick_tools() {
 	data.fn_count = 0;
 	get_fns(data.mods, "define_tool");
 
-	typedef struct tool (*define_tools)();
+	typedef tool (*define_tools)();
 	define_tools *define_tools_array = (void *)data.fns;
 
 	for (size_t i = 0; i < data.fn_count; i++) {
-		struct tool tool = define_tools_array[i]();
-		printf("%s costs %d\n", tool.name, tool.cost);
+		tool tool = define_tools_array[i]();
+		printf("%s costs %d gold\n", tool.name, tool.gold_cost);
 	}
 	printf("\n");
 }
@@ -67,30 +67,47 @@ static bool read_long(long *output) {
 	return true;
 }
 
+static void print_humans() {
+	data.fn_count = 0;
+	get_fns(data.mods, "define_human");
+
+	typedef human (*define_human)();
+	define_human *define_human_array = (void *)data.fns;
+
+	for (size_t i = 0; i < data.fn_count; i++) {
+		human human = define_human_array[i]();
+		printf("%ld. %s costs %d gold\n", i + 1, human.name, human.buy_gold_value);
+	}
+	printf("\n");
+}
+
 static void pick_humans() {
-	printf("In pick_humans()\n");
+	print_humans();
 
-	printf("Type the index of the human that should fight in team 1:\n");
-	size_t human1_index;
-	if (!read_long(&human1_index)) {
+	printf("Type the number of the human that you want to fight:\n");
+
+	size_t opponent_number;
+	if (!read_long(&opponent_number)) {
 		return;
 	}
 
-	printf("Type the index of the human that should fight in team 2:\n");
-	size_t human2_index;
-	if (!read_long(&human2_index)) {
+	if (opponent_number == 0) {
+		fprintf(stderr, "The minimum number you can enter is 1\n");
 		return;
 	}
-	
-	printf("human1_index: %ld\n", human1_index);
-	printf("human2_index: %ld\n", human2_index);
+	if (opponent_number > data.fn_count) {
+		fprintf(stderr, "The maximum number you can enter is %ld\n", data.fn_count);
+		return;
+	}
+
+	size_t opponent_index = opponent_number - 1;
+
+	printf("opponent_index: %ld\n", opponent_index);
 
 	data.state = STATE_PICKING_TOOLS;
 }
 
 static void update() {
-	printf("In update()\n");
-
 	switch (data.state) {
 	case STATE_PICKING_HUMANS:
 		pick_humans();
@@ -106,8 +123,6 @@ static void update() {
 
 int main() {
 	init_data();
-
-	printf("Hello, grug!\n");
 
 	while (true) {
 		grug_free_mods(data.mods);

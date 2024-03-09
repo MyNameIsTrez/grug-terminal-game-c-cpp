@@ -2,19 +2,21 @@
 
 #include "game/human.h"
 #include "grug.h"
+#include "typedefs.h"
 
 #include <stdbool.h>
 
 struct data {
-	struct mod_directory mods;
+	mod_directory mods;
 	enum {
 		STATE_PICKING_HUMANS,
 		STATE_PICKING_TOOLS,
 		STATE_FIGHTING,
 	} state;
-	struct human humans[2];
+	human humans[2];
 	void **fns;
 	size_t fn_count;
+	i32 gold;
 };
 
 extern struct data data;

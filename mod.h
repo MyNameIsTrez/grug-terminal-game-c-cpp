@@ -5,10 +5,8 @@
 #include "game/human.h"
 #include "game/tool.h"
 
-struct tool define_tool();
+tool define_tool();
 
-f64 get_human_health();
-f64 get_human_max_health();
-void set_human_health(f64 health);
+human get_human(id id);
 
-int min_i32(i32 a, i32 b);
+void change_human_health(id id, f64 health);

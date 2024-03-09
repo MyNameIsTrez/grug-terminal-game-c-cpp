@@ -164,7 +164,7 @@ static void print_dlerror(char *function_name) {
 
 // TODO: Don't free and realloc everything every time our function gets called
 // TODO: Also, stop presuming the game developer will always call this before grug_reload_modified_mods()
-void grug_free_mods(struct mod_directory dir) {
+void grug_free_mods(mod_directory dir) {
 	free(dir.name);
 
 	for (size_t i = 0; i < dir.dirs_size; i++) {
@@ -182,8 +182,8 @@ void grug_free_mods(struct mod_directory dir) {
 	free(dir.files);
 }
 
-struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
-	struct mod_directory mod_dir = {0};
+mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
+	mod_directory mod_dir = {0};
 
 	mod_dir.name = strdup(mods_dir_name);
 	if (!mod_dir.name) {
@@ -219,12 +219,12 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_d
 		snprintf(dll_entry_path, sizeof(dll_entry_path), "%s/%s", dll_dir_path, dp->d_name);
 
 		if (S_ISDIR(entry_stat.st_mode)) {
-			struct mod_directory mod_subdir = grug_reload_modified_mods(entry_path, dp->d_name, dll_entry_path);
+			mod_directory mod_subdir = grug_reload_modified_mods(entry_path, dp->d_name, dll_entry_path);
 			
 			// Make sure there's enough room for pushing mod_subdir
 			if (mod_dir.dirs_size + 1 > mod_dir.dirs_capacity) {
 				mod_dir.dirs_capacity = mod_dir.dirs_capacity == 0 ? 1 : mod_dir.dirs_capacity * 2;
-				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(struct mod_directory));
+				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(mod_directory));
 				if (!mod_dir.dirs) {
 					perror("realloc");
 					exit(EXIT_FAILURE);
@@ -253,7 +253,7 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_d
 				regenerate_dll(entry_path, dll_path);
 			}
 
-			struct grug_file file = {0};
+			grug_file file = {0};
 
 			file.name = strdup(dp->d_name);
 			if (!file.name) {
@@ -269,7 +269,7 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_d
 			// Make sure there's enough room for pushing file
 			if (mod_dir.files_size + 1 > mod_dir.files_capacity) {
 				mod_dir.files_capacity = mod_dir.files_capacity == 0 ? 1 : mod_dir.files_capacity * 2;
-				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(struct grug_file));
+				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(grug_file));
 				if (!mod_dir.files) {
 					perror("realloc");
 					exit(EXIT_FAILURE);
@@ -289,7 +289,7 @@ struct mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_d
 	return mod_dir;
 }
 
-void grug_print_mods(struct mod_directory dir) {
+void grug_print_mods(mod_directory dir) {
 	static int depth;
 
 	printf("%*s%s/\n", depth * 2, "", dir.name);

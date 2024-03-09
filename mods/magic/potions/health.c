@@ -1,12 +1,12 @@
 #include "mod.h"
 
-struct tool define_tool() {
-	return (struct tool){
+tool define_tool() {
+	return (tool){
 		.name = "Health potion",
-		.cost = 5,
+		.gold_cost = 5,
 	};
 }
 
-void on_use() {
-	set_human_health(min_i32(get_human_health() + 30, get_human_max_health()));
+void on_use(tool self) {
+	change_human_health(get_human(self.human_parent_id).id, 30);
 }
