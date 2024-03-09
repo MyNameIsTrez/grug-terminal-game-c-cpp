@@ -77,7 +77,7 @@ static void handle_error(void *opaque, const char *msg) {
 }
 
 static void regenerate_dll(char *grug_file_path, char *dll_path) {
-	printf("Regenerating grug file '%s' its dll\n", grug_file_path);
+	printf("Regenerating %s\n", dll_path);
 
     TCCState *s = tcc_new();
     if (!s) {
