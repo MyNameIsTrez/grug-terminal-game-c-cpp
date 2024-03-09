@@ -70,8 +70,6 @@ static void print_tools(struct mod_directory dir) {
 	for (size_t i = 0; i < dir.files_size; i++) {
 		void *fn = dlsym(dir.files[i].dll, "define_tool");
 		if (fn) {
-			printf("There's a tool in %s:\n", dir.files[i].name);
-
 			typedef struct tool (*define_tool)();
 
 			// This suppresses this warning:
