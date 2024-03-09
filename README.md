@@ -13,7 +13,13 @@ TODO: Modify this command to use the DLL approach
 
 #### With fsanitize
 
-`clear && cc main.c grug.c data.c mod.c game/human.c mods/magic/potions/health.c libtcc.c tccpp.c tccgen.c tccdbg.c tccelf.c tccasm.c tccrun.c x86_64-gen.c x86_64-link.c i386-asm.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -g -I. -rdynamic -fsanitize=address,undefined -DCONFIG_TRIPLET="\"x86_64-linux-gnu\"" -DTCC_TARGET_X86_64 -DONE_SOURCE=0 -DTCC_GITHASH="\"2024-03-03 mob@9d2068c6*\"" -fno-strict-aliasing -Wno-pointer-sign -Wno-sign-compare -Wno-unused-result -Wno-format-truncation -Wno-stringop-truncation -Wno-old-style-declaration -Wno-overlength-strings -Wno-implicit-fallthrough -Wno-missing-field-initializers && ./a.out`
+##### gcc
+
+`clear && gcc main.c grug.c data.c mod.c game/human.c mods/magic/potions/health.c libtcc.c tccpp.c tccgen.c tccdbg.c tccelf.c tccasm.c tccrun.c x86_64-gen.c x86_64-link.c i386-asm.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -g -I. -rdynamic -fsanitize=address,undefined -DCONFIG_TRIPLET="\"x86_64-linux-gnu\"" -DTCC_TARGET_X86_64 -DONE_SOURCE=0 -DTCC_GITHASH="\"2024-03-03 mob@9d2068c6*\"" -fno-strict-aliasing -Wno-pointer-sign -Wno-sign-compare -Wno-unused-result -Wno-format-truncation -Wno-stringop-truncation -Wno-old-style-declaration -Wno-overlength-strings -Wno-implicit-fallthrough -Wno-missing-field-initializers && ./a.out &>log.log`
+
+##### clang
+
+`clear && clang main.c grug.c data.c mod.c game/human.c mods/magic/potions/health.c libtcc.c tccpp.c tccgen.c tccdbg.c tccelf.c tccasm.c tccrun.c x86_64-gen.c x86_64-link.c i386-asm.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -g -I. -rdynamic -fsanitize=address,undefined -DCONFIG_TRIPLET="\"x86_64-linux-gnu\"" -DTCC_TARGET_X86_64 -DONE_SOURCE=0 -DTCC_GITHASH="\"2024-03-03 mob@9d2068c6*\"" -fno-strict-aliasing -Wno-pointer-sign -Wno-sign-compare -Wno-unused-result -Wno-overlength-strings -Wno-implicit-fallthrough -Wno-missing-field-initializers && ./a.out &>log.log`
 
 #### valgrind
 
