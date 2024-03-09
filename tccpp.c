@@ -159,6 +159,7 @@ typedef struct TinyAlloc {
 
 typedef struct tal_header_t {
     unsigned  size;
+    char      padding[4]; // Required to fix tal_realloc_impl() throwing misaligned types error
 #ifdef TAL_DEBUG
     int     line_num; /* negative line_num used for double free check */
     char    file_name[TAL_DEBUG_FILE_LEN + 1];
@@ -247,7 +248,28 @@ static void *tal_realloc_impl(TinyAlloc **pal, void *p, unsigned size TAL_DEBUG_
     tal_header_t *header;
     void *ret;
     int is_own;
-    unsigned adj_size = (size + 3) & -4;
+
+    // This is what used to be used, but this caused -fsanitize=undefined
+    // to throw "runtime error: member access within misaligned
+    // address 0x7fe3f3412804 for type 'struct TokenSym',
+    // which requires 8 byte alignment":
+    //
+    // Add 3, and mask away the bottom 2 bits
+    // This effectively round size up to the nearest multiple of 4:
+    // input   | after addition | after masking
+    // 3  (11) | 6  (110)       | 4  (100)
+    // 4 (100) | 7  (111)       | 4  (100)
+    // 5 (101) | 8 (1000)       | 8 (1000)
+    // unsigned adj_size = (size + 3) & -4;
+
+    // Add 7, and mask away the bottom 3 bits
+    // This effectively round size up to the nearest multiple of 8:
+    // input    | after addition | after masking
+    // 7  (111) | 14  (1110)     |  8  (1000)
+    // 8 (1000) | 15  (1111)     |  8  (1000)
+    // 9 (1001) | 16 (10000)     | 16 (10000)
+    unsigned adj_size = (size + 7) & -8;
+
     TinyAlloc *al = *pal;
 
 tail_call:
