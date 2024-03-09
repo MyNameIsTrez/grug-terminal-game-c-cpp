@@ -13,7 +13,7 @@ struct data {
 		STATE_FIGHTING,
 	} state;
 	struct human humans[2];
-	void *fns;
+	void **fns;
 	size_t fn_count;
 };
 

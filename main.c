@@ -19,7 +19,7 @@ static void get_fns(struct mod_directory dir, char *fn_name) {
 	for (size_t i = 0; i < dir.files_size; i++) {
 		void *fn = dlsym(dir.files[i].dll, fn_name);
 		if (fn) {
-			((void **)data.fns)[data.fn_count++] = fn;
+			data.fns[data.fn_count++] = fn;
 		}
 	}
 }
@@ -31,14 +31,7 @@ static void pick_tools() {
 	get_fns(data.mods, "define_tool");
 
 	typedef struct tool (*define_tools)();
-	define_tools *define_tools_array = data.fns;
-
-	// This suppresses this warning:
-	// "ISO C forbids conversion of object pointer to function pointer type"
-	// #pragma GCC diagnostic push
-	// #pragma GCC diagnostic ignored "-Wpedantic"
-	// struct tool tool = ((define_tool)fn)();
-	// #pragma GCC diagnostic pop
+	define_tools *define_tools_array = (void *)data.fns;
 
 	for (size_t i = 0; i < data.fn_count; i++) {
 		struct tool tool = define_tools_array[i]();
