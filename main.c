@@ -30,7 +30,7 @@ static void get_fns_recursive(mod_directory dir, char *fn_name) {
 static void *get_fns(char *fn_name) {
 	data.fn_count = 0;
 	get_fns_recursive(data.mods, fn_name);
-	return (void *)data.fns;
+	return data.fns;
 }
 
 static void pick_tools() {
