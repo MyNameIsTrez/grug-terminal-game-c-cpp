@@ -13,7 +13,7 @@ TODO: Modify this command to use the DLL approach
 
 #### With fsanitize
 
-`-no-pie` here is necessary on my version of Linux (Ubuntu), since without it `-fsanitize=address` sporadically outputs `AddressSanitizer:DEADLYSIGNAL` with gcc and `Segmentation fault (core dumped)` with clang.
+`-no-pie` here is necessary on my version of Linux (Ubuntu), since without it `-fsanitize=address` sporadically outputs `AddressSanitizer:DEADLYSIGNAL` with gcc and `Segmentation fault (core dumped)` with clang. The bug is decribed in [this GitHub Issue](https://github.com/google/sanitizers/issues/856).
 
 ##### gcc
 
