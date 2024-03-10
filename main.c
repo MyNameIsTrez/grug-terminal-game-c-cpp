@@ -27,20 +27,16 @@ static void get_fns_recursive(mod_directory dir, char *fn_name) {
 	}
 }
 
-static void get_fns(mod_directory dir, char *fn_name) {
+static void *get_fns(char *fn_name) {
 	data.fn_count = 0;
-	get_fns_recursive(dir, fn_name);
-}
-
-static define_tools *get_define_tools_array() {
-	get_fns(data.mods, "define_tool");
+	get_fns_recursive(data.mods, fn_name);
 	return (void *)data.fns;
 }
 
 static void pick_tools() {
 	printf("In pick_tools()\n");
 
-	define_tools *define_tools_array = get_define_tools_array();
+	define_tools *define_tools_array = get_fns("define_tool");
 
 	for (size_t i = 0; i < data.fn_count; i++) {
 		tool tool = define_tools_array[i]();
@@ -87,13 +83,8 @@ static bool read_size(size_t *output) {
 	return true;
 }
 
-static define_human *get_define_human_array() {
-	get_fns(data.mods, "define_human");
-	return (void *)data.fns;
-}
-
 static void print_opponent_humans() {
-	define_human *define_human_array = get_define_human_array();
+	define_human *define_human_array = get_fns("define_human");
 
 	for (size_t i = 0; i < data.fn_count; i++) {
 		human human = define_human_array[i]();
@@ -126,7 +117,7 @@ static void pick_opponent() {
 	size_t opponent_index = opponent_number - 1;
 	// printf("opponent_index: %ld\n", opponent_index);
 
-	define_human *define_human_array = get_define_human_array();
+	define_human *define_human_array = get_fns("define_human");
 	human human = define_human_array[opponent_index]();
 
 	data.humans[1] = human;
@@ -135,7 +126,7 @@ static void pick_opponent() {
 }
 
 static void print_playable_humans() {
-	define_human *define_human_array = get_define_human_array();
+	define_human *define_human_array = get_fns("define_human");
 
 	for (size_t i = 0; i < data.fn_count; i++) {
 		human human = define_human_array[i]();
@@ -168,7 +159,7 @@ static void pick_player() {
 	size_t player_index = player_number - 1;
 	// printf("player_index: %ld\n", player_index);
 
-	define_human *define_human_array = get_define_human_array();
+	define_human *define_human_array = get_fns("define_human");
 	human human = define_human_array[player_index]();
 
 	if (human.buy_gold_value > data.gold) {
