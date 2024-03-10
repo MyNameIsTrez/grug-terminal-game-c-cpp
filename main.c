@@ -40,8 +40,13 @@ static void pick_tools() {
 	printf("\n");
 }
 
+static void discard_unread() {
+	int c;
+	while ((c = getchar()) != '\n' && c != EOF) {}
+}
+
 // Returns true if the input was valid
-static bool read_long(long *output) {
+static bool read_size(size_t *output) {
 	char buffer[42];
 	if (!fgets(buffer, sizeof(buffer), stdin)) {
 		perror("fgets");
@@ -53,12 +58,18 @@ static bool read_long(long *output) {
 	long l = strtol(buffer, &endptr, 10);
 	if (errno != 0) {
 		perror("strtol");
-		exit(EXIT_FAILURE);
+		// This is to prevent the next strtol() call from continuing
+		// when the input is "11111111..."
+		discard_unread();
+		return false;
 	} else if (buffer == endptr) {
 		fprintf(stderr, "No number was provided\n");
 		return false;
 	} else if (*endptr != '\n' && *endptr != '\0') {
 		fprintf(stderr, "There was an extra character after the number\n");
+		return false;
+	} else if (l < 0) {
+		fprintf(stderr, "You can't enter a negative number\n");
 		return false;
 	}
 
@@ -82,14 +93,18 @@ static void print_humans() {
 }
 
 static void pick_humans() {
+	printf("You have %d gold\n\n", data.gold);
+
 	print_humans();
 
-	printf("Type the number of the human that you want to fight:\n");
+	printf("Type the number of the human to fight:\n");
 
 	size_t opponent_number;
-	if (!read_long(&opponent_number)) {
+	if (!read_size(&opponent_number)) {
 		return;
 	}
+
+	printf("opponent_number: %ld\n", opponent_number);
 
 	if (opponent_number == 0) {
 		fprintf(stderr, "The minimum number you can enter is 1\n");
