@@ -9,14 +9,15 @@
 struct data {
 	mod_directory mods;
 	enum {
-		STATE_PICKING_HUMANS,
+		STATE_PICKING_PLAYER,
+		STATE_PICKING_OPPONENT,
 		STATE_PICKING_TOOLS,
 		STATE_FIGHTING,
 	} state;
-	human humans[2];
 	void **fns;
 	size_t fn_count;
 	i32 gold;
+	human humans[2];
 };
 
 extern struct data data;
