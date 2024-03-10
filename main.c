@@ -59,7 +59,7 @@ static bool read_size(size_t *output) {
 	if (errno != 0) {
 		perror("strtol");
 		// This is to prevent the next strtol() call from continuing
-		// when the input is "11111111..."
+		// when the input was for example a long series of "11111111..."
 		discard_unread();
 		return false;
 	} else if (buffer == endptr) {
