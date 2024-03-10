@@ -240,6 +240,7 @@ mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name
 			// Regenerate the dll if it doesn't exist/is outdated
 			struct stat dll_stat;
 			if (stat(dll_path, &dll_stat) == -1 || entry_stat.st_mtime > dll_stat.st_mtime) {
+				// If the dll doesn't exist, try to create the parent directories
 				errno = 0;
 				if (access(dll_path, F_OK) && errno == ENOENT) {
 					try_create_parent_dirs(dll_path);
