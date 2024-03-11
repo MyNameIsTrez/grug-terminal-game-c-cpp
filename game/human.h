@@ -2,13 +2,20 @@
 
 #include "typedefs.h"
 
+struct poison {
+	i32 ticks_left;
+	i32 damage_per_tick;
+};
+
 struct human {
 	string name;
-	f64 health;
+	i32 health;
 	i32 buy_gold_value;
 	i32 kill_gold_value;
+	poison poison;
 
 	// These should not be initialized by mods
 	id id;
-	f64 max_health;
+	i32 max_health;
+	id opponent_id;
 };

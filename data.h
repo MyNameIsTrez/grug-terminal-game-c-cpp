@@ -19,7 +19,9 @@ struct data {
 	size_t fn_count;
 	i32 gold;
 	human humans[2];
+	bool player_has_human;
 	tool tools[2];
+	bool player_has_tool;
 };
 
 extern struct data data;

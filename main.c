@@ -1,6 +1,7 @@
 #include "data.h"
 #include "game/tool.h"
 #include "grug.h"
+#include "mod.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -9,11 +10,76 @@
 #include <time.h>
 #include <unistd.h>
 
-typedef human (*define_human)();
-typedef tool (*define_tool)();
+typedef void (*on_tool_use_fn)(tool tool);
+typedef human (*define_human_fn)();
+typedef tool (*define_tool_fn)();
+
+static void handle_poison(human *human) {
+	if (human->poison.ticks_left > 0) {
+		change_human_health(human->id, -human->poison.damage_per_tick);
+		human->poison.ticks_left--;
+	}
+}
+
+static void get_fns_impl(mod_directory dir, char *fn_name) {
+	for (size_t i = 0; i < dir.dirs_size; i++) {
+		get_fns_impl(dir.dirs[i], fn_name);
+	}
+	for (size_t i = 0; i < dir.files_size; i++) {
+		void *fn = dlsym(dir.files[i].dll, fn_name);
+		if (fn) {
+			data.fns[data.fn_count++] = fn;
+		}
+	}
+}
+
+static void *get_fns(char *fn_name) {
+	data.fn_count = 0;
+	get_fns_impl(data.mods, fn_name);
+	return data.fns;
+}
 
 static void fight() {
-	printf("In fight()\n");
+	human *player = &data.humans[0];
+	human *opponent = &data.humans[1];
+
+	tool *player_tool = &data.tools[0];
+	tool *opponent_tool = &data.tools[1];
+
+	printf("You have %d health\n", player->health);
+	printf("The opponent has %d health\n\n", opponent->health);
+
+	player->opponent_id = 1;
+	opponent->opponent_id = 0;
+
+	on_tool_use_fn *on_tool_use_array = get_fns("on_tool_use");
+
+	printf("You use your %s\n", player_tool->name);
+	sleep(1);
+	on_tool_use_array[player_tool->id](*player_tool);
+	sleep(1);
+
+	handle_poison(opponent);
+	if (opponent->health == 0) {
+		printf("The opponent died!\n");
+		sleep(1);
+		data.state = STATE_PICKING_PLAYER;
+		data.gold += opponent->kill_gold_value;
+		return;
+	}
+
+	printf("The opponent uses their %s\n", opponent_tool->name);
+	sleep(1);
+	on_tool_use_array[opponent_tool->id](*opponent_tool);
+	sleep(1);
+
+	handle_poison(player);
+	if (player->health == 0) {
+		printf("You died!\n");
+		sleep(1);
+		data.state = STATE_PICKING_PLAYER;
+		return;
+	}
 }
 
 static void discard_unread() {
@@ -54,26 +120,8 @@ static bool read_size(size_t *output) {
 	return true;
 }
 
-static void get_fns_recursive(mod_directory dir, char *fn_name) {
-	for (size_t i = 0; i < dir.dirs_size; i++) {
-		get_fns_recursive(dir.dirs[i], fn_name);
-	}
-	for (size_t i = 0; i < dir.files_size; i++) {
-		void *fn = dlsym(dir.files[i].dll, fn_name);
-		if (fn) {
-			data.fns[data.fn_count++] = fn;
-		}
-	}
-}
-
-static void *get_fns(char *fn_name) {
-	data.fn_count = 0;
-	get_fns_recursive(data.mods, fn_name);
-	return data.fns;
-}
-
 static void print_opponent_humans() {
-	define_human *define_human_array = get_fns("define_human");
+	define_human_fn *define_human_array = get_fns("define_human");
 
 	for (size_t i = 0; i < data.fn_count; i++) {
 		human human = define_human_array[i]();
@@ -104,28 +152,34 @@ static void pick_opponent() {
 	}
 
 	size_t opponent_index = opponent_number - 1;
-	// printf("opponent_index: %ld\n", opponent_index);
 
-	define_human *define_human_array = get_fns("define_human");
+	define_human_fn *define_human_array = get_fns("define_human");
 	human human = define_human_array[opponent_index]();
+
+	human.id = 1;
+	human.max_health = human.health;
 
 	data.humans[1] = human;
 
 	// Give the opponent a random tool
-	define_tool *define_tool_array = get_fns("define_tool");
+	define_tool_fn *define_tool_array = get_fns("define_tool");
 	size_t tool_index = rand() % data.fn_count;
 	tool tool = define_tool_array[tool_index]();
+
+	tool.id = tool_index;
+	tool.human_parent_id = 1;
+
 	data.tools[1] = tool;
 
 	data.state = STATE_FIGHTING;
 }
 
 static void print_tools() {
-	define_tool *define_tool_array = get_fns("define_tool");
+	define_tool_fn *define_tool_array = get_fns("define_tool");
 
 	for (size_t i = 0; i < data.fn_count; i++) {
 		tool tool = define_tool_array[i]();
-		printf("%s costs %d gold\n", tool.name, tool.gold_cost);
+		printf("%ld. %s costs %d gold\n", i + 1, tool.name, tool.buy_gold_value);
 	}
 	printf("\n");
 }
@@ -135,7 +189,7 @@ static void pick_tools() {
 
 	print_tools();
 
-	printf("Type the number of any tools you want to buy (type 0 to skip):\n");
+	printf("Type the number of any tools you want to buy%s:\n", data.player_has_tool ? " (type 0 to skip)" : "");
 
 	size_t tool_number;
 	if (!read_size(&tool_number)) {
@@ -143,7 +197,11 @@ static void pick_tools() {
 	}
 
 	if (tool_number == 0) {
-		data.state = STATE_PICKING_OPPONENT;
+		if (data.player_has_tool) {
+			data.state = STATE_PICKING_OPPONENT;
+			return;
+		}
+		fprintf(stderr, "The minimum number you can enter is 1\n");
 		return;
 	}
 	if (tool_number > data.fn_count) {
@@ -152,16 +210,27 @@ static void pick_tools() {
 	}
 
 	size_t tool_index = tool_number - 1;
-	printf("tool_index: %ld\n", tool_index);
 
-	define_tool *define_tool_array = get_fns("define_tool");
+	define_tool_fn *define_tool_array = get_fns("define_tool");
 	tool tool = define_tool_array[tool_index]();
 
+	if (tool.buy_gold_value > data.gold) {
+		fprintf(stderr, "You don't have enough gold to buy that tool\n");
+		return;
+	}
+
+	data.gold -= tool.buy_gold_value;
+
+	tool.id = tool_index;
+	tool.human_parent_id = 0;
+
 	data.tools[0] = tool;
+
+	data.player_has_tool = true;
 }
 
 static void print_playable_humans() {
-	define_human *define_human_array = get_fns("define_human");
+	define_human_fn *define_human_array = get_fns("define_human");
 
 	for (size_t i = 0; i < data.fn_count; i++) {
 		human human = define_human_array[i]();
@@ -175,7 +244,7 @@ static void pick_player() {
 
 	print_playable_humans();
 
-	printf("Type the number of the human you want to play as:\n");
+	printf("Type the number of the human you want to play as%s:\n", data.player_has_human ? " (type 0 to skip)" : "");
 
 	size_t player_number;
 	if (!read_size(&player_number)) {
@@ -183,6 +252,10 @@ static void pick_player() {
 	}
 
 	if (player_number == 0) {
+		if (data.player_has_human) {
+			data.state = STATE_PICKING_TOOLS;
+			return;
+		}
 		fprintf(stderr, "The minimum number you can enter is 1\n");
 		return;
 	}
@@ -192,9 +265,8 @@ static void pick_player() {
 	}
 
 	size_t player_index = player_number - 1;
-	// printf("player_index: %ld\n", player_index);
 
-	define_human *define_human_array = get_fns("define_human");
+	define_human_fn *define_human_array = get_fns("define_human");
 	human human = define_human_array[player_index]();
 
 	if (human.buy_gold_value > data.gold) {
@@ -202,7 +274,14 @@ static void pick_player() {
 		return;
 	}
 
+	data.gold -= human.buy_gold_value;
+
+	human.id = 0;
+	human.max_health = human.health;
+
 	data.humans[0] = human;
+
+	data.player_has_human = true;
 
 	data.state = STATE_PICKING_TOOLS;
 }
@@ -235,9 +314,10 @@ int main() {
 		data.mods = grug_reload_modified_mods("mods", "mods", "dlls");
 
 		// grug_print_mods(data.mods);
-		// printf("\n");
 
 		update();
+
+		printf("\n");
 
 		sleep(1);
 	}

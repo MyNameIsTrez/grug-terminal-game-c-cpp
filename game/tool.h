@@ -4,7 +4,7 @@
 
 struct tool {
 	string name;
-	i32 gold_cost;
+	i32 buy_gold_value;
 
 	// These should not be initialized by mods
 	id id;

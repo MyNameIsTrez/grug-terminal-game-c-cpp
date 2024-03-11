@@ -30,7 +30,7 @@
 // TODO: USE
 // static char **get_on_fn_names() {
 // 	return (char *[]){
-// 		"on_use",
+// 		"on_tool_use",
 // 		NULL
 // 	};
 // }
