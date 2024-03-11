@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/human.h"
+#include "game/tool.h"
 #include "grug.h"
 #include "typedefs.h"
 
@@ -18,6 +19,7 @@ struct data {
 	size_t fn_count;
 	i32 gold;
 	human humans[2];
+	tool tools[2];
 };
 
 extern struct data data;

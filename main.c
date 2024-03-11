@@ -6,10 +6,11 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 
 typedef human (*define_human)();
-typedef tool (*define_tools)();
+typedef tool (*define_tool)();
 
 static void fight() {
 	printf("In fight()\n");
@@ -110,21 +111,53 @@ static void pick_opponent() {
 
 	data.humans[1] = human;
 
+	// Give the opponent a random tool
+	define_tool *define_tool_array = get_fns("define_tool");
+	size_t tool_index = rand() % data.fn_count;
+	tool tool = define_tool_array[tool_index]();
+	data.tools[1] = tool;
+
 	data.state = STATE_FIGHTING;
 }
 
-static void pick_tools() {
-	printf("In pick_tools()\n");
-
-	define_tools *define_tools_array = get_fns("define_tool");
+static void print_tools() {
+	define_tool *define_tool_array = get_fns("define_tool");
 
 	for (size_t i = 0; i < data.fn_count; i++) {
-		tool tool = define_tools_array[i]();
+		tool tool = define_tool_array[i]();
 		printf("%s costs %d gold\n", tool.name, tool.gold_cost);
 	}
 	printf("\n");
+}
 
-	data.state = STATE_PICKING_OPPONENT;
+static void pick_tools() {
+	printf("You have %d gold\n\n", data.gold);
+
+	print_tools();
+
+	printf("Type the number of any tools you want to buy (type 0 to skip):\n");
+
+	size_t tool_number;
+	if (!read_size(&tool_number)) {
+		return;
+	}
+
+	if (tool_number == 0) {
+		data.state = STATE_PICKING_OPPONENT;
+		return;
+	}
+	if (tool_number > data.fn_count) {
+		fprintf(stderr, "The maximum number you can enter is %ld\n", data.fn_count);
+		return;
+	}
+
+	size_t tool_index = tool_number - 1;
+	printf("tool_index: %ld\n", tool_index);
+
+	define_tool *define_tool_array = get_fns("define_tool");
+	tool tool = define_tool_array[tool_index]();
+
+	data.tools[0] = tool;
 }
 
 static void print_playable_humans() {
@@ -192,6 +225,8 @@ static void update() {
 }
 
 int main() {
+	srand(time(NULL)); // Seed the random number generator with the number of seconds since 1970
+
 	init_data();
 
 	while (true) {
