@@ -15,36 +15,6 @@ static void fight() {
 	printf("In fight()\n");
 }
 
-static void get_fns_recursive(mod_directory dir, char *fn_name) {
-	for (size_t i = 0; i < dir.dirs_size; i++) {
-		get_fns_recursive(dir.dirs[i], fn_name);
-	}
-	for (size_t i = 0; i < dir.files_size; i++) {
-		void *fn = dlsym(dir.files[i].dll, fn_name);
-		if (fn) {
-			data.fns[data.fn_count++] = fn;
-		}
-	}
-}
-
-static void *get_fns(char *fn_name) {
-	data.fn_count = 0;
-	get_fns_recursive(data.mods, fn_name);
-	return data.fns;
-}
-
-static void pick_tools() {
-	printf("In pick_tools()\n");
-
-	define_tools *define_tools_array = get_fns("define_tool");
-
-	for (size_t i = 0; i < data.fn_count; i++) {
-		tool tool = define_tools_array[i]();
-		printf("%s costs %d gold\n", tool.name, tool.gold_cost);
-	}
-	printf("\n");
-}
-
 static void discard_unread() {
 	int c;
 	while ((c = getchar()) != '\n' && c != EOF) {}
@@ -81,6 +51,24 @@ static bool read_size(size_t *output) {
 	*output = l;
 
 	return true;
+}
+
+static void get_fns_recursive(mod_directory dir, char *fn_name) {
+	for (size_t i = 0; i < dir.dirs_size; i++) {
+		get_fns_recursive(dir.dirs[i], fn_name);
+	}
+	for (size_t i = 0; i < dir.files_size; i++) {
+		void *fn = dlsym(dir.files[i].dll, fn_name);
+		if (fn) {
+			data.fns[data.fn_count++] = fn;
+		}
+	}
+}
+
+static void *get_fns(char *fn_name) {
+	data.fn_count = 0;
+	get_fns_recursive(data.mods, fn_name);
+	return data.fns;
 }
 
 static void print_opponent_humans() {
@@ -122,7 +110,21 @@ static void pick_opponent() {
 
 	data.humans[1] = human;
 
-	data.state = STATE_PICKING_TOOLS;
+	data.state = STATE_FIGHTING;
+}
+
+static void pick_tools() {
+	printf("In pick_tools()\n");
+
+	define_tools *define_tools_array = get_fns("define_tool");
+
+	for (size_t i = 0; i < data.fn_count; i++) {
+		tool tool = define_tools_array[i]();
+		printf("%s costs %d gold\n", tool.name, tool.gold_cost);
+	}
+	printf("\n");
+
+	data.state = STATE_PICKING_OPPONENT;
 }
 
 static void print_playable_humans() {
@@ -169,7 +171,7 @@ static void pick_player() {
 
 	data.humans[0] = human;
 
-	data.state = STATE_PICKING_OPPONENT;
+	data.state = STATE_PICKING_TOOLS;
 }
 
 static void update() {
@@ -177,11 +179,11 @@ static void update() {
 	case STATE_PICKING_PLAYER:
 		pick_player();
 		break;
-	case STATE_PICKING_OPPONENT:
-		pick_opponent();
-		break;
 	case STATE_PICKING_TOOLS:
 		pick_tools();
+		break;
+	case STATE_PICKING_OPPONENT:
+		pick_opponent();
 		break;
 	case STATE_FIGHTING:
 		fight();
