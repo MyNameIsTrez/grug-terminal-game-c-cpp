@@ -35,6 +35,187 @@
 // 	};
 // }
 
+typedef struct token token;
+typedef struct tokens tokens;
+typedef struct call_expr call_expr;
+typedef struct unary_expr unary_expr;
+typedef struct binary_expr binary_expr;
+typedef struct literal literal;
+typedef struct expr expr;
+typedef struct return_statement return_statement;
+typedef struct if_statement if_statement;
+typedef struct statement statement;
+typedef struct node node;
+typedef struct nodes nodes;
+typedef struct argument argument;
+typedef struct arguments arguments;
+typedef struct fn fn;
+typedef struct fns fns;
+
+struct token {
+	enum {
+		TEXT_TOKEN,
+		OPEN_PARENTHESIS_TOKEN,
+		CLOSE_PARENTHESIS_TOKEN,
+		OPEN_BRACE_TOKEN,
+		CLOSE_BRACE_TOKEN,
+		STRING_TOKEN,
+		COMMA_TOKEN,
+		FIELD_NAME_TOKEN,
+		COLON_TOKEN,
+		PLUS_TOKEN,
+		MINUS_TOKEN,
+		ASSIGNMENT_EQUALS_TOKEN,
+		EQUALITY_EQUALS_TOKEN,
+		NUMBER_TOKEN,
+		IF_TOKEN,
+		LOOP_TOKEN,
+		BREAK_TOKEN,
+		CONTINUE_TOKEN,
+		RETURN_TOKEN,
+	} type;
+	char *str;
+};
+
+struct tokens {
+	token *tokens;
+	size_t size;
+	size_t capacity;
+};
+
+struct call_expr {
+	char *fn_name;
+	expr *arguments;
+	size_t size;
+	size_t capacity;
+};
+
+struct unary_expr {
+	enum {
+		MINUS_UNARY_EXPR,
+	} operator;
+	expr *expr;
+};
+
+struct binary_expr {
+	enum {
+		ADDITION,
+		SUBTRACTION,
+		MULTIPLICATION,
+		DIVISION,
+	} operator;
+	expr *left;
+	expr *right;
+};
+
+struct literal {
+	char *str;
+};
+
+struct expr {
+	enum {
+		LITERAL,
+		UNARY_EXPR,
+		BINARY_EXPR,
+		CALL_EXPR,
+	} type;
+	union {
+		literal literal;
+		unary_expr unary_expr;
+		binary_expr binary_expr;
+		call_expr call_expr;
+	};
+};
+
+struct return_statement {
+	expr value;
+};
+
+struct if_statement {
+	expr condition;
+	nodes *body;
+	nodes *else_body;
+};
+
+struct statement {
+	char *variable_name;
+	char *type;
+	expr value;
+};
+
+struct node {
+	enum {
+		STATEMENT,
+		IF,
+		LOOP,
+		BREAK,
+		CONTINUE,
+		RETURN,
+	} type;
+	union {
+		statement statement;
+		if_statement if_statement;
+		return_statement return_statement;
+	};
+};
+
+struct nodes {
+	node *nodes;
+	size_t size;
+	size_t capacity;
+};
+
+struct argument {
+	char *type;
+	char *name;
+};
+
+struct arguments {
+	argument *arguments;
+	size_t size;
+	size_t capacity;
+};
+
+struct fn {
+	char *fn_name;
+	arguments arguments;
+	char *return_type;
+	nodes body;
+};
+
+struct fns {
+	fn *fns;
+	size_t size;
+	size_t capacity;
+};
+
+static char *serialize_to_c(fns fns) {
+	char *c_text;
+
+	(void)fns;
+	c_text = "";
+
+	return c_text;
+}
+
+static fns parse(tokens tokens) {
+	fns fns;
+
+	(void)tokens;
+	fns.fns = NULL;
+
+	return fns;
+}
+
+static tokens tokenize(char *grug_text) {
+	tokens tokens;
+
+	(void)grug_text;
+	tokens.tokens = NULL;
+
+	return tokens;
+}
+
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
@@ -94,7 +275,13 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
         exit(EXIT_FAILURE);
     }
 
-	char *c_text = read_file(grug_file_path);
+	char *grug_text = read_file(grug_file_path);
+
+	tokens tokens = tokenize(grug_text);
+
+	fns fns = parse(tokens);
+
+	char *c_text = serialize_to_c(fns);
     if (tcc_compile_string(s, c_text) == -1) {
         fprintf(stderr, "tcc_compile_string() error\n");
         exit(EXIT_FAILURE);
