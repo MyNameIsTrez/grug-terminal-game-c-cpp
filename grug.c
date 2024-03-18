@@ -97,7 +97,6 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
 	char *grug_text = read_file(grug_file_path);
 
 	tokens tokens = tokenize(grug_text);
-	free(grug_text);
 
 	fns fns = parse(tokens);
 
@@ -113,6 +112,7 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
     }
 
     tcc_delete(s);
+	free(grug_text); // TODO: Try doing this between tcc_compile_string() and tcc_output_file()
 	free(c_text); // TODO: Try doing this between tcc_compile_string() and tcc_output_file()
 	errno = 0;
 }
