@@ -125,34 +125,34 @@ static tokens tokenize(char *grug_text) {
 
 	size_t i = 0;
 	while (grug_text[i]) {
-		if (       grug_text[i + 0] == '(') {
+		if (       grug_text[i] == '(') {
 			push_token(&tokens, (token){.type=OPEN_PARENTHESIS_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == ')') {
+		} else if (grug_text[i] == ')') {
 			push_token(&tokens, (token){.type=CLOSE_PARENTHESIS_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == '{') {
+		} else if (grug_text[i] == '{') {
 			push_token(&tokens, (token){.type=OPEN_BRACE_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == '}') {
+		} else if (grug_text[i] == '}') {
 			push_token(&tokens, (token){.type=CLOSE_BRACE_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == '+') {
+		} else if (grug_text[i] == '+') {
 			push_token(&tokens, (token){.type=PLUS_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == '-') {
+		} else if (grug_text[i] == '-') {
 			push_token(&tokens, (token){.type=MINUS_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == ',') {
+		} else if (grug_text[i] == ',') {
 			push_token(&tokens, (token){.type=COMMA_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == ':') {
+		} else if (grug_text[i] == ':') {
 			push_token(&tokens, (token){.type=COLON_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == '=' && grug_text[i + 1] == '=') {
+		} else if (grug_text[i] == '=' && grug_text[i + 1] == '=') {
 			push_token(&tokens, (token){.type=EQUALITY_TOKEN, .start=i, .len=2});
 			i += 2;
-		} else if (grug_text[i + 0] == '=') {
+		} else if (grug_text[i] == '=') {
 			push_token(&tokens, (token){.type=ASSIGNMENT_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
@@ -170,7 +170,7 @@ static tokens tokenize(char *grug_text) {
 		} else if (grug_text[i + 0] == 'c' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'n' && grug_text[i + 3] == 't' && grug_text[i + 4] == 'i' && grug_text[i + 5] == 'n' && grug_text[i + 6] == 'u' && grug_text[i + 7] == 'e' && grug_text[i + 8] == ' ') {
 			push_token(&tokens, (token){.type=CONTINUE_TOKEN, .start=i, .len=8});
 			i += 8;
-		} else if (grug_text[i + 0] == ' ') {
+		} else if (grug_text[i] == ' ') {
 			token token = {.type=SPACES_TOKEN, .start=i};
 
 			do {
@@ -179,7 +179,7 @@ static tokens tokenize(char *grug_text) {
 
 			token.len = i - token.start;
 			push_token(&tokens, token);
-		} else if (grug_text[i + 0] == '\n') {
+		} else if (grug_text[i] == '\n') {
 			token token = {.type=NEWLINES_TOKEN, .start=i};
 
 			do {
@@ -188,7 +188,7 @@ static tokens tokenize(char *grug_text) {
 
 			token.len = i - token.start;
 			push_token(&tokens, token);
-		} else if (grug_text[i + 0] == '\t') {
+		} else if (grug_text[i] == '\t') {
 			token token = {.type=TABS_TOKEN, .start=i};
 
 			do {
@@ -298,11 +298,9 @@ static char *read_file(char *path) {
 // clang testing.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -fsanitize=address,undefined -g && ./a.out
 int main() {
 	char *grug_text = read_file("zombie.grug");
-
 	printf("grug_text:\n%s\n", grug_text);
 
 	tokens tokens = tokenize(grug_text);
-
 	print_tokens(tokens, grug_text);
 
 	free(tokens.tokens);
