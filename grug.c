@@ -35,187 +35,6 @@
 // 	};
 // }
 
-typedef struct token token;
-typedef struct tokens tokens;
-typedef struct call_expr call_expr;
-typedef struct unary_expr unary_expr;
-typedef struct binary_expr binary_expr;
-typedef struct literal literal;
-typedef struct expr expr;
-typedef struct return_statement return_statement;
-typedef struct if_statement if_statement;
-typedef struct statement statement;
-typedef struct node node;
-typedef struct nodes nodes;
-typedef struct argument argument;
-typedef struct arguments arguments;
-typedef struct fn fn;
-typedef struct fns fns;
-
-struct token {
-	enum {
-		TEXT_TOKEN,
-		OPEN_PARENTHESIS_TOKEN,
-		CLOSE_PARENTHESIS_TOKEN,
-		OPEN_BRACE_TOKEN,
-		CLOSE_BRACE_TOKEN,
-		STRING_TOKEN,
-		COMMA_TOKEN,
-		FIELD_NAME_TOKEN,
-		COLON_TOKEN,
-		PLUS_TOKEN,
-		MINUS_TOKEN,
-		ASSIGNMENT_EQUALS_TOKEN,
-		EQUALITY_EQUALS_TOKEN,
-		NUMBER_TOKEN,
-		IF_TOKEN,
-		LOOP_TOKEN,
-		BREAK_TOKEN,
-		CONTINUE_TOKEN,
-		RETURN_TOKEN,
-	} type;
-	char *str;
-};
-
-struct tokens {
-	token *tokens;
-	size_t size;
-	size_t capacity;
-};
-
-struct call_expr {
-	char *fn_name;
-	expr *arguments;
-	size_t size;
-	size_t capacity;
-};
-
-struct unary_expr {
-	enum {
-		MINUS_UNARY_EXPR,
-	} operator;
-	expr *expr;
-};
-
-struct binary_expr {
-	enum {
-		ADDITION,
-		SUBTRACTION,
-		MULTIPLICATION,
-		DIVISION,
-	} operator;
-	expr *left;
-	expr *right;
-};
-
-struct literal {
-	char *str;
-};
-
-struct expr {
-	enum {
-		LITERAL,
-		UNARY_EXPR,
-		BINARY_EXPR,
-		CALL_EXPR,
-	} type;
-	union {
-		literal literal;
-		unary_expr unary_expr;
-		binary_expr binary_expr;
-		call_expr call_expr;
-	};
-};
-
-struct return_statement {
-	expr value;
-};
-
-struct if_statement {
-	expr condition;
-	nodes *body;
-	nodes *else_body;
-};
-
-struct statement {
-	char *variable_name;
-	char *type;
-	expr value;
-};
-
-struct node {
-	enum {
-		STATEMENT,
-		IF,
-		LOOP,
-		BREAK,
-		CONTINUE,
-		RETURN,
-	} type;
-	union {
-		statement statement;
-		if_statement if_statement;
-		return_statement return_statement;
-	};
-};
-
-struct nodes {
-	node *nodes;
-	size_t size;
-	size_t capacity;
-};
-
-struct argument {
-	char *type;
-	char *name;
-};
-
-struct arguments {
-	argument *arguments;
-	size_t size;
-	size_t capacity;
-};
-
-struct fn {
-	char *fn_name;
-	arguments arguments;
-	char *return_type;
-	nodes body;
-};
-
-struct fns {
-	fn *fns;
-	size_t size;
-	size_t capacity;
-};
-
-static char *serialize_to_c(fns fns) {
-	char *c_text;
-
-	(void)fns;
-	c_text = "";
-
-	return c_text;
-}
-
-static fns parse(tokens tokens) {
-	fns fns;
-
-	(void)tokens;
-	fns.fns = NULL;
-
-	return fns;
-}
-
-static tokens tokenize(char *grug_text) {
-	tokens tokens;
-
-	(void)grug_text;
-	tokens.tokens = NULL;
-
-	return tokens;
-}
-
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
@@ -278,6 +97,7 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
 	char *grug_text = read_file(grug_file_path);
 
 	tokens tokens = tokenize(grug_text);
+	free(grug_text);
 
 	fns fns = parse(tokens);
 
@@ -293,7 +113,7 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
     }
 
     tcc_delete(s);
-	free(c_text);
+	free(c_text); // TODO: Try doing this between tcc_compile_string() and tcc_output_file()
 	errno = 0;
 }
 
@@ -408,10 +228,10 @@ mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name
 		if (S_ISDIR(entry_stat.st_mode)) {
 			mod_directory mod_subdir = grug_reload_modified_mods(entry_path, dp->d_name, dll_entry_path);
 			
-			// Make sure there's enough room for pushing mod_subdir
+			// Make sure there's enough room to push mod_subdir
 			if (mod_dir.dirs_size + 1 > mod_dir.dirs_capacity) {
 				mod_dir.dirs_capacity = mod_dir.dirs_capacity == 0 ? 1 : mod_dir.dirs_capacity * 2;
-				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(mod_directory));
+				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(*mod_dir.dirs));
 				if (!mod_dir.dirs) {
 					perror("realloc");
 					exit(EXIT_FAILURE);
@@ -454,10 +274,10 @@ mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name
 				print_dlerror("dlopen");
 			}
 
-			// Make sure there's enough room for pushing file
+			// Make sure there's enough room to push file
 			if (mod_dir.files_size + 1 > mod_dir.files_capacity) {
 				mod_dir.files_capacity = mod_dir.files_capacity == 0 ? 1 : mod_dir.files_capacity * 2;
-				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(grug_file));
+				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(*mod_dir.files));
 				if (!mod_dir.files) {
 					perror("realloc");
 					exit(EXIT_FAILURE);
