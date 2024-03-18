@@ -20,14 +20,14 @@ struct token {
 		COLON_TOKEN,
 		EQUALITY_TOKEN,
 		ASSIGNMENT_TOKEN,
-		SPACE_TOKEN,
-		NEWLINE_TOKEN,
-		TAB_TOKEN,
 		IF_TOKEN,
 		LOOP_TOKEN,
 		BREAK_TOKEN,
 		RETURN_TOKEN,
 		CONTINUE_TOKEN,
+		SPACES_TOKEN,
+		NEWLINES_TOKEN,
+		TABS_TOKEN,
 		STRING_TOKEN,
 		FIELD_NAME_TOKEN,
 		TEXT_TOKEN,
@@ -49,14 +49,14 @@ static char *get_token_type_str[] = {
 	[COLON_TOKEN] = "COLON_TOKEN",
 	[EQUALITY_TOKEN] = "EQUALITY_TOKEN",
 	[ASSIGNMENT_TOKEN] = "ASSIGNMENT_TOKEN",
-	[SPACE_TOKEN] = "SPACE_TOKEN",
-	[NEWLINE_TOKEN] = "NEWLINE_TOKEN",
-	[TAB_TOKEN] = "TAB_TOKEN",
 	[IF_TOKEN] = "IF_TOKEN",
 	[LOOP_TOKEN] = "LOOP_TOKEN",
 	[BREAK_TOKEN] = "BREAK_TOKEN",
 	[RETURN_TOKEN] = "RETURN_TOKEN",
 	[CONTINUE_TOKEN] = "CONTINUE_TOKEN",
+	[SPACES_TOKEN] = "SPACES_TOKEN",
+	[NEWLINES_TOKEN] = "NEWLINES_TOKEN",
+	[TABS_TOKEN] = "TABS_TOKEN",
 	[STRING_TOKEN] = "STRING_TOKEN",
 	[FIELD_NAME_TOKEN] = "FIELD_NAME_TOKEN",
 	[TEXT_TOKEN] = "TEXT_TOKEN",
@@ -93,13 +93,16 @@ static void print_tokens(tokens tokens, char *grug_text) {
 		char *token_type_str = get_token_type_str[token.type];
 		printf("| %-*s ", (int)longest_token_type_len, token_type_str);
 
-		int len = token.len;
-		char *str = grug_text + token.start;
-		if (token.type == NEWLINE_TOKEN) {
-			len++;
-			str = "\\n";
+		if (token.type == NEWLINES_TOKEN) {
+			printf("| '");
+			for (size_t i = 0; i < token.len; i++) {
+				printf("\\n");
+			}
+			printf("'\n");
+		} else {
+			char *str = grug_text + token.start;
+			printf("| '%.*s'\n", (int)token.len, str);
 		}
-		printf("| '%.*s'\n", len, str);
 	}
 }
 
@@ -152,15 +155,6 @@ static tokens tokenize(char *grug_text) {
 		} else if (grug_text[i + 0] == '=') {
 			push_token(&tokens, (token){.type=ASSIGNMENT_TOKEN, .start=i, .len=1});
 			i += 1;
-		} else if (grug_text[i + 0] == ' ') {
-			push_token(&tokens, (token){.type=SPACE_TOKEN, .start=i, .len=1});
-			i += 1;
-		} else if (grug_text[i + 0] == '\n') {
-			push_token(&tokens, (token){.type=NEWLINE_TOKEN, .start=i, .len=1});
-			i += 1;
-		} else if (grug_text[i + 0] == '\t') {
-			push_token(&tokens, (token){.type=TAB_TOKEN, .start=i, .len=1});
-			i += 1;
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
 			push_token(&tokens, (token){.type=IF_TOKEN, .start=i, .len=2});
 			i += 2;
@@ -176,6 +170,33 @@ static tokens tokenize(char *grug_text) {
 		} else if (grug_text[i + 0] == 'c' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'n' && grug_text[i + 3] == 't' && grug_text[i + 4] == 'i' && grug_text[i + 5] == 'n' && grug_text[i + 6] == 'u' && grug_text[i + 7] == 'e' && grug_text[i + 8] == ' ') {
 			push_token(&tokens, (token){.type=CONTINUE_TOKEN, .start=i, .len=8});
 			i += 8;
+		} else if (grug_text[i + 0] == ' ') {
+			token token = {.type=SPACES_TOKEN, .start=i};
+
+			do {
+				i++;
+			} while (grug_text[i] == ' ');
+
+			token.len = i - token.start;
+			push_token(&tokens, token);
+		} else if (grug_text[i + 0] == '\n') {
+			token token = {.type=NEWLINES_TOKEN, .start=i};
+
+			do {
+				i++;
+			} while (grug_text[i] == '\n');
+
+			token.len = i - token.start;
+			push_token(&tokens, token);
+		} else if (grug_text[i + 0] == '\t') {
+			token token = {.type=TABS_TOKEN, .start=i};
+
+			do {
+				i++;
+			} while (grug_text[i] == '\t');
+
+			token.len = i - token.start;
+			push_token(&tokens, token);
 		} else if (grug_text[i] == '\"') {
 			token token = {.type=STRING_TOKEN, .start=i};
 
