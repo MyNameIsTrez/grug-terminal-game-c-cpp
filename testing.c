@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 
 typedef struct token token;
@@ -68,6 +69,39 @@ struct tokens {
 	size_t size;
 	size_t capacity;
 };
+
+static size_t max_size_t(size_t a, size_t b) {
+	if (a > b) {
+		return a;
+	}
+	return b;
+}
+
+static void print_tokens(tokens tokens, char *grug_text) {
+	size_t longest_token_type_len = 0;
+	for (size_t i = 0; i < tokens.size; i++) {
+		token token = tokens.tokens[i];
+		char *token_type_str = get_token_type_str[token.type];
+		longest_token_type_len = max_size_t(strlen(token_type_str), longest_token_type_len);
+	}
+
+	printf("| %-*s | str\n", (int)longest_token_type_len, "type");
+	printf("| %-*s |\n", (int)longest_token_type_len, "");
+
+	for (size_t i = 0; i < tokens.size; i++) {
+		token token = tokens.tokens[i];
+		char *token_type_str = get_token_type_str[token.type];
+		printf("| %-*s ", (int)longest_token_type_len, token_type_str);
+
+		int len = token.len;
+		char *str = grug_text + token.start;
+		if (token.type == NEWLINE_TOKEN) {
+			len++;
+			str = "\\n";
+		}
+		printf("| '%.*s'\n", len, str);
+	}
+}
 
 static void push_token(tokens *tokens, token token) {
 	// Make sure there's enough room to push token
@@ -248,10 +282,7 @@ int main() {
 
 	tokens tokens = tokenize(grug_text);
 
-	for (size_t i = 0; i < tokens.size; i++) {
-		token token = tokens.tokens[i];
-		printf("type: %s, str: '%.*s'\n", get_token_type_str[token.type], (int)token.len, grug_text + token.start);
-	}
+	print_tokens(tokens, grug_text);
 
 	free(tokens.tokens);
 	free(grug_text);
