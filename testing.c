@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+
 //// TOKENIZATION
 
 typedef struct token token;
@@ -67,7 +68,6 @@ struct tokens {
 	size_t size;
 	size_t capacity;
 };
-
 static struct tokens tokens;
 
 static size_t max_size_t(size_t a, size_t b) {
@@ -121,8 +121,6 @@ static void push_token(token token) {
 }
 
 static void tokenize(char *grug_text) {
-	tokens.size = 0;
-
 	size_t i = 0;
 	while (grug_text[i]) {
 		if (       grug_text[i] == '(') {
@@ -250,6 +248,176 @@ static void tokenize(char *grug_text) {
 	}
 }
 
+//// PARSING
+
+typedef struct call_expr call_expr;
+typedef struct unary_expr unary_expr;
+typedef struct binary_expr binary_expr;
+typedef struct literal literal;
+typedef struct expr expr;
+typedef struct return_statement return_statement;
+typedef struct if_statement if_statement;
+typedef struct statement statement;
+typedef struct node node;
+typedef struct argument argument;
+typedef struct fn fn;
+
+struct call_expr {
+	char *fn_name;
+	expr *arguments;
+	size_t size;
+	size_t capacity;
+};
+
+struct unary_expr {
+	enum {
+		MINUS_UNARY_EXPR,
+	} operator;
+	expr *expr;
+};
+
+struct binary_expr {
+	enum {
+		ADDITION,
+		SUBTRACTION,
+		MULTIPLICATION,
+		DIVISION,
+	} operator;
+	expr *left;
+	expr *right;
+};
+
+struct literal {
+	char *str;
+};
+
+struct expr {
+	enum {
+		LITERAL,
+		UNARY_EXPR,
+		BINARY_EXPR,
+		CALL_EXPR,
+	} type;
+	union {
+		literal literal;
+		unary_expr unary_expr;
+		binary_expr binary_expr;
+		call_expr call_expr;
+	};
+};
+
+struct exprs {
+	expr *expr;
+	size_t size;
+	size_t capacity;
+};
+static struct exprs exprs;
+
+struct return_statement {
+	expr *value;
+};
+
+struct if_statement {
+	expr condition;
+	node *body;
+	size_t body_count;
+	node *else_body;
+	size_t else_body_count;
+};
+
+struct statement {
+	char *variable_name;
+	char *type;
+	expr value;
+};
+
+struct node {
+	enum {
+		STATEMENT,
+		IF,
+		LOOP,
+		BREAK,
+		CONTINUE,
+		RETURN,
+	} type;
+	union {
+		statement statement;
+		if_statement if_statement;
+		return_statement return_statement;
+	};
+};
+
+struct nodes {
+	node *nodes;
+	size_t size;
+	size_t capacity;
+};
+static struct nodes nodes;
+
+struct argument {
+	char *type;
+	char *name;
+};
+
+struct arguments {
+	argument *arguments;
+	size_t size;
+	size_t capacity;
+};
+static struct arguments arguments;
+
+struct fn {
+	char *fn_name;
+	argument *arguments;
+	size_t argument_count;
+	char *return_type;
+	node *body;
+	size_t body_count;
+};
+
+struct fns {
+	fn *fns;
+	size_t size;
+	size_t capacity;
+};
+static struct fns fns;
+
+static char *serialize_to_c() {
+	char *c_text;
+
+	c_text = "";
+
+	return c_text;
+}
+
+static void print_fns() {
+}
+
+// static void push_argument(argument argument) {
+// 	// Make sure there's enough room to push argument
+// 	if (arguments.size + 1 > arguments.capacity) {
+// 		arguments.capacity = arguments.capacity == 0 ? 1 : arguments.capacity * 2;
+// 		arguments.arguments = realloc(arguments.arguments, arguments.capacity * sizeof(*arguments.arguments));
+// 		if (!arguments.arguments) {
+// 			perror("realloc");
+// 			exit(EXIT_FAILURE);
+// 		}
+// 	}
+
+// 	arguments.arguments[arguments.size++] = argument;
+// }
+
+static void parse() {
+}
+
+static void init() {
+	exprs.size = 0;
+	nodes.size = 0;
+	arguments.size = 0;
+	fns.size = 0;
+	tokens.size = 0;
+}
+
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
@@ -292,9 +460,17 @@ int main() {
 	char *grug_text = read_file("zombie.grug");
 	printf("grug_text:\n%s\n", grug_text);
 
+	init();
 	tokenize(grug_text);
 	print_tokens(grug_text);
 
+	parse();
+	print_fns();
+	char *c_text = serialize_to_c();
+	printf("\nc_text:\n%s\n", c_text);
+
+	free(arguments.arguments);
+	free(fns.fns);
 	free(tokens.tokens);
 	free(grug_text);
 }
