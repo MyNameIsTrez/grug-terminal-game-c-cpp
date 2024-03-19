@@ -265,8 +265,6 @@ static void tokenize(char *grug_text) {
 
 //// PARSING
 
-#define SPACES_PER_INDENT 4
-
 typedef struct call_expr call_expr;
 typedef struct unary_expr unary_expr;
 typedef struct binary_expr binary_expr;
@@ -545,6 +543,16 @@ static void assert_token_type(size_t token_index, unsigned int expected_type) {
 	}
 }
 
+static void assert_1_newline(size_t token_index) {
+	assert_token_type(token_index, NEWLINES_TOKEN);
+
+	token token = tokens.tokens[token_index];
+	if (token.len != 1) {
+		fprintf(stderr, "Expected 1 newline, but got %zu at token index %zu\n", token.len, token_index);
+		exit(EXIT_FAILURE);
+	}
+}
+
 static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	assert_token_type(token_index, SPACES_TOKEN);
 
@@ -590,12 +598,13 @@ static void parse_define_fn(size_t *i) {
 	(*i)++;
 
 	token = tokens.tokens[*i];
-	assert_token_type(*i, NEWLINES_TOKEN);
+	assert_1_newline(*i);
 	(*i)++;
 
 	token = tokens.tokens[*i];
 	assert_spaces(*i, 4);
 	size_t depth = 1; // TODO: Don't hardcode!
+	#define SPACES_PER_INDENT 4
 	if (token.len != depth * SPACES_PER_INDENT) {
 		fprintf(stderr, "Expected %zu spaces, but got %zu spaces at token index %zu\n", depth * SPACES_PER_INDENT, token.len, *i);
 		exit(EXIT_FAILURE);
@@ -604,6 +613,18 @@ static void parse_define_fn(size_t *i) {
 
 	token = tokens.tokens[*i];
 	assert_token_type(*i, RETURN_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, OPEN_BRACE_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_1_newline(*i);
 	(*i)++;
 
 	// while (*i < tokens.size) {
