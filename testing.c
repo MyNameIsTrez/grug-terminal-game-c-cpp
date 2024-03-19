@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+//// TOKENIZATION
 
 typedef struct token token;
-typedef struct tokens tokens;
 
 struct token {
 	enum {
@@ -68,6 +68,8 @@ struct tokens {
 	size_t capacity;
 };
 
+static struct tokens tokens;
+
 static size_t max_size_t(size_t a, size_t b) {
 	if (a > b) {
 		return a;
@@ -75,7 +77,7 @@ static size_t max_size_t(size_t a, size_t b) {
 	return b;
 }
 
-static void print_tokens(tokens tokens, char *grug_text) {
+static void print_tokens(char *grug_text) {
 	size_t longest_token_type_len = 0;
 	for (size_t i = 0; i < tokens.size; i++) {
 		token token = tokens.tokens[i];
@@ -104,69 +106,69 @@ static void print_tokens(tokens tokens, char *grug_text) {
 	}
 }
 
-static void push_token(tokens *tokens, token token) {
+static void push_token(token token) {
 	// Make sure there's enough room to push token
-	if (tokens->size + 1 > tokens->capacity) {
-		tokens->capacity = tokens->capacity == 0 ? 1 : tokens->capacity * 2;
-		tokens->tokens = realloc(tokens->tokens, tokens->capacity * sizeof(*tokens->tokens));
-		if (!tokens->tokens) {
+	if (tokens.size + 1 > tokens.capacity) {
+		tokens.capacity = tokens.capacity == 0 ? 1 : tokens.capacity * 2;
+		tokens.tokens = realloc(tokens.tokens, tokens.capacity * sizeof(*tokens.tokens));
+		if (!tokens.tokens) {
 			perror("realloc");
 			exit(EXIT_FAILURE);
 		}
 	}
 
-	tokens->tokens[tokens->size++] = token;
+	tokens.tokens[tokens.size++] = token;
 }
 
-static tokens tokenize(char *grug_text) {
-	tokens tokens = {0};
+static void tokenize(char *grug_text) {
+	tokens.size = 0;
 
 	size_t i = 0;
 	while (grug_text[i]) {
 		if (       grug_text[i] == '(') {
-			push_token(&tokens, (token){.type=OPEN_PARENTHESIS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=OPEN_PARENTHESIS_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ')') {
-			push_token(&tokens, (token){.type=CLOSE_PARENTHESIS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=CLOSE_PARENTHESIS_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '{') {
-			push_token(&tokens, (token){.type=OPEN_BRACE_TOKEN, .start=i, .len=1});
+			push_token((token){.type=OPEN_BRACE_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '}') {
-			push_token(&tokens, (token){.type=CLOSE_BRACE_TOKEN, .start=i, .len=1});
+			push_token((token){.type=CLOSE_BRACE_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '+') {
-			push_token(&tokens, (token){.type=PLUS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=PLUS_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '-') {
-			push_token(&tokens, (token){.type=MINUS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=MINUS_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ',') {
-			push_token(&tokens, (token){.type=COMMA_TOKEN, .start=i, .len=1});
+			push_token((token){.type=COMMA_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ':') {
-			push_token(&tokens, (token){.type=COLON_TOKEN, .start=i, .len=1});
+			push_token((token){.type=COLON_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '=' && grug_text[i + 1] == '=') {
-			push_token(&tokens, (token){.type=EQUALITY_TOKEN, .start=i, .len=2});
+			push_token((token){.type=EQUALITY_TOKEN, .start=i, .len=2});
 			i += 2;
 		} else if (grug_text[i] == '=') {
-			push_token(&tokens, (token){.type=ASSIGNMENT_TOKEN, .start=i, .len=1});
+			push_token((token){.type=ASSIGNMENT_TOKEN, .start=i, .len=1});
 			i += 1;
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
-			push_token(&tokens, (token){.type=IF_TOKEN, .start=i, .len=2});
+			push_token((token){.type=IF_TOKEN, .start=i, .len=2});
 			i += 2;
 		} else if (grug_text[i + 0] == 'l' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'o' && grug_text[i + 3] == 'p' && grug_text[i + 4] == ' ') {
-			push_token(&tokens, (token){.type=LOOP_TOKEN, .start=i, .len=4});
+			push_token((token){.type=LOOP_TOKEN, .start=i, .len=4});
 			i += 4;
 		} else if (grug_text[i + 0] == 'b' && grug_text[i + 1] == 'r' && grug_text[i + 2] == 'e' && grug_text[i + 3] == 'a' && grug_text[i + 4] == 'k' && grug_text[i + 5] == ' ') {
-			push_token(&tokens, (token){.type=BREAK_TOKEN, .start=i, .len=5});
+			push_token((token){.type=BREAK_TOKEN, .start=i, .len=5});
 			i += 5;
 		} else if (grug_text[i + 0] == 'r' && grug_text[i + 1] == 'e' && grug_text[i + 2] == 't' && grug_text[i + 3] == 'u' && grug_text[i + 4] == 'r' && grug_text[i + 5] == 'n' && grug_text[i + 6] == ' ') {
-			push_token(&tokens, (token){.type=RETURN_TOKEN, .start=i, .len=6});
+			push_token((token){.type=RETURN_TOKEN, .start=i, .len=6});
 			i += 6;
 		} else if (grug_text[i + 0] == 'c' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'n' && grug_text[i + 3] == 't' && grug_text[i + 4] == 'i' && grug_text[i + 5] == 'n' && grug_text[i + 6] == 'u' && grug_text[i + 7] == 'e' && grug_text[i + 8] == ' ') {
-			push_token(&tokens, (token){.type=CONTINUE_TOKEN, .start=i, .len=8});
+			push_token((token){.type=CONTINUE_TOKEN, .start=i, .len=8});
 			i += 8;
 		} else if (grug_text[i] == ' ') {
 			token token = {.type=SPACES_TOKEN, .start=i};
@@ -176,7 +178,7 @@ static tokens tokenize(char *grug_text) {
 			} while (grug_text[i] == ' ');
 
 			token.len = i - token.start;
-			push_token(&tokens, token);
+			push_token(token);
 		} else if (grug_text[i] == '\n') {
 			token token = {.type=NEWLINES_TOKEN, .start=i};
 
@@ -185,7 +187,7 @@ static tokens tokenize(char *grug_text) {
 			} while (grug_text[i] == '\n');
 
 			token.len = i - token.start;
-			push_token(&tokens, token);
+			push_token(token);
 		} else if (grug_text[i] == '\"') {
 			token token = {.type=STRING_TOKEN, .start=i};
 
@@ -198,7 +200,7 @@ static tokens tokenize(char *grug_text) {
 			}
 
 			token.len = i - token.start;
-			push_token(&tokens, token);
+			push_token(token);
 		} else if (grug_text[i] == '.') {
 			token token = {.type=FIELD_NAME_TOKEN, .start=i};
 
@@ -211,7 +213,7 @@ static tokens tokenize(char *grug_text) {
 			}
 
 			token.len = i - token.start;
-			push_token(&tokens, token);
+			push_token(token);
 		} else if (isalpha(grug_text[i]) || grug_text[i] == '_') {
 			token token = {.type=TEXT_TOKEN, .start=i};
 
@@ -221,7 +223,7 @@ static tokens tokenize(char *grug_text) {
 			} while (isalnum(grug_text[i]) || grug_text[i] == '_' || grug_text[i] == '.');
 
 			token.len = i - token.start;
-			push_token(&tokens, token);
+			push_token(token);
 		} else if (isdigit(grug_text[i])) {
 			token token = {.type=NUMBER_TOKEN, .start=i};
 
@@ -231,7 +233,7 @@ static tokens tokenize(char *grug_text) {
 			} while (isdigit(grug_text[i]) || grug_text[i] == '.');
 
 			token.len = i - token.start;
-			push_token(&tokens, token);
+			push_token(token);
 		} else if (grug_text[i] == ';') {
 			token token = {.type=COMMENT_TOKEN, .start=i};
 
@@ -240,14 +242,12 @@ static tokens tokenize(char *grug_text) {
 			} while (grug_text[i] != '\n' && grug_text[i] != '\0');
 
 			token.len = i - token.start;
-			push_token(&tokens, token);
+			push_token(token);
 		} else {
 			fprintf(stderr, "Unrecognized character '%c' at index %zu\n", grug_text[i], i);
 			exit(EXIT_FAILURE);
 		}
 	}
-
-	return tokens;
 }
 
 static char *read_file(char *path) {
@@ -292,8 +292,8 @@ int main() {
 	char *grug_text = read_file("zombie.grug");
 	printf("grug_text:\n%s\n", grug_text);
 
-	tokens tokens = tokenize(grug_text);
-	print_tokens(tokens, grug_text);
+	tokenize(grug_text);
+	print_tokens(grug_text);
 
 	free(tokens.tokens);
 	free(grug_text);
