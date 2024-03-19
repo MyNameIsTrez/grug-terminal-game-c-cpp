@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -241,13 +242,15 @@ static void tokenize(char *grug_text) {
 			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else {
-			fprintf(stderr, "Unrecognized character '%c' at index %zu\n", grug_text[i], i);
+			fprintf(stderr, "Unrecognized character '%c' at grug_text index %zu\n", grug_text[i], i);
 			exit(EXIT_FAILURE);
 		}
 	}
 }
 
 //// PARSING
+
+#define SPACES_PER_INDENT 4
 
 typedef struct call_expr call_expr;
 typedef struct unary_expr unary_expr;
@@ -371,6 +374,7 @@ struct fn {
 	argument *arguments;
 	size_t argument_count;
 	char *return_type;
+	size_t return_type_len;
 	node *body;
 	size_t body_count;
 };
@@ -405,6 +409,7 @@ static void print_fns() {
 		printf("]\n");
 		printf("\"argument_count\": %zu\n", fn.argument_count);
 		printf("\"return_type\": \"%s\"\n", fn.return_type);
+		printf("\"return_type_len\": %zu\n", fn.return_type_len);
 		printf("\"body\": [\n");
 		for (size_t body_index = 0; body_index < fn.body_count; body_index++) {
 			printf("{\n");
@@ -444,15 +449,33 @@ static void push_fn(fn fn) {
 	fns.fns[fns.size++] = fn;
 }
 
-void assert_token(size_t token_index, unsigned int expected_type) {
+static void assert_token_type(size_t token_index, unsigned int expected_type) {
 	token token = tokens.tokens[token_index];
 	if (token.type != expected_type) {
-		fprintf(stderr, "Expected token type %s, but got token type %s at token index %zu\n", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
+		fprintf(stderr, "Expected token type %s, but got %s at token index %zu\n", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
 		exit(EXIT_FAILURE);
 	}
 }
 
-static void parse_fn(size_t *i) {
+static void assert_spaces(size_t token_index, size_t expected_spaces) {
+	assert_token_type(token_index, SPACES_TOKEN);
+
+	token token = tokens.tokens[token_index];
+	if (token.len != expected_spaces) {
+		fprintf(stderr, "Expected %zu space%s, but got %zu at token index %zu\n", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, token_index);
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void parse_helper_fn(size_t *i) {
+	(void)i;
+}
+
+static void parse_on_fn(size_t *i) {
+	(void)i;
+}
+
+static void parse_define_fn(size_t *i) {
 	fn fn = {0};
 
 	token token = tokens.tokens[*i];
@@ -461,7 +484,47 @@ static void parse_fn(size_t *i) {
 	(*i)++;
 
 	token = tokens.tokens[*i];
-	assert_token(*i, OPEN_PARENTHESIS_TOKEN);
+	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, TEXT_TOKEN);
+	fn.return_type = token.start;
+	fn.return_type_len = token.len;
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, OPEN_BRACE_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, NEWLINES_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 4);
+	size_t depth = 1; // TODO: Don't hardcode!
+	if (token.len != depth * SPACES_PER_INDENT) {
+		fprintf(stderr, "Expected %zu spaces, but got %zu spaces at token index %zu\n", depth * SPACES_PER_INDENT, token.len, *i);
+		exit(EXIT_FAILURE);
+	}
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, RETURN_TOKEN);
+	(*i)++;
 
 	// while (*i < tokens.size) {
 	// 	token token = tokens.tokens[*i];
@@ -482,14 +545,22 @@ static void parse_fn(size_t *i) {
 	push_fn(fn);
 }
 
+static bool starts_with(char *a, char *b) {
+	return strncmp(a, b, strlen(b)) == 0;
+}
+
 static void parse() {
 	size_t i = 0;
 	while (i < tokens.size) {
 		token token = tokens.tokens[i];
 		int type = token.type;
 
-		if (       type == TEXT_TOKEN) {
-			parse_fn(&i);
+		if (       type == TEXT_TOKEN && starts_with(token.start, "define_")) {
+			parse_define_fn(&i);
+		} else if (type == TEXT_TOKEN && starts_with(token.start, "on_")) {
+			parse_on_fn(&i);
+		} else if (type == TEXT_TOKEN) {
+			parse_helper_fn(&i);
 		} else if (type == COMMENT_TOKEN) {
 			i++;
 		} else if (type == NEWLINES_TOKEN) {
