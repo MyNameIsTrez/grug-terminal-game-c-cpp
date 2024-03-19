@@ -86,13 +86,28 @@ static void print_tokens() {
 		longest_token_type_len = max_size_t(strlen(token_type_str), longest_token_type_len);
 	}
 
-	printf("| %-*s | str\n", (int)longest_token_type_len, "type");
-	printf("| %-*s |\n", (int)longest_token_type_len, "");
+	// Leave enough space for the word "index", but if the index exceeds 99999, add extra spaces
+	// In pseudocode this does longest_index = max(floor(log10(tokens.size)), strlen("index"))
+	size_t longest_index = 1;
+	size_t n = tokens.size;
+	while (true) {
+		n /= 10;
+		if (n == 0) {
+			break;
+		}
+		longest_index++;
+	}
+	longest_index = max_size_t(longest_index, strlen("index"));
+
+	printf("| %-*s | %-*s | str\n", (int)longest_index, "index", (int)longest_token_type_len, "type");
 
 	for (size_t i = 0; i < tokens.size; i++) {
 		token token = tokens.tokens[i];
+
+		printf("| %*zu ", (int)longest_index, i);
+
 		char *token_type_str = get_token_type_str[token.type];
-		printf("| %-*s ", (int)longest_token_type_len, token_type_str);
+		printf("| %*s ", (int)longest_token_type_len, token_type_str);
 
 		if (token.type == NEWLINES_TOKEN) {
 			printf("| '");
