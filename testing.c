@@ -27,7 +27,6 @@ struct token {
 		CONTINUE_TOKEN,
 		SPACES_TOKEN,
 		NEWLINES_TOKEN,
-		TABS_TOKEN,
 		STRING_TOKEN,
 		FIELD_NAME_TOKEN,
 		TEXT_TOKEN,
@@ -56,7 +55,6 @@ static char *get_token_type_str[] = {
 	[CONTINUE_TOKEN] = "CONTINUE_TOKEN",
 	[SPACES_TOKEN] = "SPACES_TOKEN",
 	[NEWLINES_TOKEN] = "NEWLINES_TOKEN",
-	[TABS_TOKEN] = "TABS_TOKEN",
 	[STRING_TOKEN] = "STRING_TOKEN",
 	[FIELD_NAME_TOKEN] = "FIELD_NAME_TOKEN",
 	[TEXT_TOKEN] = "TEXT_TOKEN",
@@ -188,15 +186,6 @@ static tokens tokenize(char *grug_text) {
 
 			token.len = i - token.start;
 			push_token(&tokens, token);
-		} else if (grug_text[i] == '\t') {
-			token token = {.type=TABS_TOKEN, .start=i};
-
-			do {
-				i++;
-			} while (grug_text[i] == '\t');
-
-			token.len = i - token.start;
-			push_token(&tokens, token);
 		} else if (grug_text[i] == '\"') {
 			token token = {.type=STRING_TOKEN, .start=i};
 
@@ -252,6 +241,9 @@ static tokens tokenize(char *grug_text) {
 
 			token.len = i - token.start;
 			push_token(&tokens, token);
+		} else {
+			fprintf(stderr, "Unrecognized character '%c' at index %zu\n", grug_text[i], i);
+			exit(EXIT_FAILURE);
 		}
 	}
 
