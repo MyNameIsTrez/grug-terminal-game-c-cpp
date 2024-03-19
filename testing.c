@@ -255,6 +255,8 @@ static void tokenize(char *grug_text) {
 typedef struct call_expr call_expr;
 typedef struct unary_expr unary_expr;
 typedef struct binary_expr binary_expr;
+typedef struct entry entry;
+typedef struct compound_literal compound_literal;
 typedef struct literal literal;
 typedef struct expr expr;
 typedef struct return_statement return_statement;
@@ -262,7 +264,9 @@ typedef struct if_statement if_statement;
 typedef struct statement statement;
 typedef struct node node;
 typedef struct argument argument;
-typedef struct fn fn;
+typedef struct helper_fn helper_fn;
+typedef struct on_fn on_fn;
+typedef struct define_fn define_fn;
 
 struct call_expr {
 	char *fn_name;
@@ -289,8 +293,28 @@ struct binary_expr {
 	expr *right;
 };
 
+struct entry {
+	char *key;
+	size_t key_len;
+	char *value;
+	size_t value_len;
+};
+
+struct entries {
+	entry *entries;
+	size_t size;
+	size_t capacity;
+};
+static struct entries entries;
+
+struct compound_literal {
+	entry *entries;
+	size_t entry_count;
+};
+
 struct literal {
 	char *str;
+	size_t len;
 };
 
 struct expr {
@@ -302,6 +326,7 @@ struct expr {
 	} type;
 	union {
 		literal literal;
+		compound_literal compound_literal;
 		unary_expr unary_expr;
 		binary_expr binary_expr;
 		call_expr call_expr;
@@ -329,7 +354,9 @@ struct if_statement {
 
 struct statement {
 	char *variable_name;
+	size_t variable_name_len;
 	char *type;
+	size_t type_len;
 	expr value;
 };
 
@@ -358,7 +385,9 @@ static struct nodes nodes;
 
 struct argument {
 	char *type;
+	size_t type_len;
 	char *name;
+	size_t name_len;
 };
 
 struct arguments {
@@ -368,7 +397,7 @@ struct arguments {
 };
 static struct arguments arguments;
 
-struct fn {
+struct helper_fn {
 	char *fn_name;
 	size_t fn_name_len;
 	argument *arguments;
@@ -379,12 +408,43 @@ struct fn {
 	size_t body_count;
 };
 
-struct fns {
-	fn *fns;
+struct helper_fns {
+	helper_fn *fns;
 	size_t size;
 	size_t capacity;
 };
-static struct fns fns;
+static struct helper_fns helper_fns;
+
+struct on_fn {
+	char *fn_name;
+	size_t fn_name_len;
+	argument *arguments;
+	size_t argument_count;
+	node *body;
+	size_t body_count;
+};
+
+struct on_fns {
+	on_fn *fns;
+	size_t size;
+	size_t capacity;
+};
+static struct on_fns on_fns;
+
+struct define_fn {
+	char *fn_name;
+	size_t fn_name_len;
+	char *return_type;
+	size_t return_type_len;
+	compound_literal returned_compound_literal;
+};
+
+struct define_fns {
+	define_fn *fns;
+	size_t size;
+	size_t capacity;
+};
+static struct define_fns define_fns;
 
 // static char *serialize_to_c() {
 // 	char *c_text;
@@ -394,59 +454,72 @@ static struct fns fns;
 // 	return c_text;
 // }
 
-static void print_fns() {
-	printf("{\n");
-	for (size_t fn_index = 0; fn_index < fns.size; fn_index++) {
-		fn fn = fns.fns[fn_index];
+static void print_helper_fns() {
+}
 
-		printf("\"fn_name\": \"%s\"\n", fn.fn_name);
-		printf("\"fn_name_len\": %zu\n", fn.fn_name_len);
-		printf("\"arguments\": [\n");
-		for (size_t arg_index = 0; arg_index < fn.argument_count; arg_index++) {
-			printf("{\n");
-			printf("}\n");
-		}
-		printf("]\n");
-		printf("\"argument_count\": %zu\n", fn.argument_count);
-		printf("\"return_type\": \"%s\"\n", fn.return_type);
-		printf("\"return_type_len\": %zu\n", fn.return_type_len);
-		printf("\"body\": [\n");
-		for (size_t body_index = 0; body_index < fn.body_count; body_index++) {
-			printf("{\n");
-			printf("}\n");
-		}
-		printf("]\n");
-		printf("\"body_count\": %zu\n", fn.body_count);
+static void print_on_fns() {
+}
+
+static void print_compound_literal(compound_literal compound_literal) {
+	printf("\"returned_compound_literal\": {\n");
+
+	for (size_t entry_index = 0; entry_index < compound_literal.entry_count; entry_index++) {
+		entry entry = compound_literal.entries[entry_index];
+
+		printf("\"key\": \"%.*s\"\n", (int)entry.key_len, entry.key);
+		printf("\"value\": \"%.*s\"\n", (int)entry.value_len, entry.value);
 	}
+
 	printf("}\n");
 }
 
-// static void push_argument(argument argument) {
-// 	// Make sure there's enough room to push argument
-// 	if (arguments.size + 1 > arguments.capacity) {
-// 		arguments.capacity = arguments.capacity == 0 ? 1 : arguments.capacity * 2;
-// 		arguments.arguments = realloc(arguments.arguments, arguments.capacity * sizeof(*arguments.arguments));
-// 		if (!arguments.arguments) {
-// 			perror("realloc");
-// 			exit(EXIT_FAILURE);
-// 		}
-// 	}
+static void print_define_fns() {
+	printf("\"define_fns\": {\n");
 
-// 	arguments.arguments[arguments.size++] = argument;
-// }
+	for (size_t fn_index = 0; fn_index < define_fns.size; fn_index++) {
+		define_fn fn = define_fns.fns[fn_index];
 
-static void push_fn(fn fn) {
+		printf("\"fn_name\": \"%.*s\"\n", (int)fn.fn_name_len, fn.fn_name);
+		printf("\"fn_name_len\": %zu\n", fn.fn_name_len);
+		printf("\"return_type\": \"%.*s\"\n", (int)fn.return_type_len, fn.return_type);
+		printf("\"return_type_len\": %zu\n", fn.return_type_len);
+
+		print_compound_literal(fn.returned_compound_literal);
+	}
+
+	printf("}\n");
+}
+
+static void print_fns() {
+	printf("{\n");
+
+	print_define_fns();
+	print_on_fns();
+	print_helper_fns();
+
+	printf("}\n");
+}
+
+static void parse_helper_fn(size_t *i) {
+	(void)i;
+}
+
+static void parse_on_fn(size_t *i) {
+	(void)i;
+}
+
+static void push_define_fn(define_fn fn) {
 	// Make sure there's enough room to push fn
-	if (fns.size + 1 > fns.capacity) {
-		fns.capacity = fns.capacity == 0 ? 1 : fns.capacity * 2;
-		fns.fns = realloc(fns.fns, fns.capacity * sizeof(*fns.fns));
-		if (!fns.fns) {
+	if (define_fns.size + 1 > define_fns.capacity) {
+		define_fns.capacity = define_fns.capacity == 0 ? 1 : define_fns.capacity * 2;
+		define_fns.fns = realloc(define_fns.fns, define_fns.capacity * sizeof(*define_fns.fns));
+		if (!define_fns.fns) {
 			perror("realloc");
 			exit(EXIT_FAILURE);
 		}
 	}
 
-	fns.fns[fns.size++] = fn;
+	define_fns.fns[define_fns.size++] = fn;
 }
 
 static void assert_token_type(size_t token_index, unsigned int expected_type) {
@@ -467,16 +540,8 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
-static void parse_helper_fn(size_t *i) {
-	(void)i;
-}
-
-static void parse_on_fn(size_t *i) {
-	(void)i;
-}
-
 static void parse_define_fn(size_t *i) {
-	fn fn = {0};
+	define_fn fn = {0};
 
 	token token = tokens.tokens[*i];
 	fn.fn_name = token.start;
@@ -542,7 +607,7 @@ static void parse_define_fn(size_t *i) {
 	// 	}
 	// }
 
-	push_fn(fn);
+	push_define_fn(fn);
 }
 
 static bool starts_with(char *a, char *b) {
@@ -572,12 +637,26 @@ static void parse() {
 	}
 }
 
-static void init() {
+static void grug_free() {
+	free(tokens.tokens);
+	free(entries.entries);
+	free(exprs.exprs);
+	free(nodes.nodes);
+	free(arguments.arguments);
+	free(helper_fns.fns);
+	free(on_fns.fns);
+	free(define_fns.fns);
+}
+
+static void reset() {
 	tokens.size = 0;
+	entries.size = 0;
 	exprs.size = 0;
 	nodes.size = 0;
 	arguments.size = 0;
-	fns.size = 0;
+	helper_fns.size = 0;
+	on_fns.size = 0;
+	define_fns.size = 0;
 }
 
 static char *read_file(char *path) {
@@ -622,7 +701,7 @@ int main() {
 	char *grug_text = read_file("zombie.grug");
 	printf("grug_text:\n%s\n", grug_text);
 
-	init();
+	reset();
 
 	tokenize(grug_text);
 	print_tokens();
@@ -634,8 +713,6 @@ int main() {
 	// char *c_text = serialize_to_c();
 	// printf("c_text:\n%s\n", c_text);
 
-	free(arguments.arguments);
-	free(fns.fns);
-	free(tokens.tokens);
+	grug_free();
 	free(grug_text);
 }
