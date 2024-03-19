@@ -34,7 +34,7 @@ struct token {
 		NUMBER_TOKEN,
 		COMMENT_TOKEN,
 	} type;
-	size_t start;
+	char *start;
 	size_t len;
 };
 
@@ -77,7 +77,7 @@ static size_t max_size_t(size_t a, size_t b) {
 	return b;
 }
 
-static void print_tokens(char *grug_text) {
+static void print_tokens() {
 	size_t longest_token_type_len = 0;
 	for (size_t i = 0; i < tokens.size; i++) {
 		token token = tokens.tokens[i];
@@ -100,8 +100,7 @@ static void print_tokens(char *grug_text) {
 			}
 			printf("'\n");
 		} else {
-			char *str = grug_text + token.start;
-			printf("| '%.*s'\n", (int)token.len, str);
+			printf("| '%.*s'\n", (int)token.len, token.start);
 		}
 	}
 }
@@ -124,70 +123,70 @@ static void tokenize(char *grug_text) {
 	size_t i = 0;
 	while (grug_text[i]) {
 		if (       grug_text[i] == '(') {
-			push_token((token){.type=OPEN_PARENTHESIS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=OPEN_PARENTHESIS_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ')') {
-			push_token((token){.type=CLOSE_PARENTHESIS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=CLOSE_PARENTHESIS_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '{') {
-			push_token((token){.type=OPEN_BRACE_TOKEN, .start=i, .len=1});
+			push_token((token){.type=OPEN_BRACE_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '}') {
-			push_token((token){.type=CLOSE_BRACE_TOKEN, .start=i, .len=1});
+			push_token((token){.type=CLOSE_BRACE_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '+') {
-			push_token((token){.type=PLUS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=PLUS_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '-') {
-			push_token((token){.type=MINUS_TOKEN, .start=i, .len=1});
+			push_token((token){.type=MINUS_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ',') {
-			push_token((token){.type=COMMA_TOKEN, .start=i, .len=1});
+			push_token((token){.type=COMMA_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ':') {
-			push_token((token){.type=COLON_TOKEN, .start=i, .len=1});
+			push_token((token){.type=COLON_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '=' && grug_text[i + 1] == '=') {
-			push_token((token){.type=EQUALITY_TOKEN, .start=i, .len=2});
+			push_token((token){.type=EQUALITY_TOKEN, .start=grug_text+i, .len=2});
 			i += 2;
 		} else if (grug_text[i] == '=') {
-			push_token((token){.type=ASSIGNMENT_TOKEN, .start=i, .len=1});
+			push_token((token){.type=ASSIGNMENT_TOKEN, .start=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
-			push_token((token){.type=IF_TOKEN, .start=i, .len=2});
+			push_token((token){.type=IF_TOKEN, .start=grug_text+i, .len=2});
 			i += 2;
 		} else if (grug_text[i + 0] == 'l' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'o' && grug_text[i + 3] == 'p' && grug_text[i + 4] == ' ') {
-			push_token((token){.type=LOOP_TOKEN, .start=i, .len=4});
+			push_token((token){.type=LOOP_TOKEN, .start=grug_text+i, .len=4});
 			i += 4;
 		} else if (grug_text[i + 0] == 'b' && grug_text[i + 1] == 'r' && grug_text[i + 2] == 'e' && grug_text[i + 3] == 'a' && grug_text[i + 4] == 'k' && grug_text[i + 5] == ' ') {
-			push_token((token){.type=BREAK_TOKEN, .start=i, .len=5});
+			push_token((token){.type=BREAK_TOKEN, .start=grug_text+i, .len=5});
 			i += 5;
 		} else if (grug_text[i + 0] == 'r' && grug_text[i + 1] == 'e' && grug_text[i + 2] == 't' && grug_text[i + 3] == 'u' && grug_text[i + 4] == 'r' && grug_text[i + 5] == 'n' && grug_text[i + 6] == ' ') {
-			push_token((token){.type=RETURN_TOKEN, .start=i, .len=6});
+			push_token((token){.type=RETURN_TOKEN, .start=grug_text+i, .len=6});
 			i += 6;
 		} else if (grug_text[i + 0] == 'c' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'n' && grug_text[i + 3] == 't' && grug_text[i + 4] == 'i' && grug_text[i + 5] == 'n' && grug_text[i + 6] == 'u' && grug_text[i + 7] == 'e' && grug_text[i + 8] == ' ') {
-			push_token((token){.type=CONTINUE_TOKEN, .start=i, .len=8});
+			push_token((token){.type=CONTINUE_TOKEN, .start=grug_text+i, .len=8});
 			i += 8;
 		} else if (grug_text[i] == ' ') {
-			token token = {.type=SPACES_TOKEN, .start=i};
+			token token = {.type=SPACES_TOKEN, .start=grug_text+i};
 
 			do {
 				i++;
 			} while (grug_text[i] == ' ');
 
-			token.len = i - token.start;
+			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == '\n') {
-			token token = {.type=NEWLINES_TOKEN, .start=i};
+			token token = {.type=NEWLINES_TOKEN, .start=grug_text+i};
 
 			do {
 				i++;
 			} while (grug_text[i] == '\n');
 
-			token.len = i - token.start;
+			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == '\"') {
-			token token = {.type=STRING_TOKEN, .start=i};
+			token token = {.type=STRING_TOKEN, .start=grug_text+i};
 
 			do {
 				i++;
@@ -197,10 +196,10 @@ static void tokenize(char *grug_text) {
 				i++;
 			}
 
-			token.len = i - token.start;
+			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == '.') {
-			token token = {.type=FIELD_NAME_TOKEN, .start=i};
+			token token = {.type=FIELD_NAME_TOKEN, .start=grug_text+i};
 
 			i++;
 
@@ -210,36 +209,36 @@ static void tokenize(char *grug_text) {
 				i++;
 			}
 
-			token.len = i - token.start;
+			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else if (isalpha(grug_text[i]) || grug_text[i] == '_') {
-			token token = {.type=TEXT_TOKEN, .start=i};
+			token token = {.type=TEXT_TOKEN, .start=grug_text+i};
 
 			// TODO: Decide if this should return an error value when the input is ".."
 			do {
 				i++;
 			} while (isalnum(grug_text[i]) || grug_text[i] == '_' || grug_text[i] == '.');
 
-			token.len = i - token.start;
+			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else if (isdigit(grug_text[i])) {
-			token token = {.type=NUMBER_TOKEN, .start=i};
+			token token = {.type=NUMBER_TOKEN, .start=grug_text+i};
 
 			// TODO: Decide if this should return an error value when the input is ".."
 			do {
 				i++;
 			} while (isdigit(grug_text[i]) || grug_text[i] == '.');
 
-			token.len = i - token.start;
+			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == ';') {
-			token token = {.type=COMMENT_TOKEN, .start=i};
+			token token = {.type=COMMENT_TOKEN, .start=grug_text+i};
 
 			do {
 				i++;
 			} while (grug_text[i] != '\n' && grug_text[i] != '\0');
 
-			token.len = i - token.start;
+			token.len = i - (token.start - grug_text);
 			push_token(token);
 		} else {
 			fprintf(stderr, "Unrecognized character '%c' at index %zu\n", grug_text[i], i);
@@ -264,9 +263,9 @@ typedef struct fn fn;
 
 struct call_expr {
 	char *fn_name;
+	size_t fn_name_len;
 	expr *arguments;
-	size_t size;
-	size_t capacity;
+	size_t argument_count;
 };
 
 struct unary_expr {
@@ -307,7 +306,7 @@ struct expr {
 };
 
 struct exprs {
-	expr *expr;
+	expr *exprs;
 	size_t size;
 	size_t capacity;
 };
@@ -368,6 +367,7 @@ static struct arguments arguments;
 
 struct fn {
 	char *fn_name;
+	size_t fn_name_len;
 	argument *arguments;
 	size_t argument_count;
 	char *return_type;
@@ -382,15 +382,38 @@ struct fns {
 };
 static struct fns fns;
 
-static char *serialize_to_c() {
-	char *c_text;
+// static char *serialize_to_c() {
+// 	char *c_text;
 
-	c_text = "";
+// 	c_text = "";
 
-	return c_text;
-}
+// 	return c_text;
+// }
 
 static void print_fns() {
+	printf("{\n");
+	for (size_t fn_index = 0; fn_index < fns.size; fn_index++) {
+		fn fn = fns.fns[fn_index];
+
+		printf("\"fn_name\": \"%s\"\n", fn.fn_name);
+		printf("\"fn_name_len\": %zu\n", fn.fn_name_len);
+		printf("\"arguments\": [\n");
+		for (size_t arg_index = 0; arg_index < fn.argument_count; arg_index++) {
+			printf("{\n");
+			printf("}\n");
+		}
+		printf("]\n");
+		printf("\"argument_count\": %zu\n", fn.argument_count);
+		printf("\"return_type\": \"%s\"\n", fn.return_type);
+		printf("\"body\": [\n");
+		for (size_t body_index = 0; body_index < fn.body_count; body_index++) {
+			printf("{\n");
+			printf("}\n");
+		}
+		printf("]\n");
+		printf("\"body_count\": %zu\n", fn.body_count);
+	}
+	printf("}\n");
 }
 
 // static void push_argument(argument argument) {
@@ -407,15 +430,83 @@ static void print_fns() {
 // 	arguments.arguments[arguments.size++] = argument;
 // }
 
+static void push_fn(fn fn) {
+	// Make sure there's enough room to push fn
+	if (fns.size + 1 > fns.capacity) {
+		fns.capacity = fns.capacity == 0 ? 1 : fns.capacity * 2;
+		fns.fns = realloc(fns.fns, fns.capacity * sizeof(*fns.fns));
+		if (!fns.fns) {
+			perror("realloc");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	fns.fns[fns.size++] = fn;
+}
+
+void assert_token(size_t token_index, unsigned int expected_type) {
+	token token = tokens.tokens[token_index];
+	if (token.type != expected_type) {
+		fprintf(stderr, "Expected token type %s, but got token type %s at token index %zu\n", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void parse_fn(size_t *i) {
+	fn fn = {0};
+
+	token token = tokens.tokens[*i];
+	fn.fn_name = token.start;
+	fn.fn_name_len = token.len;
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token(*i, OPEN_PARENTHESIS_TOKEN);
+
+	// while (*i < tokens.size) {
+	// 	token token = tokens.tokens[*i];
+	// 	int type = token.type;
+
+	// 	if (       type == TEXT_TOKEN) {
+	// 		parse_fn(&i);
+	// 	} else if (type == COMMENT_TOKEN) {
+	// 		i++;
+	// 	} else if (type == NEWLINES_TOKEN) {
+	// 		i++;
+	// 	} else {
+	// 		fprintf(stderr, "Unexpected token '%.*s' at token index %zu in parse_fn()\n", (int)token.len, token.start, i);
+	// 		exit(EXIT_FAILURE);
+	// 	}
+	// }
+
+	push_fn(fn);
+}
+
 static void parse() {
+	size_t i = 0;
+	while (i < tokens.size) {
+		token token = tokens.tokens[i];
+		int type = token.type;
+
+		if (       type == TEXT_TOKEN) {
+			parse_fn(&i);
+		} else if (type == COMMENT_TOKEN) {
+			i++;
+		} else if (type == NEWLINES_TOKEN) {
+			i++;
+		} else {
+			fprintf(stderr, "Unexpected token '%.*s' at token index %zu in parse()\n", (int)token.len, token.start, i);
+			exit(EXIT_FAILURE);
+		}
+	}
 }
 
 static void init() {
+	tokens.size = 0;
 	exprs.size = 0;
 	nodes.size = 0;
 	arguments.size = 0;
 	fns.size = 0;
-	tokens.size = 0;
 }
 
 static char *read_file(char *path) {
@@ -461,13 +552,16 @@ int main() {
 	printf("grug_text:\n%s\n", grug_text);
 
 	init();
+
 	tokenize(grug_text);
-	print_tokens(grug_text);
+	print_tokens();
 
 	parse();
+	printf("\nfns:\n");
 	print_fns();
-	char *c_text = serialize_to_c();
-	printf("\nc_text:\n%s\n", c_text);
+
+	// char *c_text = serialize_to_c();
+	// printf("c_text:\n%s\n", c_text);
 
 	free(arguments.arguments);
 	free(fns.fns);
