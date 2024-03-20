@@ -129,6 +129,26 @@ static void print_tokens() {
 	}
 }
 
+static char *get_escaped_char(char *str) {
+	switch (*str) {
+	case '\f':
+		return "\\f";
+	case '\n':
+		return "\\n";
+	case '\r':
+		return "\\r";
+	case '\t':
+		return "\\t";
+	case '\v':
+		return "\\v";
+	}
+	return str;
+}
+
+static bool is_escaped_char(char c) {
+	return isspace(c) && c != ' ';
+}
+
 static void push_token(token token) {
 	// Make sure there's enough room to push token
 	if (tokens.size + 1 > tokens.capacity) {
@@ -258,14 +278,35 @@ static void tokenize(char *grug_text) {
 		} else if (grug_text[i] == ';') {
 			token token = {.type=COMMENT_TOKEN, .start=grug_text+i};
 
-			do {
+			while (true) {
 				i++;
-			} while (grug_text[i] != '\n' && grug_text[i] != '\0');
+				if (!isprint(grug_text[i])) {
+					if (grug_text[i] == '\n' || grug_text[i] == '\0') {
+						break;
+					}
+
+					fprintf(stderr, "Unexpected unprintable character '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
+					exit(EXIT_FAILURE);
+				}
+			}
 
 			token.len = i - (token.start - grug_text);
+
+			size_t comment_index = token.start - grug_text;
+			if (token.len < 2 || token.start[1] != ' ')
+			{
+				fprintf(stderr, "Expected the comment to start with a space character, but found '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
+				exit(EXIT_FAILURE);
+			}
+			if (token.len < 3 || isspace(token.start[2]))
+			{
+				fprintf(stderr, "Expected a text character in the comment, but found '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
+				exit(EXIT_FAILURE);
+			}
+
 			push_token(token);
 		} else {
-			fprintf(stderr, "Unrecognized character '%c' at grug_text index %zu\n", grug_text[i], i);
+			fprintf(stderr, "Unrecognized character '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -548,7 +589,7 @@ static void push_define_fn(define_fn fn) {
 }
 
 static void skip_any_comment(size_t *i) {
-	// Only skip the comment token if there is one space before it
+	// If there is a comment token with exactly one space before it, skip them
 	token space_token = get_token(*i);
 	if (space_token.type == SPACES_TOKEN) {
 		token comment_token = get_token(*i + 1);
