@@ -78,10 +78,18 @@ static size_t max_size_t(size_t a, size_t b) {
 	return b;
 }
 
+static token get_token(size_t token_index) {
+	if (token_index >= tokens.size) {
+		fprintf(stderr, "Expected a token with index %zu to exist, but that is out of bounds\n", token_index);
+		exit(EXIT_FAILURE);
+	}
+	return tokens.tokens[token_index];
+}
+
 static void print_tokens() {
 	size_t longest_token_type_len = 0;
 	for (size_t i = 0; i < tokens.size; i++) {
-		token token = tokens.tokens[i];
+		token token = get_token(i);
 		char *token_type_str = get_token_type_str[token.type];
 		longest_token_type_len = max_size_t(strlen(token_type_str), longest_token_type_len);
 	}
@@ -102,7 +110,7 @@ static void print_tokens() {
 	printf("| %-*s | %-*s | str\n", (int)longest_index, "index", (int)longest_token_type_len, "type");
 
 	for (size_t i = 0; i < tokens.size; i++) {
-		token token = tokens.tokens[i];
+		token token = get_token(i);
 
 		printf("| %*zu ", (int)longest_index, i);
 
@@ -554,7 +562,7 @@ static void push_field(field field) {
 }
 
 static void assert_token_type(size_t token_index, unsigned int expected_type) {
-	token token = tokens.tokens[token_index];
+	token token = get_token(token_index);
 	if (token.type != expected_type) {
 		fprintf(stderr, "Expected token type %s, but got %s at token index %zu\n", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
 		exit(EXIT_FAILURE);
@@ -564,7 +572,7 @@ static void assert_token_type(size_t token_index, unsigned int expected_type) {
 static void assert_1_newline(size_t token_index) {
 	assert_token_type(token_index, NEWLINES_TOKEN);
 
-	token token = tokens.tokens[token_index];
+	token token = get_token(token_index);
 	if (token.len != 1) {
 		fprintf(stderr, "Expected 1 newline, but got %zu at token index %zu\n", token.len, token_index);
 		exit(EXIT_FAILURE);
@@ -574,7 +582,7 @@ static void assert_1_newline(size_t token_index) {
 static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	assert_token_type(token_index, SPACES_TOKEN);
 
-	token token = tokens.tokens[token_index];
+	token token = get_token(token_index);
 	if (token.len != expected_spaces) {
 		fprintf(stderr, "Expected %zu space%s, but got %zu at token index %zu\n", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, token_index);
 		exit(EXIT_FAILURE);
@@ -586,7 +594,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 
 	compound_literal compound_literal = {0};
 
-	token token = tokens.tokens[*i];
+	token token = get_token(*i);
 	assert_1_newline(*i);
 	(*i)++;
 
@@ -596,30 +604,30 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 
 	// Parse any other fields
 	while (true) {
-		token = tokens.tokens[*i];
+		token = get_token(*i);
 		if (token.type != SPACES_TOKEN || token.len != expected_spaces) {
 			break;
 		}
 		(*i)++;
 
-		token = tokens.tokens[*i];
+		token = get_token(*i);
 		assert_token_type(*i, FIELD_NAME_TOKEN);
 		field field = {.key = token.start, .key_len = token.len};
 		(*i)++;
 
-		token = tokens.tokens[*i];
+		token = get_token(*i);
 		assert_spaces(*i, 1);
 		(*i)++;
 
-		token = tokens.tokens[*i];
+		token = get_token(*i);
 		assert_token_type(*i, ASSIGNMENT_TOKEN);
 		(*i)++;
 
-		token = tokens.tokens[*i];
+		token = get_token(*i);
 		assert_spaces(*i, 1);
 		(*i)++;
 
-		token = tokens.tokens[*i];
+		token = get_token(*i);
 		if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
 			fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
 			exit(EXIT_FAILURE);
@@ -630,11 +638,12 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 		compound_literal.field_count++;
 		(*i)++;
 
-		token = tokens.tokens[*i];
+		token = get_token(*i);
 		assert_token_type(*i, COMMA_TOKEN);
 		(*i)++;
 
-		token = tokens.tokens[*i];
+
+		token = get_token(*i);
 		assert_1_newline(*i);
 		(*i)++;
 	}
@@ -647,15 +656,15 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 	compound_literal.fields = fields.fields + fields_size_before_pushes;
 
 	// Close the compound literal
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_spaces(*i, depth * SPACES_PER_INDENT);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_1_newline(*i);
 	(*i)++;
 
@@ -665,61 +674,61 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 static void parse_define_fn(size_t *i) {
 	define_fn fn = {0};
 
-	token token = tokens.tokens[*i];
+	token token = get_token(*i);
 	fn.fn_name = token.start;
 	fn.fn_name_len = token.len;
 	(*i)++;
 
 	// Parse the function's signature
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, TEXT_TOKEN);
 	fn.return_type = token.start;
 	fn.return_type_len = token.len;
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_1_newline(*i);
 	(*i)++;
 
 	// Parse the body of the function
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_spaces(*i, SPACES_PER_INDENT);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, RETURN_TOKEN);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	fn.returned_compound_literal = parse_compound_literal(i, 1);
 
 	// Close the function
-	token = tokens.tokens[*i];
+	token = get_token(*i);
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
 
@@ -733,7 +742,7 @@ static bool starts_with(char *a, char *b) {
 static void parse() {
 	size_t i = 0;
 	while (i < tokens.size) {
-		token token = tokens.tokens[i];
+		token token = get_token(i);
 		int type = token.type;
 
 		if (       type == TEXT_TOKEN && starts_with(token.start, "define_")) {
