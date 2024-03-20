@@ -265,6 +265,8 @@ static void tokenize(char *grug_text) {
 
 //// PARSING
 
+#define SPACES_PER_INDENT 4
+
 typedef struct call_expr call_expr;
 typedef struct unary_expr unary_expr;
 typedef struct binary_expr binary_expr;
@@ -514,11 +516,11 @@ static void print_fns() {
 }
 
 static void parse_helper_fn(size_t *i) {
-	(void)i;
+	(*i)++;
 }
 
 static void parse_on_fn(size_t *i) {
-	(void)i;
+	(*i)++;
 }
 
 static void push_define_fn(define_fn fn) {
@@ -571,6 +573,7 @@ static void parse_define_fn(size_t *i) {
 	fn.fn_name_len = token.len;
 	(*i)++;
 
+	// Parse the function's signature
 	token = tokens.tokens[*i];
 	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
 	(*i)++;
@@ -601,14 +604,9 @@ static void parse_define_fn(size_t *i) {
 	assert_1_newline(*i);
 	(*i)++;
 
+	// Start parsing the returned compound literal
 	token = tokens.tokens[*i];
-	assert_spaces(*i, 4);
-	size_t depth = 1; // TODO: Don't hardcode!
-	#define SPACES_PER_INDENT 4
-	if (token.len != depth * SPACES_PER_INDENT) {
-		fprintf(stderr, "Expected %zu spaces, but got %zu spaces at token index %zu\n", depth * SPACES_PER_INDENT, token.len, *i);
-		exit(EXIT_FAILURE);
-	}
+	assert_spaces(*i, SPACES_PER_INDENT);
 	(*i)++;
 
 	token = tokens.tokens[*i];
@@ -619,6 +617,7 @@ static void parse_define_fn(size_t *i) {
 	assert_spaces(*i, 1);
 	(*i)++;
 
+	// Open the compound literal
 	token = tokens.tokens[*i];
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	(*i)++;
@@ -627,21 +626,103 @@ static void parse_define_fn(size_t *i) {
 	assert_1_newline(*i);
 	(*i)++;
 
-	// while (*i < tokens.size) {
-	// 	token token = tokens.tokens[*i];
-	// 	int type = token.type;
+	// Parse the first field, which is required
+	token = tokens.tokens[*i];
+	assert_token_type(*i, SPACES_TOKEN);
+	if (token.len != 2 * SPACES_PER_INDENT) {
+		fprintf(stderr, "Expected at least one field starting with %d space%s, but got %zu at token index %zu\n", 2 * SPACES_PER_INDENT, (2 * SPACES_PER_INDENT) > 1 ? "s" : "", token.len, *i);
+		exit(EXIT_FAILURE);
+	}
+	(*i)++;
 
-	// 	if (       type == TEXT_TOKEN) {
-	// 		parse_fn(&i);
-	// 	} else if (type == COMMENT_TOKEN) {
-	// 		i++;
-	// 	} else if (type == NEWLINES_TOKEN) {
-	// 		i++;
-	// 	} else {
-	// 		fprintf(stderr, "Unexpected token '%.*s' at token index %zu in parse_fn()\n", (int)token.len, token.start, i);
-	// 		exit(EXIT_FAILURE);
-	// 	}
-	// }
+	token = tokens.tokens[*i];
+	assert_token_type(*i, FIELD_NAME_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, ASSIGNMENT_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
+		fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
+		exit(EXIT_FAILURE);
+	}
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, COMMA_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_1_newline(*i);
+	(*i)++;
+
+	// Parse any other fields
+	while (true) {
+		token = tokens.tokens[*i];
+		if (token.type != SPACES_TOKEN || token.len != 2 * SPACES_PER_INDENT) {
+			break;
+		}
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_token_type(*i, FIELD_NAME_TOKEN);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_token_type(*i, ASSIGNMENT_TOKEN);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
+			fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
+			exit(EXIT_FAILURE);
+		}
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_token_type(*i, COMMA_TOKEN);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_1_newline(*i);
+		(*i)++;
+	}
+
+	// Close the compound literal
+	token = tokens.tokens[*i];
+	assert_spaces(*i, SPACES_PER_INDENT);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, CLOSE_BRACE_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_1_newline(*i);
+	(*i)++;
+
+	// Close the function
+	token = tokens.tokens[*i];
+	assert_token_type(*i, CLOSE_BRACE_TOKEN);
+	(*i)++;
 
 	push_define_fn(fn);
 }
