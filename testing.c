@@ -270,7 +270,7 @@ static void tokenize(char *grug_text) {
 typedef struct call_expr call_expr;
 typedef struct unary_expr unary_expr;
 typedef struct binary_expr binary_expr;
-typedef struct entry entry;
+typedef struct field field;
 typedef struct compound_literal compound_literal;
 typedef struct literal literal;
 typedef struct expr expr;
@@ -308,23 +308,23 @@ struct binary_expr {
 	expr *right;
 };
 
-struct entry {
+struct field {
 	char *key;
 	size_t key_len;
 	char *value;
 	size_t value_len;
 };
 
-struct entries {
-	entry *entries;
+struct fields {
+	field *fields;
 	size_t size;
 	size_t capacity;
 };
-static struct entries entries;
+static struct fields fields;
 
 struct compound_literal {
-	entry *entries;
-	size_t entry_count;
+	field *fields;
+	size_t field_count;
 };
 
 struct literal {
@@ -476,16 +476,20 @@ static void print_on_fns() {
 }
 
 static void print_compound_literal(compound_literal compound_literal) {
-	printf("\"returned_compound_literal\": {\n");
+	printf("\"returned_compound_literal\": [\n");
 
-	for (size_t entry_index = 0; entry_index < compound_literal.entry_count; entry_index++) {
-		entry entry = compound_literal.entries[entry_index];
+	for (size_t field_index = 0; field_index < compound_literal.field_count; field_index++) {
+		printf("{\n");
 
-		printf("\"key\": \"%.*s\"\n", (int)entry.key_len, entry.key);
-		printf("\"value\": \"%.*s\"\n", (int)entry.value_len, entry.value);
+		field field = compound_literal.fields[field_index];
+
+		printf("\"key\": \"%.*s\",\n", (int)field.key_len, field.key);
+		printf("\"value\": %.*s,\n", (int)field.value_len, field.value);
+
+		printf("},\n");
 	}
 
-	printf("}\n");
+	printf("]\n");
 }
 
 static void print_define_fns() {
@@ -494,10 +498,10 @@ static void print_define_fns() {
 	for (size_t fn_index = 0; fn_index < define_fns.size; fn_index++) {
 		define_fn fn = define_fns.fns[fn_index];
 
-		printf("\"fn_name\": \"%.*s\"\n", (int)fn.fn_name_len, fn.fn_name);
-		printf("\"fn_name_len\": %zu\n", fn.fn_name_len);
-		printf("\"return_type\": \"%.*s\"\n", (int)fn.return_type_len, fn.return_type);
-		printf("\"return_type_len\": %zu\n", fn.return_type_len);
+		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
+		printf("\"fn_name_len\": %zu,\n", fn.fn_name_len);
+		printf("\"return_type\": \"%.*s\",\n", (int)fn.return_type_len, fn.return_type);
+		printf("\"return_type_len\": %zu,\n", fn.return_type_len);
 
 		print_compound_literal(fn.returned_compound_literal);
 	}
@@ -535,6 +539,20 @@ static void push_define_fn(define_fn fn) {
 	}
 
 	define_fns.fns[define_fns.size++] = fn;
+}
+
+static void push_field(field field) {
+	// Make sure there's enough room to push field
+	if (fields.size + 1 > fields.capacity) {
+		fields.capacity = fields.capacity == 0 ? 1 : fields.capacity * 2;
+		fields.fields = realloc(fields.fields, fields.capacity * sizeof(*fields.fields));
+		if (!fields.fields) {
+			perror("realloc");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	fields.fields[fields.size++] = field;
 }
 
 static void assert_token_type(size_t token_index, unsigned int expected_type) {
@@ -637,6 +655,7 @@ static void parse_define_fn(size_t *i) {
 
 	token = tokens.tokens[*i];
 	assert_token_type(*i, FIELD_NAME_TOKEN);
+	field field = {.key = token.start, .key_len = token.len};
 	(*i)++;
 
 	token = tokens.tokens[*i];
@@ -656,6 +675,11 @@ static void parse_define_fn(size_t *i) {
 		fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
 		exit(EXIT_FAILURE);
 	}
+	field.value = token.start;
+	field.value_len = token.len;
+	size_t fields_size_before_pushes = fields.size;
+	push_field(field);
+	fn.returned_compound_literal.field_count++;
 	(*i)++;
 
 	token = tokens.tokens[*i];
@@ -676,6 +700,8 @@ static void parse_define_fn(size_t *i) {
 
 		token = tokens.tokens[*i];
 		assert_token_type(*i, FIELD_NAME_TOKEN);
+		field.key = token.start;
+		field.key_len = token.len;
 		(*i)++;
 
 		token = tokens.tokens[*i];
@@ -695,6 +721,10 @@ static void parse_define_fn(size_t *i) {
 			fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
 			exit(EXIT_FAILURE);
 		}
+		field.value = token.start;
+		field.value_len = token.len;
+		push_field(field);
+		fn.returned_compound_literal.field_count++;
 		(*i)++;
 
 		token = tokens.tokens[*i];
@@ -705,6 +735,8 @@ static void parse_define_fn(size_t *i) {
 		assert_1_newline(*i);
 		(*i)++;
 	}
+
+	fn.returned_compound_literal.fields = fields.fields + fields_size_before_pushes;
 
 	// Close the compound literal
 	token = tokens.tokens[*i];
@@ -756,7 +788,7 @@ static void parse() {
 
 static void grug_free() {
 	free(tokens.tokens);
-	free(entries.entries);
+	free(fields.fields);
 	free(exprs.exprs);
 	free(nodes.nodes);
 	free(arguments.arguments);
@@ -767,7 +799,7 @@ static void grug_free() {
 
 static void reset() {
 	tokens.size = 0;
-	entries.size = 0;
+	fields.size = 0;
 	exprs.size = 0;
 	nodes.size = 0;
 	arguments.size = 0;
