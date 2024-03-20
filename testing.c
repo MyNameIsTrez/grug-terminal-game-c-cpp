@@ -590,52 +590,9 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 	assert_1_newline(*i);
 	(*i)++;
 
-	// Parse the first field, which is required
-	token = tokens.tokens[*i];
-	assert_token_type(*i, SPACES_TOKEN);
 	size_t expected_spaces = (depth + 1) * SPACES_PER_INDENT;
-	if (token.len != expected_spaces) {
-		fprintf(stderr, "Expected at least one field starting with %zu space%s, but got %zu at token index %zu\n", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, *i);
-		exit(EXIT_FAILURE);
-	}
-	(*i)++;
 
-	token = tokens.tokens[*i];
-	assert_token_type(*i, FIELD_NAME_TOKEN);
-	field field = {.key = token.start, .key_len = token.len};
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_spaces(*i, 1);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_token_type(*i, ASSIGNMENT_TOKEN);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_spaces(*i, 1);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
-		fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
-		exit(EXIT_FAILURE);
-	}
-	field.value = token.start;
-	field.value_len = token.len;
 	size_t fields_size_before_pushes = fields.size;
-	push_field(field);
-	compound_literal.field_count++;
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_token_type(*i, COMMA_TOKEN);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_1_newline(*i);
-	(*i)++;
 
 	// Parse any other fields
 	while (true) {
@@ -647,8 +604,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 
 		token = tokens.tokens[*i];
 		assert_token_type(*i, FIELD_NAME_TOKEN);
-		field.key = token.start;
-		field.key_len = token.len;
+		field field = {.key = token.start, .key_len = token.len};
 		(*i)++;
 
 		token = tokens.tokens[*i];
@@ -681,6 +637,11 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 		token = tokens.tokens[*i];
 		assert_1_newline(*i);
 		(*i)++;
+	}
+
+	if (compound_literal.field_count == 0) {
+		fprintf(stderr, "Expected at least one field in the compound literal near token index %zu\n", *i);
+		exit(EXIT_FAILURE);
 	}
 
 	compound_literal.fields = fields.fields + fields_size_before_pushes;
