@@ -499,9 +499,7 @@ static void print_define_fns() {
 		define_fn fn = define_fns.fns[fn_index];
 
 		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
-		printf("\"fn_name_len\": %zu,\n", fn.fn_name_len);
 		printf("\"return_type\": \"%.*s\",\n", (int)fn.return_type_len, fn.return_type);
-		printf("\"return_type_len\": %zu,\n", fn.return_type_len);
 
 		print_compound_literal(fn.returned_compound_literal);
 	}
@@ -583,6 +581,126 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
+static compound_literal parse_compound_literal(size_t *i, size_t depth) {
+	(*i)++;
+
+	compound_literal compound_literal = {0};
+
+	token token = tokens.tokens[*i];
+	assert_1_newline(*i);
+	(*i)++;
+
+	// Parse the first field, which is required
+	token = tokens.tokens[*i];
+	assert_token_type(*i, SPACES_TOKEN);
+	size_t expected_spaces = (depth + 1) * SPACES_PER_INDENT;
+	if (token.len != expected_spaces) {
+		fprintf(stderr, "Expected at least one field starting with %zu space%s, but got %zu at token index %zu\n", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, *i);
+		exit(EXIT_FAILURE);
+	}
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, FIELD_NAME_TOKEN);
+	field field = {.key = token.start, .key_len = token.len};
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, ASSIGNMENT_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
+		fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
+		exit(EXIT_FAILURE);
+	}
+	field.value = token.start;
+	field.value_len = token.len;
+	size_t fields_size_before_pushes = fields.size;
+	push_field(field);
+	compound_literal.field_count++;
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, COMMA_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_1_newline(*i);
+	(*i)++;
+
+	// Parse any other fields
+	while (true) {
+		token = tokens.tokens[*i];
+		if (token.type != SPACES_TOKEN || token.len != expected_spaces) {
+			break;
+		}
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_token_type(*i, FIELD_NAME_TOKEN);
+		field.key = token.start;
+		field.key_len = token.len;
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_token_type(*i, ASSIGNMENT_TOKEN);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
+			fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
+			exit(EXIT_FAILURE);
+		}
+		field.value = token.start;
+		field.value_len = token.len;
+		push_field(field);
+		compound_literal.field_count++;
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_token_type(*i, COMMA_TOKEN);
+		(*i)++;
+
+		token = tokens.tokens[*i];
+		assert_1_newline(*i);
+		(*i)++;
+	}
+
+	compound_literal.fields = fields.fields + fields_size_before_pushes;
+
+	// Close the compound literal
+	token = tokens.tokens[*i];
+	assert_spaces(*i, depth * SPACES_PER_INDENT);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_token_type(*i, CLOSE_BRACE_TOKEN);
+	(*i)++;
+
+	token = tokens.tokens[*i];
+	assert_1_newline(*i);
+	(*i)++;
+
+	return compound_literal;
+}
+
 static void parse_define_fn(size_t *i) {
 	define_fn fn = {0};
 
@@ -622,7 +740,7 @@ static void parse_define_fn(size_t *i) {
 	assert_1_newline(*i);
 	(*i)++;
 
-	// Start parsing the returned compound literal
+	// Parse the body of the function
 	token = tokens.tokens[*i];
 	assert_spaces(*i, SPACES_PER_INDENT);
 	(*i)++;
@@ -635,121 +753,9 @@ static void parse_define_fn(size_t *i) {
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	// Open the compound literal
 	token = tokens.tokens[*i];
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_1_newline(*i);
-	(*i)++;
-
-	// Parse the first field, which is required
-	token = tokens.tokens[*i];
-	assert_token_type(*i, SPACES_TOKEN);
-	if (token.len != 2 * SPACES_PER_INDENT) {
-		fprintf(stderr, "Expected at least one field starting with %d space%s, but got %zu at token index %zu\n", 2 * SPACES_PER_INDENT, (2 * SPACES_PER_INDENT) > 1 ? "s" : "", token.len, *i);
-		exit(EXIT_FAILURE);
-	}
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_token_type(*i, FIELD_NAME_TOKEN);
-	field field = {.key = token.start, .key_len = token.len};
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_spaces(*i, 1);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_token_type(*i, ASSIGNMENT_TOKEN);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_spaces(*i, 1);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
-		fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
-		exit(EXIT_FAILURE);
-	}
-	field.value = token.start;
-	field.value_len = token.len;
-	size_t fields_size_before_pushes = fields.size;
-	push_field(field);
-	fn.returned_compound_literal.field_count++;
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_token_type(*i, COMMA_TOKEN);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_1_newline(*i);
-	(*i)++;
-
-	// Parse any other fields
-	while (true) {
-		token = tokens.tokens[*i];
-		if (token.type != SPACES_TOKEN || token.len != 2 * SPACES_PER_INDENT) {
-			break;
-		}
-		(*i)++;
-
-		token = tokens.tokens[*i];
-		assert_token_type(*i, FIELD_NAME_TOKEN);
-		field.key = token.start;
-		field.key_len = token.len;
-		(*i)++;
-
-		token = tokens.tokens[*i];
-		assert_spaces(*i, 1);
-		(*i)++;
-
-		token = tokens.tokens[*i];
-		assert_token_type(*i, ASSIGNMENT_TOKEN);
-		(*i)++;
-
-		token = tokens.tokens[*i];
-		assert_spaces(*i, 1);
-		(*i)++;
-
-		token = tokens.tokens[*i];
-		if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
-			fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
-			exit(EXIT_FAILURE);
-		}
-		field.value = token.start;
-		field.value_len = token.len;
-		push_field(field);
-		fn.returned_compound_literal.field_count++;
-		(*i)++;
-
-		token = tokens.tokens[*i];
-		assert_token_type(*i, COMMA_TOKEN);
-		(*i)++;
-
-		token = tokens.tokens[*i];
-		assert_1_newline(*i);
-		(*i)++;
-	}
-
-	fn.returned_compound_literal.fields = fields.fields + fields_size_before_pushes;
-
-	// Close the compound literal
-	token = tokens.tokens[*i];
-	assert_spaces(*i, SPACES_PER_INDENT);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_token_type(*i, CLOSE_BRACE_TOKEN);
-	(*i)++;
-
-	token = tokens.tokens[*i];
-	assert_1_newline(*i);
-	(*i)++;
+	fn.returned_compound_literal = parse_compound_literal(i, 1);
 
 	// Close the function
 	token = tokens.tokens[*i];
