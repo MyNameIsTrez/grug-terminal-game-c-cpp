@@ -547,20 +547,22 @@ static void push_define_fn(define_fn fn) {
 	define_fns.fns[define_fns.size++] = fn;
 }
 
-// Use lookahead to only skip space tokens if there is a comment
 static void skip_any_comment(size_t *i) {
-	size_t j = *i;
-	while (true) {
-		token token = get_token(j);
-		if (token.type != SPACES_TOKEN) {
-			break;
+	// Only skip the comment token if there is one space before it
+	token space_token = get_token(*i);
+	if (space_token.type == SPACES_TOKEN) {
+		token comment_token = get_token(*i + 1);
+		if (comment_token.type == COMMENT_TOKEN) {
+			if (space_token.len == 1) {
+				(*i) += 2;
+			} else {
+				fprintf(stderr, "There were too many spaces before the comment at token index %zu\n", *i);
+				exit(EXIT_FAILURE);
+			}
+		} else {
+			fprintf(stderr, "There was a trailing space at token index %zu\n", *i);
+			exit(EXIT_FAILURE);
 		}
-		j++;
-	}
-
-	token token = get_token(j);
-	if (token.type == COMMENT_TOKEN) {
-		*i = j + 1;
 	}
 }
 
