@@ -547,6 +547,23 @@ static void push_define_fn(define_fn fn) {
 	define_fns.fns[define_fns.size++] = fn;
 }
 
+// Use lookahead to only skip space tokens if there is a comment
+static void skip_any_comment(size_t *i) {
+	size_t j = *i;
+	while (true) {
+		token token = get_token(j);
+		if (token.type != SPACES_TOKEN) {
+			break;
+		}
+		j++;
+	}
+
+	token token = get_token(j);
+	if (token.type == COMMENT_TOKEN) {
+		*i = j + 1;
+	}
+}
+
 static void push_field(field field) {
 	// Make sure there's enough room to push field
 	if (fields.size + 1 > fields.capacity) {
@@ -591,6 +608,7 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 
 static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 	(*i)++;
+	skip_any_comment(i);
 
 	compound_literal compound_literal = {0};
 
@@ -641,7 +659,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 		token = get_token(*i);
 		assert_token_type(*i, COMMA_TOKEN);
 		(*i)++;
-
+		skip_any_comment(i);
 
 		token = get_token(*i);
 		assert_1_newline(*i);
@@ -663,6 +681,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 	token = get_token(*i);
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
+	skip_any_comment(i);
 
 	token = get_token(*i);
 	assert_1_newline(*i);
@@ -705,6 +724,7 @@ static void parse_define_fn(size_t *i) {
 	token = get_token(*i);
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	(*i)++;
+	skip_any_comment(i);
 
 	token = get_token(*i);
 	assert_1_newline(*i);
@@ -731,6 +751,7 @@ static void parse_define_fn(size_t *i) {
 	token = get_token(*i);
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
+	skip_any_comment(i);
 
 	push_define_fn(fn);
 }
