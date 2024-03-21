@@ -23,6 +23,7 @@ struct token {
 		EQUALITY_TOKEN,
 		ASSIGNMENT_TOKEN,
 		IF_TOKEN,
+		ELSE_TOKEN,
 		LOOP_TOKEN,
 		BREAK_TOKEN,
 		RETURN_TOKEN,
@@ -51,6 +52,7 @@ static char *get_token_type_str[] = {
 	[EQUALITY_TOKEN] = "EQUALITY_TOKEN",
 	[ASSIGNMENT_TOKEN] = "ASSIGNMENT_TOKEN",
 	[IF_TOKEN] = "IF_TOKEN",
+	[ELSE_TOKEN] = "ELSE_TOKEN",
 	[LOOP_TOKEN] = "LOOP_TOKEN",
 	[BREAK_TOKEN] = "BREAK_TOKEN",
 	[RETURN_TOKEN] = "RETURN_TOKEN",
@@ -199,6 +201,9 @@ static void tokenize(char *grug_text) {
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
 			push_token((token){.type=IF_TOKEN, .start=grug_text+i, .len=2});
 			i += 2;
+		} else if (grug_text[i + 0] == 'e' && grug_text[i + 1] == 'l' && grug_text[i + 2] == 's' && grug_text[i + 3] == 'e' && grug_text[i + 4] == ' ') {
+			push_token((token){.type=ELSE_TOKEN, .start=grug_text+i, .len=4});
+			i += 4;
 		} else if (grug_text[i + 0] == 'l' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'o' && grug_text[i + 3] == 'p' && grug_text[i + 4] == ' ') {
 			push_token((token){.type=LOOP_TOKEN, .start=grug_text+i, .len=4});
 			i += 4;
