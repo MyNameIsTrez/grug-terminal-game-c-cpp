@@ -974,18 +974,18 @@ static void reset() {
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
-        perror("fopen()");
+        perror("fopen");
         exit(EXIT_FAILURE);
 	}
 
 	if (fseek(f, 0, SEEK_END)) {
-        perror("fseek()");
+        perror("fseek");
         exit(EXIT_FAILURE);
 	}
 
 	long count = ftell(f);
 	if (count == -1) {
-        perror("ftell()");
+        perror("ftell");
         exit(EXIT_FAILURE);
 	}
 
@@ -993,13 +993,13 @@ static char *read_file(char *path) {
 
 	char *text = malloc(count + 1);
 	if (!text) {
-		perror("malloc()");
+		perror("malloc");
         exit(EXIT_FAILURE);
 	}
 
 	ssize_t bytes_read = fread(text, 1, count, f);
 	if (bytes_read != count) {
-        perror("fread()");
+        perror("fread");
         exit(EXIT_FAILURE);
 	}
 
