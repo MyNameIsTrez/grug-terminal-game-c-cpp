@@ -299,18 +299,9 @@ static void tokenize(char *grug_text) {
 				exit(EXIT_FAILURE);
 			}
 
-			size_t char_index = 2;
-			bool contains_text = false;
-			while (char_index < token.len) {
-				if (!isspace(token.start[char_index])) {
-					contains_text = true;
-					break;
-				}
-				char_index++;
-			}
-			if (!contains_text)
+			if (token.len < 3 || isspace(token.start[2]))
 			{
-				fprintf(stderr, "Expected a text character in the comment at the %zuth character of the grug text file\n", comment_index + 3);
+				fprintf(stderr, "Expected the comment to have a text character directly after the space, but found '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
 				exit(EXIT_FAILURE);
 			}
 
