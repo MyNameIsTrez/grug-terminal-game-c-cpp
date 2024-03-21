@@ -285,7 +285,7 @@ static void tokenize(char *grug_text) {
 						break;
 					}
 
-					fprintf(stderr, "Unexpected unprintable character '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
+					fprintf(stderr, "Unexpected unprintable character '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
 					exit(EXIT_FAILURE);
 				}
 			}
@@ -295,25 +295,25 @@ static void tokenize(char *grug_text) {
 			size_t comment_index = token.start - grug_text;
 			if (token.len < 2 || token.start[1] != ' ')
 			{
-				fprintf(stderr, "Expected the comment to start with a space character, but found '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
+				fprintf(stderr, "Expected the comment to start with a space character, but found '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
 				exit(EXIT_FAILURE);
 			}
 
 			if (token.len < 3 || isspace(token.start[2]))
 			{
-				fprintf(stderr, "Expected the comment to have a text character directly after the space, but found '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
+				fprintf(stderr, "Expected the comment to have a text character directly after the space, but found '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
 				exit(EXIT_FAILURE);
 			}
 
 			if (isspace(token.start[token.len - 1]))
 			{
-				fprintf(stderr, "Unexpected trailing whitespace '%.*s' at the end of the comment at the %zuth character of the grug text file\n", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + token.len);
+				fprintf(stderr, "Unexpected trailing whitespace '%.*s' at the end of the comment at character %zuth of the grug text file\n", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + token.len);
 				exit(EXIT_FAILURE);
 			}
 
 			push_token(token);
 		} else {
-			fprintf(stderr, "Unrecognized character '%.*s' at the %zuth character of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
+			fprintf(stderr, "Unrecognized character '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
 			exit(EXIT_FAILURE);
 		}
 	}
