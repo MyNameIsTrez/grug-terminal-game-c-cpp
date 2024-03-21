@@ -8,7 +8,8 @@ define_human() human {
     }
 }
 
-on_human_death(self: human) {
-    printf("Graaaaahhhh...\n") ; \n moves the terminal's cursor down a line
-    printf("%s died!\n", self.name) ; %s gets replaced with "Zombie"
+on_human_death(self: human, a: b) {
 }
+
+; printf("Graaaaahhhh...\n") ; \n moves the terminal's cursor down a line
+; printf("%s died!\n", self.name) ; %s gets replaced with "Zombie"

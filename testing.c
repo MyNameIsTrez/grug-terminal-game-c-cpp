@@ -661,6 +661,27 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
+static void parse_on_or_helper_fn_body(size_t *i, size_t *body_nodes_offset, size_t *body_count, size_t indent) {
+	(*i)++;
+	skip_any_comment(i);
+
+	assert_1_newline(*i);
+	(*i)++;
+
+	(void)body_nodes_offset;
+	(void)body_count;
+	(void)indent;
+
+	// TODO: Use recursion with braces to check whether we're going
+	// up/down/are staying at the same indentation,
+	// and assert indent * SPACES_PER_INDENT is true along the way
+
+	// while (true) {
+	// 	assert_spaces(*i, indent * SPACES_PER_INDENT);
+	// 	(*i)++;
+	// }
+}
+
 static void parse_on_fn(size_t *i) {
 	on_fn fn = {0};
 
@@ -670,26 +691,20 @@ static void parse_on_fn(size_t *i) {
 	fn.fn_name_len = token.len;
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
 	(*i)++;
 
 	size_t arguments_size_before_pushes = arguments.size;
 
-	while (true)
-	{
-		token = get_token(*i);
-		if (token.type != TEXT_TOKEN) {
-			break;
-		}
+	// The first argument must not have a comma before it
+	token = get_token(*i);
+	if (token.type == TEXT_TOKEN) {
 		argument argument = {.name = token.start, .name_len = token.len};
 		(*i)++;
 
-		token = get_token(*i);
 		assert_token_type(*i, COLON_TOKEN);
 		(*i)++;
 
-		token = get_token(*i);
 		assert_spaces(*i, 1);
 		(*i)++;
 
@@ -700,38 +715,52 @@ static void parse_on_fn(size_t *i) {
 		push_argument(argument);
 		fn.argument_count++;
 		(*i)++;
-	}
 
-	if (fn.argument_count > 0) {
+		// The second, third, etc. arguments all must have a comma before them
+		while (true)
+		{
+			token = get_token(*i);
+			if (token.type != COMMA_TOKEN) {
+				break;
+			}
+			(*i)++;
+
+			assert_spaces(*i, 1);
+			(*i)++;
+
+			token = get_token(*i);
+			assert_token_type(*i, TEXT_TOKEN);
+			struct argument argument = {.name = token.start, .name_len = token.len};
+			(*i)++;
+
+			assert_token_type(*i, COLON_TOKEN);
+			(*i)++;
+
+			assert_spaces(*i, 1);
+			(*i)++;
+
+			token = get_token(*i);
+			assert_token_type(*i, TEXT_TOKEN);
+			argument.type = token.start;
+			argument.type_len = token.len;
+			push_argument(argument);
+			fn.argument_count++;
+			(*i)++;
+		}
+
 		fn.arguments_offset = arguments_size_before_pushes;
 	}
 
-	token = get_token(*i);
 	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	(*i)++;
-	skip_any_comment(i);
-
-	token = get_token(*i);
-	assert_1_newline(*i);
-	(*i)++;
-
-	// Parse the body of the function
-	token = get_token(*i);
-	assert_spaces(*i, SPACES_PER_INDENT);
-	(*i)++;
-
-	// TODO:
+	parse_on_or_helper_fn_body(i, &fn.body_nodes_offset, &fn.body_count, 1);
 
 	// Close the function
-	token = get_token(*i);
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
 	skip_any_comment(i);
@@ -773,7 +802,6 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 
 	compound_literal compound_literal = {0};
 
-	token token = get_token(*i);
 	assert_1_newline(*i);
 	(*i)++;
 
@@ -783,7 +811,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 
 	// Parse any other fields
 	while (true) {
-		token = get_token(*i);
+		token token = get_token(*i);
 		if (token.type != SPACES_TOKEN || token.len != expected_spaces) {
 			break;
 		}
@@ -794,15 +822,12 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 		field field = {.key = token.start, .key_len = token.len};
 		(*i)++;
 
-		token = get_token(*i);
 		assert_spaces(*i, 1);
 		(*i)++;
 
-		token = get_token(*i);
 		assert_token_type(*i, ASSIGNMENT_TOKEN);
 		(*i)++;
 
-		token = get_token(*i);
 		assert_spaces(*i, 1);
 		(*i)++;
 
@@ -817,12 +842,10 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 		compound_literal.field_count++;
 		(*i)++;
 
-		token = get_token(*i);
 		assert_token_type(*i, COMMA_TOKEN);
 		(*i)++;
 		skip_any_comment(i);
 
-		token = get_token(*i);
 		assert_1_newline(*i);
 		(*i)++;
 	}
@@ -835,16 +858,13 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 	compound_literal.fields_offset = fields_size_before_pushes;
 
 	// Close the compound literal
-	token = get_token(*i);
 	assert_spaces(*i, indent * SPACES_PER_INDENT);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
 	skip_any_comment(i);
 
-	token = get_token(*i);
 	assert_1_newline(*i);
 	(*i)++;
 
@@ -860,15 +880,12 @@ static void parse_define_fn(size_t *i) {
 	fn.fn_name_len = token.len;
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_spaces(*i, 1);
 	(*i)++;
 
@@ -878,38 +895,30 @@ static void parse_define_fn(size_t *i) {
 	fn.return_type_len = token.len;
 	(*i)++;
 
-	token = get_token(*i);
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	(*i)++;
 	skip_any_comment(i);
 
-	token = get_token(*i);
 	assert_1_newline(*i);
 	(*i)++;
 
 	// Parse the body of the function
-	token = get_token(*i);
 	assert_spaces(*i, SPACES_PER_INDENT);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, RETURN_TOKEN);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	token = get_token(*i);
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	fn.returned_compound_literal = parse_compound_literal(i, 1);
 
 	// Close the function
-	token = get_token(*i);
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
 	skip_any_comment(i);
