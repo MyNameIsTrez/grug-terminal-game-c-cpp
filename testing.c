@@ -351,7 +351,7 @@ typedef struct define_fn define_fn;
 struct call_expr {
 	char *fn_name;
 	size_t fn_name_len;
-	expr *arguments;
+	size_t arguments_expr_offset;
 	size_t argument_count;
 };
 
@@ -359,7 +359,7 @@ struct unary_expr {
 	enum {
 		MINUS_UNARY_EXPR,
 	} operator;
-	expr *expr;
+	size_t expr_index;
 };
 
 struct binary_expr {
@@ -369,8 +369,8 @@ struct binary_expr {
 		MULTIPLICATION,
 		DIVISION,
 	} operator;
-	expr *left;
-	expr *right;
+	size_t left_expr_index;
+	size_t right_expr_index;
 };
 
 struct field {
@@ -388,7 +388,7 @@ struct fields {
 static struct fields fields;
 
 struct compound_literal {
-	field *fields;
+	size_t fields_offset;
 	size_t field_count;
 };
 
@@ -421,14 +421,14 @@ struct exprs {
 static struct exprs exprs;
 
 struct return_statement {
-	expr *value;
+	size_t value_expr_index;
 };
 
 struct if_statement {
 	expr condition;
-	node *body;
+	size_t body_nodes_offset;
 	size_t body_count;
-	node *else_body;
+	size_t else_body_nodes_offset;
 	size_t else_body_count;
 };
 
@@ -437,7 +437,7 @@ struct statement {
 	size_t variable_name_len;
 	char *type;
 	size_t type_len;
-	expr value;
+	size_t value_expr_index;
 };
 
 struct node {
@@ -480,11 +480,11 @@ static struct arguments arguments;
 struct helper_fn {
 	char *fn_name;
 	size_t fn_name_len;
-	argument *arguments;
+	size_t arguments_offset;
 	size_t argument_count;
 	char *return_type;
 	size_t return_type_len;
-	node *body;
+	size_t body_nodes_offset;
 	size_t body_count;
 };
 
@@ -498,9 +498,9 @@ static struct helper_fns helper_fns;
 struct on_fn {
 	char *fn_name;
 	size_t fn_name_len;
-	argument *arguments;
+	size_t arguments_offset;
 	size_t argument_count;
-	node *body;
+	size_t body_nodes_offset;
 	size_t body_count;
 };
 
@@ -546,7 +546,7 @@ static void print_compound_literal(compound_literal compound_literal) {
 	for (size_t field_index = 0; field_index < compound_literal.field_count; field_index++) {
 		printf("{\n");
 
-		field field = compound_literal.fields[field_index];
+		field field = fields.fields[compound_literal.fields_offset + field_index];
 
 		printf("\"key\": \"%.*s\",\n", (int)field.key_len, field.key);
 		printf("\"value\": %.*s,\n", (int)field.value_len, field.value);
@@ -586,22 +586,32 @@ static void parse_helper_fn(size_t *i) {
 	(*i)++;
 }
 
-static void parse_on_fn(size_t *i) {
-	(*i)++;
-}
-
-static void push_define_fn(define_fn fn) {
+static void push_on_fn(on_fn fn) {
 	// Make sure there's enough room to push fn
-	if (define_fns.size + 1 > define_fns.capacity) {
-		define_fns.capacity = define_fns.capacity == 0 ? 1 : define_fns.capacity * 2;
-		define_fns.fns = realloc(define_fns.fns, define_fns.capacity * sizeof(*define_fns.fns));
-		if (!define_fns.fns) {
+	if (on_fns.size + 1 > on_fns.capacity) {
+		on_fns.capacity = on_fns.capacity == 0 ? 1 : on_fns.capacity * 2;
+		on_fns.fns = realloc(on_fns.fns, on_fns.capacity * sizeof(*on_fns.fns));
+		if (!on_fns.fns) {
 			perror("realloc");
 			exit(EXIT_FAILURE);
 		}
 	}
 
-	define_fns.fns[define_fns.size++] = fn;
+	on_fns.fns[on_fns.size++] = fn;
+}
+
+static void push_argument(argument argument) {
+	// Make sure there's enough room to push argument
+	if (arguments.size + 1 > arguments.capacity) {
+		arguments.capacity = arguments.capacity == 0 ? 1 : arguments.capacity * 2;
+		arguments.arguments = realloc(arguments.arguments, arguments.capacity * sizeof(*arguments.arguments));
+		if (!arguments.arguments) {
+			perror("realloc");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	arguments.arguments[arguments.size++] = argument;
 }
 
 static void skip_any_comment(size_t *i) {
@@ -621,20 +631,6 @@ static void skip_any_comment(size_t *i) {
 			exit(EXIT_FAILURE);
 		}
 	}
-}
-
-static void push_field(field field) {
-	// Make sure there's enough room to push field
-	if (fields.size + 1 > fields.capacity) {
-		fields.capacity = fields.capacity == 0 ? 1 : fields.capacity * 2;
-		fields.fields = realloc(fields.fields, fields.capacity * sizeof(*fields.fields));
-		if (!fields.fields) {
-			perror("realloc");
-			exit(EXIT_FAILURE);
-		}
-	}
-
-	fields.fields[fields.size++] = field;
 }
 
 static void assert_token_type(size_t token_index, unsigned int expected_type) {
@@ -665,7 +661,113 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
-static compound_literal parse_compound_literal(size_t *i, size_t depth) {
+static void parse_on_fn(size_t *i) {
+	on_fn fn = {0};
+
+	// Parse the function's signature
+	token token = get_token(*i);
+	fn.fn_name = token.start;
+	fn.fn_name_len = token.len;
+	(*i)++;
+
+	token = get_token(*i);
+	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
+	(*i)++;
+
+	size_t arguments_size_before_pushes = arguments.size;
+
+	while (true)
+	{
+		token = get_token(*i);
+		if (token.type != TEXT_TOKEN) {
+			break;
+		}
+		argument argument = {.name = token.start, .name_len = token.len};
+		(*i)++;
+
+		token = get_token(*i);
+		assert_token_type(*i, COLON_TOKEN);
+		(*i)++;
+
+		token = get_token(*i);
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		token = get_token(*i);
+		assert_token_type(*i, TEXT_TOKEN);
+		argument.type = token.start;
+		argument.type_len = token.len;
+		push_argument(argument);
+		fn.argument_count++;
+		(*i)++;
+	}
+
+	if (fn.argument_count > 0) {
+		fn.arguments_offset = arguments_size_before_pushes;
+	}
+
+	token = get_token(*i);
+	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
+	(*i)++;
+
+	token = get_token(*i);
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	token = get_token(*i);
+	assert_token_type(*i, OPEN_BRACE_TOKEN);
+	(*i)++;
+	skip_any_comment(i);
+
+	token = get_token(*i);
+	assert_1_newline(*i);
+	(*i)++;
+
+	// Parse the body of the function
+	token = get_token(*i);
+	assert_spaces(*i, SPACES_PER_INDENT);
+	(*i)++;
+
+	// TODO:
+
+	// Close the function
+	token = get_token(*i);
+	assert_token_type(*i, CLOSE_BRACE_TOKEN);
+	(*i)++;
+	skip_any_comment(i);
+
+	push_on_fn(fn);
+}
+
+static void push_define_fn(define_fn fn) {
+	// Make sure there's enough room to push fn
+	if (define_fns.size + 1 > define_fns.capacity) {
+		define_fns.capacity = define_fns.capacity == 0 ? 1 : define_fns.capacity * 2;
+		define_fns.fns = realloc(define_fns.fns, define_fns.capacity * sizeof(*define_fns.fns));
+		if (!define_fns.fns) {
+			perror("realloc");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	define_fns.fns[define_fns.size++] = fn;
+}
+
+static void push_field(field field) {
+	// Make sure there's enough room to push field
+	if (fields.size + 1 > fields.capacity) {
+		fields.capacity = fields.capacity == 0 ? 1 : fields.capacity * 2;
+		fields.fields = realloc(fields.fields, fields.capacity * sizeof(*fields.fields));
+		if (!fields.fields) {
+			perror("realloc");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	fields.fields[fields.size++] = field;
+}
+
+static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 	(*i)++;
 	skip_any_comment(i);
 
@@ -675,7 +777,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 	assert_1_newline(*i);
 	(*i)++;
 
-	size_t expected_spaces = (depth + 1) * SPACES_PER_INDENT;
+	size_t expected_spaces = (indent + 1) * SPACES_PER_INDENT;
 
 	size_t fields_size_before_pushes = fields.size;
 
@@ -730,11 +832,11 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 		exit(EXIT_FAILURE);
 	}
 
-	compound_literal.fields = fields.fields + fields_size_before_pushes;
+	compound_literal.fields_offset = fields_size_before_pushes;
 
 	// Close the compound literal
 	token = get_token(*i);
-	assert_spaces(*i, depth * SPACES_PER_INDENT);
+	assert_spaces(*i, indent * SPACES_PER_INDENT);
 	(*i)++;
 
 	token = get_token(*i);
@@ -752,12 +854,12 @@ static compound_literal parse_compound_literal(size_t *i, size_t depth) {
 static void parse_define_fn(size_t *i) {
 	define_fn fn = {0};
 
+	// Parse the function's signature
 	token token = get_token(*i);
 	fn.fn_name = token.start;
 	fn.fn_name_len = token.len;
 	(*i)++;
 
-	// Parse the function's signature
 	token = get_token(*i);
 	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
 	(*i)++;
