@@ -47,13 +47,6 @@ struct token {
 	char *start;
 	size_t len;
 };
-struct tokens {
-	token *tokens;
-	size_t size;
-	size_t capacity;
-};
-static struct tokens tokens;
-
 static char *get_token_type_str[] = {
 	[OPEN_PARENTHESIS_TOKEN] = "OPEN_PARENTHESIS_TOKEN",
 	[CLOSE_PARENTHESIS_TOKEN] = "CLOSE_PARENTHESIS_TOKEN",
@@ -79,6 +72,12 @@ static char *get_token_type_str[] = {
 	[NUMBER_TOKEN] = "NUMBER_TOKEN",
 	[COMMENT_TOKEN] = "COMMENT_TOKEN",
 };
+struct tokens {
+	token *tokens;
+	size_t size;
+	size_t capacity;
+};
+static struct tokens tokens;
 
 static size_t max_size_t(size_t a, size_t b) {
 	if (a > b) {
@@ -456,6 +455,14 @@ struct statement {
 		return_statement return_statement;
 	};
 };
+static char *get_statement_type_str[] = {
+	[VARIABLE_STATEMENT] = "VARIABLE_STATEMENT",
+	[IF_STATEMENT] = "IF_STATEMENT",
+	[RETURN_STATEMENT] = "RETURN_STATEMENT",
+	[LOOP_STATEMENT] = "LOOP_STATEMENT",
+	[BREAK_STATEMENT] = "BREAK_STATEMENT",
+	[CONTINUE_STATEMENT] = "CONTINUE_STATEMENT",
+};
 struct statements {
 	statement *statements;
 	size_t size;
@@ -528,6 +535,37 @@ static struct helper_fns helper_fns;
 static void print_helper_fns() {
 }
 
+static void print_statements(size_t statements_offset, size_t statement_count) {
+	printf("\"statements\": [");
+
+	for (size_t statement_index = 0; statement_index < statement_count; statement_index++) {
+		printf("{\n");
+
+		statement st = statements.statements[statements_offset + statement_index];
+
+		printf("\"type\": \"%s\",\n", get_statement_type_str[st.type]);
+
+		switch (st.type) {
+			case VARIABLE_STATEMENT:
+				break;
+			case IF_STATEMENT:
+				break;
+			case RETURN_STATEMENT:
+				break;
+			case LOOP_STATEMENT:
+				break;
+			case BREAK_STATEMENT:
+				break;
+			case CONTINUE_STATEMENT:
+				break;
+		}
+
+		printf("},\n");
+	}
+
+	printf("],\n");
+}
+
 static void print_arguments(size_t arguments_offset, size_t argument_count) {
 	printf("\"arguments\": [");
 
@@ -556,6 +594,7 @@ static void print_on_fns() {
 		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
 
 		print_arguments(fn.arguments_offset, fn.argument_count);
+		print_statements(fn.body_statements_offset, fn.body_count);
 
 		printf("},\n");
 	}
@@ -687,8 +726,6 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 	assert_1_newline(*i);
 	(*i)++;
 
-	(void)body_statements_offset;
-	(void)body_count;
 	(void)indents;
 
 	// TODO: Use recursion with braces to check whether we're going
@@ -721,7 +758,6 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 				// push_expr(expr);
 
 				// statement statement = {.type = RETURN_STATEMENT, .return_statement.value_expr_index = exprs.size};
-				// push_statement(statement);
 				break;
 			case LOOP_TOKEN:
 				
@@ -730,6 +766,7 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 			{
 				statement.type = BREAK_STATEMENT;
 				push_statement(statement);
+				(*body_count)++;
 				break;
 			}
 			case CONTINUE_TOKEN:
