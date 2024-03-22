@@ -347,7 +347,6 @@ typedef struct if_statement if_statement;
 typedef struct return_statement return_statement;
 typedef struct statement statement;
 typedef struct argument argument;
-typedef struct define_fn define_fn;
 typedef struct on_fn on_fn;
 typedef struct helper_fn helper_fn;
 
@@ -484,12 +483,7 @@ struct define_fn {
 	size_t return_type_len;
 	compound_literal returned_compound_literal;
 };
-struct define_fns {
-	define_fn *fns;
-	size_t size;
-	size_t capacity;
-};
-static struct define_fns define_fns;
+static struct define_fn define_fn;
 
 struct on_fn {
 	char *fn_name;
@@ -563,17 +557,13 @@ static void print_compound_literal(compound_literal compound_literal) {
 	printf("]\n");
 }
 
-static void print_define_fns() {
-	printf("\"define_fns\": {\n");
+static void print_define_fn() {
+	printf("\"define_fn\": {\n");
 
-	for (size_t fn_index = 0; fn_index < define_fns.size; fn_index++) {
-		define_fn fn = define_fns.fns[fn_index];
+	printf("\"fn_name\": \"%.*s\",\n", (int)define_fn.fn_name_len, define_fn.fn_name);
+	printf("\"return_type\": \"%.*s\",\n", (int)define_fn.return_type_len, define_fn.return_type);
 
-		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
-		printf("\"return_type\": \"%.*s\",\n", (int)fn.return_type_len, fn.return_type);
-
-		print_compound_literal(fn.returned_compound_literal);
-	}
+	print_compound_literal(define_fn.returned_compound_literal);
 
 	printf("},\n");
 }
@@ -581,7 +571,7 @@ static void print_define_fns() {
 static void print_fns() {
 	printf("{\n");
 
-	print_define_fns();
+	print_define_fn();
 	print_on_fns();
 	print_helper_fns();
 
@@ -779,20 +769,6 @@ static void parse_on_fn(size_t *i) {
 	push_on_fn(fn);
 }
 
-static void push_define_fn(define_fn fn) {
-	// Make sure there's enough room to push fn
-	if (define_fns.size + 1 > define_fns.capacity) {
-		define_fns.capacity = define_fns.capacity == 0 ? 1 : define_fns.capacity * 2;
-		define_fns.fns = realloc(define_fns.fns, define_fns.capacity * sizeof(*define_fns.fns));
-		if (!define_fns.fns) {
-			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
-			longjmp(jmp_buffer, 1);
-		}
-	}
-
-	define_fns.fns[define_fns.size++] = fn;
-}
-
 static void push_field(field field) {
 	// Make sure there's enough room to push field
 	if (fields.size + 1 > fields.capacity) {
@@ -883,12 +859,10 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 }
 
 static void parse_define_fn(size_t *i) {
-	define_fn fn = {0};
-
 	// Parse the function's signature
 	token token = get_token(*i);
-	fn.fn_name = token.start;
-	fn.fn_name_len = token.len;
+	define_fn.fn_name = token.start;
+	define_fn.fn_name_len = token.len;
 	(*i)++;
 
 	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
@@ -902,8 +876,8 @@ static void parse_define_fn(size_t *i) {
 
 	token = get_token(*i);
 	assert_token_type(*i, TEXT_TOKEN);
-	fn.return_type = token.start;
-	fn.return_type_len = token.len;
+	define_fn.return_type = token.start;
+	define_fn.return_type_len = token.len;
 	(*i)++;
 
 	assert_spaces(*i, 1);
@@ -927,14 +901,12 @@ static void parse_define_fn(size_t *i) {
 	(*i)++;
 
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	fn.returned_compound_literal = parse_compound_literal(i, 1);
+	define_fn.returned_compound_literal = parse_compound_literal(i, 1);
 
 	// Close the function
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
 	skip_any_comment(i);
-
-	push_define_fn(fn);
 }
 
 static bool starts_with(char *a, char *b) {
@@ -972,7 +944,6 @@ static void grug_free() {
 	free(arguments.arguments);
 	free(helper_fns.fns);
 	free(on_fns.fns);
-	free(define_fns.fns);
 }
 
 static void reset() {
@@ -983,7 +954,6 @@ static void reset() {
 	arguments.size = 0;
 	helper_fns.size = 0;
 	on_fns.size = 0;
-	define_fns.size = 0;
 }
 
 static char *read_file(char *path) {
