@@ -1,10 +1,17 @@
 #include <ctype.h>
+#include <errno.h>
+#include <setjmp.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+
+static char error_msg[420];
+jmp_buf jmp_buffer;
+typedef void (*grug_error_handler_fn)();
+grug_error_handler_fn grug_error_handler;
 
 //// TOKENIZATION
 
@@ -82,8 +89,8 @@ static size_t max_size_t(size_t a, size_t b) {
 
 static token get_token(size_t token_index) {
 	if (token_index >= tokens.size) {
-		fprintf(stderr, "Expected a token with index %zu to exist, but that is out of bounds\n", token_index);
-		exit(EXIT_FAILURE);
+		snprintf(error_msg, sizeof(error_msg), "token_index %zu was out of bounds in get_token()", token_index);
+		longjmp(jmp_buffer, 1);
 	}
 	return tokens.tokens[token_index];
 }
@@ -157,8 +164,8 @@ static void push_token(token token) {
 		tokens.capacity = tokens.capacity == 0 ? 1 : tokens.capacity * 2;
 		tokens.tokens = realloc(tokens.tokens, tokens.capacity * sizeof(*tokens.tokens));
 		if (!tokens.tokens) {
-			perror("realloc");
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
+			longjmp(jmp_buffer, 1);
 		}
 	}
 
@@ -290,8 +297,8 @@ static void tokenize(char *grug_text) {
 						break;
 					}
 
-					fprintf(stderr, "Unexpected unprintable character '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
-					exit(EXIT_FAILURE);
+					snprintf(error_msg, sizeof(error_msg), "Unexpected unprintable character '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
+					longjmp(jmp_buffer, 1);
 				}
 			}
 
@@ -300,26 +307,26 @@ static void tokenize(char *grug_text) {
 			size_t comment_index = token.start - grug_text;
 			if (token.len < 2 || token.start[1] != ' ')
 			{
-				fprintf(stderr, "Expected the comment to start with a space character, but found '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
-				exit(EXIT_FAILURE);
+				snprintf(error_msg, sizeof(error_msg), "Expected the comment to start with a space character, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
+				longjmp(jmp_buffer, 1);
 			}
 
 			if (token.len < 3 || isspace(token.start[2]))
 			{
-				fprintf(stderr, "Expected the comment to have a text character directly after the space, but found '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
-				exit(EXIT_FAILURE);
+				snprintf(error_msg, sizeof(error_msg), "Expected the comment to have a text character directly after the space, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
+				longjmp(jmp_buffer, 1);
 			}
 
 			if (isspace(token.start[token.len - 1]))
 			{
-				fprintf(stderr, "Unexpected trailing whitespace '%.*s' at the end of the comment at character %zuth of the grug text file\n", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + token.len);
-				exit(EXIT_FAILURE);
+				snprintf(error_msg, sizeof(error_msg), "Unexpected trailing whitespace '%.*s' at the end of the comment at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + token.len);
+				longjmp(jmp_buffer, 1);
 			}
 
 			push_token(token);
 		} else {
-			fprintf(stderr, "Unrecognized character '%.*s' at character %zuth of the grug text file\n", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "Unrecognized character '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
+			longjmp(jmp_buffer, 1);
 		}
 	}
 }
@@ -588,8 +595,8 @@ static void push_on_fn(on_fn fn) {
 		on_fns.capacity = on_fns.capacity == 0 ? 1 : on_fns.capacity * 2;
 		on_fns.fns = realloc(on_fns.fns, on_fns.capacity * sizeof(*on_fns.fns));
 		if (!on_fns.fns) {
-			perror("realloc");
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
+			longjmp(jmp_buffer, 1);
 		}
 	}
 
@@ -602,8 +609,8 @@ static void push_argument(argument argument) {
 		arguments.capacity = arguments.capacity == 0 ? 1 : arguments.capacity * 2;
 		arguments.arguments = realloc(arguments.arguments, arguments.capacity * sizeof(*arguments.arguments));
 		if (!arguments.arguments) {
-			perror("realloc");
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
+			longjmp(jmp_buffer, 1);
 		}
 	}
 
@@ -619,12 +626,12 @@ static void skip_any_comment(size_t *i) {
 			if (space_token.len == 1) {
 				(*i) += 2;
 			} else {
-				fprintf(stderr, "There were too many spaces before the comment at token index %zu\n", *i);
-				exit(EXIT_FAILURE);
+				snprintf(error_msg, sizeof(error_msg), "There were too many spaces before the comment at token index %zu", *i);
+				longjmp(jmp_buffer, 1);
 			}
 		} else {
-			fprintf(stderr, "There was a trailing space at token index %zu\n", *i);
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "There was a trailing space at token index %zu", *i);
+			longjmp(jmp_buffer, 1);
 		}
 	}
 }
@@ -632,8 +639,8 @@ static void skip_any_comment(size_t *i) {
 static void assert_token_type(size_t token_index, unsigned int expected_type) {
 	token token = get_token(token_index);
 	if (token.type != expected_type) {
-		fprintf(stderr, "Expected token type %s, but got %s at token index %zu\n", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
-		exit(EXIT_FAILURE);
+		snprintf(error_msg, sizeof(error_msg), "Expected token type %s, but got %s at token index %zu", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
+		longjmp(jmp_buffer, 1);
 	}
 }
 
@@ -642,8 +649,8 @@ static void assert_1_newline(size_t token_index) {
 
 	token token = get_token(token_index);
 	if (token.len != 1) {
-		fprintf(stderr, "Expected 1 newline, but got %zu at token index %zu\n", token.len, token_index);
-		exit(EXIT_FAILURE);
+		snprintf(error_msg, sizeof(error_msg), "Expected 1 newline, but got %zu at token index %zu", token.len, token_index);
+		longjmp(jmp_buffer, 1);
 	}
 }
 
@@ -652,8 +659,8 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 
 	token token = get_token(token_index);
 	if (token.len != expected_spaces) {
-		fprintf(stderr, "Expected %zu space%s, but got %zu at token index %zu\n", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, token_index);
-		exit(EXIT_FAILURE);
+		snprintf(error_msg, sizeof(error_msg), "Expected %zu space%s, but got %zu at token index %zu", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, token_index);
+		longjmp(jmp_buffer, 1);
 	}
 }
 
@@ -770,8 +777,8 @@ static void push_define_fn(define_fn fn) {
 		define_fns.capacity = define_fns.capacity == 0 ? 1 : define_fns.capacity * 2;
 		define_fns.fns = realloc(define_fns.fns, define_fns.capacity * sizeof(*define_fns.fns));
 		if (!define_fns.fns) {
-			perror("realloc");
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
+			longjmp(jmp_buffer, 1);
 		}
 	}
 
@@ -784,8 +791,8 @@ static void push_field(field field) {
 		fields.capacity = fields.capacity == 0 ? 1 : fields.capacity * 2;
 		fields.fields = realloc(fields.fields, fields.capacity * sizeof(*fields.fields));
 		if (!fields.fields) {
-			perror("realloc");
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
+			longjmp(jmp_buffer, 1);
 		}
 	}
 
@@ -829,8 +836,8 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 
 		token = get_token(*i);
 		if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
-			fprintf(stderr, "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu\n", get_token_type_str[token.type], *i);
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu", get_token_type_str[token.type], *i);
+			longjmp(jmp_buffer, 1);
 		}
 		field.value = token.start;
 		field.value_len = token.len;
@@ -847,8 +854,8 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 	}
 
 	if (compound_literal.field_count == 0) {
-		fprintf(stderr, "Expected at least one field in the compound literal near token index %zu\n", *i);
-		exit(EXIT_FAILURE);
+		snprintf(error_msg, sizeof(error_msg), "Expected at least one field in the compound literal near token index %zu", *i);
+		longjmp(jmp_buffer, 1);
 	}
 
 	compound_literal.fields_offset = fields_size_before_pushes;
@@ -943,8 +950,8 @@ static void parse() {
 		} else if (type == NEWLINES_TOKEN) {
 			i++;
 		} else {
-			fprintf(stderr, "Unexpected token '%.*s' at token index %zu in parse()\n", (int)token.len, token.start, i);
-			exit(EXIT_FAILURE);
+			snprintf(error_msg, sizeof(error_msg), "Unexpected token '%.*s' at token index %zu in parse()", (int)token.len, token.start, i);
+			longjmp(jmp_buffer, 1);
 		}
 	}
 }
@@ -974,33 +981,33 @@ static void reset() {
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
-        perror("fopen");
-        exit(EXIT_FAILURE);
+        snprintf(error_msg, sizeof(error_msg), "fopen");
+		longjmp(jmp_buffer, 1);
 	}
 
 	if (fseek(f, 0, SEEK_END)) {
-        perror("fseek");
-        exit(EXIT_FAILURE);
+        snprintf(error_msg, sizeof(error_msg), "fseek");
+		longjmp(jmp_buffer, 1);
 	}
 
 	long count = ftell(f);
 	if (count == -1) {
-        perror("ftell");
-        exit(EXIT_FAILURE);
+        snprintf(error_msg, sizeof(error_msg), "ftell");
+		longjmp(jmp_buffer, 1);
 	}
 
 	rewind(f);
 
 	char *text = malloc(count + 1);
 	if (!text) {
-		perror("malloc");
-        exit(EXIT_FAILURE);
+		snprintf(error_msg, sizeof(error_msg), "malloc");
+		longjmp(jmp_buffer, 1);
 	}
 
 	ssize_t bytes_read = fread(text, 1, count, f);
 	if (bytes_read != count) {
-        perror("fread");
-        exit(EXIT_FAILURE);
+        snprintf(error_msg, sizeof(error_msg), "fread");
+		longjmp(jmp_buffer, 1);
 	}
 
 	text[count] = '\0';
@@ -1008,8 +1015,7 @@ static char *read_file(char *path) {
 	return text;
 }
 
-// clang testing.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -fsanitize=address,undefined -g && ./a.out
-int main() {
+void run() {
 	char *grug_text = read_file("zombie.grug");
 	printf("grug_text:\n%s\n", grug_text);
 
@@ -1027,4 +1033,20 @@ int main() {
 
 	grug_free();
 	free(grug_text);
+}
+
+void error_handler(char *error_msg) {
+	fprintf(stderr, "%s\n", error_msg);
+	exit(EXIT_FAILURE);
+}
+
+// clang testing.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -fsanitize=address,undefined -g && ./a.out
+int main() {
+	grug_error_handler = error_handler;
+
+	if (setjmp(jmp_buffer)) {
+		grug_error_handler(error_msg);
+	}
+
+	run();
 }
