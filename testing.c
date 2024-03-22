@@ -443,12 +443,12 @@ struct return_statement {
 
 struct statement {
 	enum {
-		VARIABLE,
-		IF,
-		RETURN,
-		LOOP,
-		BREAK,
-		CONTINUE,
+		VARIABLE_STATEMENT,
+		IF_STATEMENT,
+		RETURN_STATEMENT,
+		LOOP_STATEMENT,
+		BREAK_STATEMENT,
+		CONTINUE_STATEMENT,
 	} type;
 	union {
 		variable_statement variable_statement;
@@ -596,18 +596,18 @@ static void push_on_fn(on_fn fn) {
 	on_fns.fns[on_fns.size++] = fn;
 }
 
-static void push_argument(argument argument) {
-	// Make sure there's enough room to push argument
-	if (arguments.size + 1 > arguments.capacity) {
-		arguments.capacity = arguments.capacity == 0 ? 1 : arguments.capacity * 2;
-		arguments.arguments = realloc(arguments.arguments, arguments.capacity * sizeof(*arguments.arguments));
-		if (!arguments.arguments) {
+static void push_statement(statement statement) {
+	// Make sure there's enough room to push statement
+	if (statements.size + 1 > statements.capacity) {
+		statements.capacity = statements.capacity == 0 ? 1 : statements.capacity * 2;
+		statements.statements = realloc(statements.statements, statements.capacity * sizeof(*statements.statements));
+		if (!statements.statements) {
 			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
 			longjmp(jmp_buffer, 1);
 		}
 	}
 
-	arguments.arguments[arguments.size++] = argument;
+	statements.statements[statements.size++] = statement;
 }
 
 static void skip_any_comment(size_t *i) {
@@ -664,11 +664,6 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 	assert_1_newline(*i);
 	(*i)++;
 
-	// Close the function
-	assert_token_type(*i, CLOSE_BRACE_TOKEN);
-	(*i)++;
-	skip_any_comment(i);
-
 	(void)body_statements_offset;
 	(void)body_count;
 	(void)indents;
@@ -677,15 +672,77 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 	// up/down/are staying at the same indentation,
 	// and assert indents * SPACES_PER_INDENT is true along the way
 
-	// while (true) {
-	// 	assert_spaces(*i, indents * SPACES_PER_INDENT);
-	// 	(*i)++;
-	// }
+	*body_statements_offset = statements.size;
+
+	while (true) {
+		token token = get_token(*i);
+		if (token.type != SPACES_TOKEN) {
+			break;
+		}
+		assert_spaces(*i, indents * SPACES_PER_INDENT);
+		(*i)++;
+
+		// TODO: Turn this into parse_statement()
+		token = get_token(*i);
+		(*i)++;
+		statement statement;
+		switch (token.type) {
+			case TEXT_TOKEN:
+				
+				break;
+			case IF_TOKEN:
+				
+				break;
+			case RETURN_TOKEN:
+				// expr expr = {.};
+				// push_expr(expr);
+
+				// statement statement = {.type = RETURN_STATEMENT, .return_statement.value_expr_index = exprs.size};
+				// push_statement(statement);
+				break;
+			case LOOP_TOKEN:
+				
+				break;
+			case BREAK_TOKEN:
+			{
+				statement.type = BREAK_STATEMENT;
+				push_statement(statement);
+				break;
+			}
+			case CONTINUE_TOKEN:
+				
+				break;
+			default:
+				snprintf(error_msg, sizeof(error_msg), "Unexpected token type %s at token index %zu", get_token_type_str[token.type], *i);
+				longjmp(jmp_buffer, 1);
+		}
+	}
+	skip_any_comment(i);
+
+	assert_1_newline(*i);
+	(*i)++;
+
+	// Close the function
+	assert_token_type(*i, CLOSE_BRACE_TOKEN);
+	(*i)++;
+	skip_any_comment(i);
+}
+
+static void push_argument(argument argument) {
+	// Make sure there's enough room to push argument
+	if (arguments.size + 1 > arguments.capacity) {
+		arguments.capacity = arguments.capacity == 0 ? 1 : arguments.capacity * 2;
+		arguments.arguments = realloc(arguments.arguments, arguments.capacity * sizeof(*arguments.arguments));
+		if (!arguments.arguments) {
+			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
+			longjmp(jmp_buffer, 1);
+		}
+	}
+
+	arguments.arguments[arguments.size++] = argument;
 }
 
 static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
-	size_t arguments_size_before_pushes = arguments.size;
-
 	token token = get_token(*i);
 	argument argument = {.name = token.start, .name_len = token.len};
 	(*i)++;
@@ -703,6 +760,8 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 	push_argument(argument);
 	(*argument_count)++;
 	(*i)++;
+
+	*arguments_offset = arguments.size;
 
 	// The second, third, etc. arguments all must have a comma before them
 	while (true)
@@ -735,8 +794,6 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 		(*argument_count)++;
 		(*i)++;
 	}
-
-	*arguments_offset = arguments_size_before_pushes;
 }
 
 static void parse_on_fn(size_t *i) {
@@ -794,7 +851,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 
 	size_t expected_spaces = (indents + 1) * SPACES_PER_INDENT;
 
-	size_t fields_size_before_pushes = fields.size;
+	compound_literal.fields_offset = fields.size;
 
 	// Parse any other fields
 	while (true) {
@@ -841,8 +898,6 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 		snprintf(error_msg, sizeof(error_msg), "Expected at least one field in the compound literal near token index %zu", *i);
 		longjmp(jmp_buffer, 1);
 	}
-
-	compound_literal.fields_offset = fields_size_before_pushes;
 
 	// Close the compound literal
 	assert_spaces(*i, indents * SPACES_PER_INDENT);
