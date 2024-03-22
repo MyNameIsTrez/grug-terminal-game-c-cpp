@@ -430,9 +430,9 @@ struct return_statement {
 
 struct if_statement {
 	expr condition;
-	size_t body_nodes_offset;
+	size_t body_statements_offset;
 	size_t body_count;
-	size_t else_body_nodes_offset;
+	size_t else_body_statements_offset;
 	size_t else_body_count;
 };
 
@@ -488,7 +488,7 @@ struct helper_fn {
 	size_t argument_count;
 	char *return_type;
 	size_t return_type_len;
-	size_t body_nodes_offset;
+	size_t body_statements_offset;
 	size_t body_count;
 };
 
@@ -504,7 +504,7 @@ struct on_fn {
 	size_t fn_name_len;
 	size_t arguments_offset;
 	size_t argument_count;
-	size_t body_nodes_offset;
+	size_t body_statements_offset;
 	size_t body_count;
 };
 
@@ -665,14 +665,19 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
-static void parse_on_or_helper_fn_body(size_t *i, size_t *body_nodes_offset, size_t *body_count, size_t indents) {
+static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset, size_t *body_count, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
 
 	assert_1_newline(*i);
 	(*i)++;
 
-	(void)body_nodes_offset;
+	// Close the function
+	assert_token_type(*i, CLOSE_BRACE_TOKEN);
+	(*i)++;
+	skip_any_comment(i);
+
+	(void)body_statements_offset;
 	(void)body_count;
 	(void)indents;
 
@@ -762,12 +767,7 @@ static void parse_on_fn(size_t *i) {
 	(*i)++;
 
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	parse_on_or_helper_fn_body(i, &fn.body_nodes_offset, &fn.body_count, 1);
-
-	// Close the function
-	assert_token_type(*i, CLOSE_BRACE_TOKEN);
-	(*i)++;
-	skip_any_comment(i);
+	parse_on_or_helper_fn_body(i, &fn.body_statements_offset, &fn.body_count, 1);
 
 	push_on_fn(fn);
 }
