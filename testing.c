@@ -10,7 +10,8 @@
 
 static char error_msg[420];
 jmp_buf jmp_buffer;
-typedef void (*grug_error_handler_fn)();
+
+typedef void (*grug_error_handler_fn)(char *error_msg);
 grug_error_handler_fn grug_error_handler;
 
 //// TOKENIZATION
