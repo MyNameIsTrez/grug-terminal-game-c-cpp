@@ -1047,7 +1047,7 @@ int main() {
 
 	if (setjmp(jmp_buffer)) {
 		if (grug_error_handler == NULL) {
-			fprintf(stderr, "An error occurred, but the game forgot to do `grug_error_handler = your_error_handler_function;`, so grug wasn't able to execute `grug_error_handler();`\n");
+			fprintf(stderr, "An error occurred, but the game forgot to do `grug_error_handler = your_error_handler_function;`, so grug wasn't able to execute `grug_error_handler(error_msg);`\n");
 			exit(EXIT_FAILURE);
 		}
 
