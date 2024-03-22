@@ -345,8 +345,8 @@ typedef struct literal literal;
 typedef struct expr expr;
 typedef struct return_statement return_statement;
 typedef struct if_statement if_statement;
+typedef struct variable_statement variable_statement;
 typedef struct statement statement;
-typedef struct node node;
 typedef struct argument argument;
 typedef struct helper_fn helper_fn;
 typedef struct on_fn on_fn;
@@ -436,7 +436,7 @@ struct if_statement {
 	size_t else_body_count;
 };
 
-struct statement {
+struct variable_statement {
 	char *variable_name;
 	size_t variable_name_len;
 	char *type;
@@ -444,28 +444,28 @@ struct statement {
 	size_t value_expr_index;
 };
 
-struct node {
+struct statement {
 	enum {
-		STATEMENT,
+		VARIABLE,
 		IF,
+		RETURN,
 		LOOP,
 		BREAK,
 		CONTINUE,
-		RETURN,
 	} type;
 	union {
-		statement statement;
+		variable_statement variable_statement;
 		if_statement if_statement;
 		return_statement return_statement;
 	};
 };
 
-struct nodes {
-	node *nodes;
+struct statements {
+	statement *statements;
 	size_t size;
 	size_t capacity;
 };
-static struct nodes nodes;
+static struct statements statements;
 
 struct argument {
 	char *type;
@@ -961,7 +961,7 @@ static void grug_free() {
 	free(tokens.tokens);
 	free(fields.fields);
 	free(exprs.exprs);
-	free(nodes.nodes);
+	free(statements.statements);
 	free(arguments.arguments);
 	free(helper_fns.fns);
 	free(on_fns.fns);
@@ -972,7 +972,7 @@ static void reset() {
 	tokens.size = 0;
 	fields.size = 0;
 	exprs.size = 0;
-	nodes.size = 0;
+	statements.size = 0;
 	arguments.size = 0;
 	helper_fns.size = 0;
 	on_fns.size = 0;
