@@ -748,34 +748,32 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 		statement statement;
 		switch (token.type) {
 			case TEXT_TOKEN:
-				
+				statement.type = VARIABLE_STATEMENT;
 				break;
 			case IF_TOKEN:
-				
+				statement.type = IF_STATEMENT;
 				break;
 			case RETURN_TOKEN:
+				statement.type = RETURN_STATEMENT;
 				// expr expr = {.};
 				// push_expr(expr);
-
-				// statement statement = {.type = RETURN_STATEMENT, .return_statement.value_expr_index = exprs.size};
+				// statement.return_statement.value_expr_index = exprs.size;
 				break;
 			case LOOP_TOKEN:
-				
+				statement.type = LOOP_STATEMENT;
 				break;
 			case BREAK_TOKEN:
-			{
 				statement.type = BREAK_STATEMENT;
-				push_statement(statement);
-				(*body_count)++;
 				break;
-			}
 			case CONTINUE_TOKEN:
-				
+				statement.type = CONTINUE_STATEMENT;
 				break;
 			default:
 				snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
 				longjmp(jmp_buffer, 1);
 		}
+		push_statement(statement);
+		(*body_count)++;
 		skip_any_comment(i);
 
 		assert_1_newline(*i);
