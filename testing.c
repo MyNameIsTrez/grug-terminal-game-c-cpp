@@ -664,7 +664,7 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
-static void parse_on_or_helper_fn_body(size_t *i, size_t *body_nodes_offset, size_t *body_count, size_t indent) {
+static void parse_on_or_helper_fn_body(size_t *i, size_t *body_nodes_offset, size_t *body_count, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
 
@@ -673,14 +673,14 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_nodes_offset, siz
 
 	(void)body_nodes_offset;
 	(void)body_count;
-	(void)indent;
+	(void)indents;
 
 	// TODO: Use recursion with braces to check whether we're going
 	// up/down/are staying at the same indentation,
-	// and assert indent * SPACES_PER_INDENT is true along the way
+	// and assert indents * SPACES_PER_INDENT is true along the way
 
 	// while (true) {
-	// 	assert_spaces(*i, indent * SPACES_PER_INDENT);
+	// 	assert_spaces(*i, indents * SPACES_PER_INDENT);
 	// 	(*i)++;
 	// }
 }
@@ -799,7 +799,7 @@ static void push_field(field field) {
 	fields.fields[fields.size++] = field;
 }
 
-static compound_literal parse_compound_literal(size_t *i, size_t indent) {
+static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
 
@@ -808,7 +808,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 	assert_1_newline(*i);
 	(*i)++;
 
-	size_t expected_spaces = (indent + 1) * SPACES_PER_INDENT;
+	size_t expected_spaces = (indents + 1) * SPACES_PER_INDENT;
 
 	size_t fields_size_before_pushes = fields.size;
 
@@ -861,7 +861,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indent) {
 	compound_literal.fields_offset = fields_size_before_pushes;
 
 	// Close the compound literal
-	assert_spaces(*i, indent * SPACES_PER_INDENT);
+	assert_spaces(*i, indents * SPACES_PER_INDENT);
 	(*i)++;
 
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
