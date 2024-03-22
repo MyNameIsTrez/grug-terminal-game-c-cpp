@@ -684,24 +684,42 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 	// }
 }
 
-static void parse_on_fn(size_t *i) {
-	on_fn fn = {0};
-
-	// Parse the function's signature
-	token token = get_token(*i);
-	fn.fn_name = token.start;
-	fn.fn_name_len = token.len;
-	(*i)++;
-
-	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
-	(*i)++;
-
+static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
 	size_t arguments_size_before_pushes = arguments.size;
 
-	// The first argument must not have a comma before it
+	token token = get_token(*i);
+	argument argument = {.name = token.start, .name_len = token.len};
+	(*i)++;
+
+	assert_token_type(*i, COLON_TOKEN);
+	(*i)++;
+
+	assert_spaces(*i, 1);
+	(*i)++;
+
 	token = get_token(*i);
-	if (token.type == TEXT_TOKEN) {
-		argument argument = {.name = token.start, .name_len = token.len};
+	assert_token_type(*i, TEXT_TOKEN);
+	argument.type = token.start;
+	argument.type_len = token.len;
+	push_argument(argument);
+	(*argument_count)++;
+	(*i)++;
+
+	// The second, third, etc. arguments all must have a comma before them
+	while (true)
+	{
+		token = get_token(*i);
+		if (token.type != COMMA_TOKEN) {
+			break;
+		}
+		(*i)++;
+
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		token = get_token(*i);
+		assert_token_type(*i, TEXT_TOKEN);
+		struct argument argument = {.name = token.start, .name_len = token.len};
 		(*i)++;
 
 		assert_token_type(*i, COLON_TOKEN);
@@ -715,42 +733,29 @@ static void parse_on_fn(size_t *i) {
 		argument.type = token.start;
 		argument.type_len = token.len;
 		push_argument(argument);
-		fn.argument_count++;
+		(*argument_count)++;
 		(*i)++;
+	}
 
-		// The second, third, etc. arguments all must have a comma before them
-		while (true)
-		{
-			token = get_token(*i);
-			if (token.type != COMMA_TOKEN) {
-				break;
-			}
-			(*i)++;
+	*arguments_offset = arguments_size_before_pushes;
+}
 
-			assert_spaces(*i, 1);
-			(*i)++;
+static void parse_on_fn(size_t *i) {
+	on_fn fn = {0};
 
-			token = get_token(*i);
-			assert_token_type(*i, TEXT_TOKEN);
-			struct argument argument = {.name = token.start, .name_len = token.len};
-			(*i)++;
+	// Parse the function's signature
+	token token = get_token(*i);
+	fn.fn_name = token.start;
+	fn.fn_name_len = token.len;
+	(*i)++;
 
-			assert_token_type(*i, COLON_TOKEN);
-			(*i)++;
+	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
+	(*i)++;
 
-			assert_spaces(*i, 1);
-			(*i)++;
-
-			token = get_token(*i);
-			assert_token_type(*i, TEXT_TOKEN);
-			argument.type = token.start;
-			argument.type_len = token.len;
-			push_argument(argument);
-			fn.argument_count++;
-			(*i)++;
-		}
-
-		fn.arguments_offset = arguments_size_before_pushes;
+	// The first argument must not have a comma before it
+	token = get_token(*i);
+	if (token.type == TEXT_TOKEN) {
+		parse_on_or_helper_fn_arguments(i, &fn.arguments_offset, &fn.argument_count);
 	}
 
 	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
