@@ -47,6 +47,12 @@ struct token {
 	char *start;
 	size_t len;
 };
+struct tokens {
+	token *tokens;
+	size_t size;
+	size_t capacity;
+};
+static struct tokens tokens;
 
 static char *get_token_type_str[] = {
 	[OPEN_PARENTHESIS_TOKEN] = "OPEN_PARENTHESIS_TOKEN",
@@ -73,13 +79,6 @@ static char *get_token_type_str[] = {
 	[NUMBER_TOKEN] = "NUMBER_TOKEN",
 	[COMMENT_TOKEN] = "COMMENT_TOKEN",
 };
-
-struct tokens {
-	token *tokens;
-	size_t size;
-	size_t capacity;
-};
-static struct tokens tokens;
 
 static size_t max_size_t(size_t a, size_t b) {
 	if (a > b) {
@@ -336,27 +335,25 @@ static void tokenize(char *grug_text) {
 
 #define SPACES_PER_INDENT 4
 
-typedef struct call_expr call_expr;
+typedef struct literal literal;
 typedef struct unary_expr unary_expr;
 typedef struct binary_expr binary_expr;
+typedef struct call_expr call_expr;
 typedef struct field field;
 typedef struct compound_literal compound_literal;
-typedef struct literal literal;
 typedef struct expr expr;
-typedef struct return_statement return_statement;
-typedef struct if_statement if_statement;
 typedef struct variable_statement variable_statement;
+typedef struct if_statement if_statement;
+typedef struct return_statement return_statement;
 typedef struct statement statement;
 typedef struct argument argument;
-typedef struct helper_fn helper_fn;
-typedef struct on_fn on_fn;
 typedef struct define_fn define_fn;
+typedef struct on_fn on_fn;
+typedef struct helper_fn helper_fn;
 
-struct call_expr {
-	char *fn_name;
-	size_t fn_name_len;
-	size_t arguments_expr_offset;
-	size_t argument_count;
+struct literal {
+	char *str;
+	size_t len;
 };
 
 struct unary_expr {
@@ -375,6 +372,13 @@ struct binary_expr {
 	} operator;
 	size_t left_expr_index;
 	size_t right_expr_index;
+};
+
+struct call_expr {
+	char *fn_name;
+	size_t fn_name_len;
+	size_t arguments_expr_offset;
+	size_t argument_count;
 };
 
 struct field {
@@ -396,11 +400,6 @@ struct compound_literal {
 	size_t field_count;
 };
 
-struct literal {
-	char *str;
-	size_t len;
-};
-
 struct expr {
 	enum {
 		LITERAL,
@@ -410,13 +409,12 @@ struct expr {
 	} type;
 	union {
 		literal literal;
-		compound_literal compound_literal;
 		unary_expr unary_expr;
 		binary_expr binary_expr;
 		call_expr call_expr;
+		compound_literal compound_literal;
 	};
 };
-
 struct exprs {
 	expr *exprs;
 	size_t size;
@@ -424,7 +422,11 @@ struct exprs {
 };
 static struct exprs exprs;
 
-struct return_statement {
+struct variable_statement {
+	char *variable_name;
+	size_t variable_name_len;
+	char *type;
+	size_t type_len;
 	size_t value_expr_index;
 };
 
@@ -436,11 +438,7 @@ struct if_statement {
 	size_t else_body_count;
 };
 
-struct variable_statement {
-	char *variable_name;
-	size_t variable_name_len;
-	char *type;
-	size_t type_len;
+struct return_statement {
 	size_t value_expr_index;
 };
 
@@ -459,7 +457,6 @@ struct statement {
 		return_statement return_statement;
 	};
 };
-
 struct statements {
 	statement *statements;
 	size_t size;
@@ -473,13 +470,41 @@ struct argument {
 	char *name;
 	size_t name_len;
 };
-
 struct arguments {
 	argument *arguments;
 	size_t size;
 	size_t capacity;
 };
 static struct arguments arguments;
+
+struct define_fn {
+	char *fn_name;
+	size_t fn_name_len;
+	char *return_type;
+	size_t return_type_len;
+	compound_literal returned_compound_literal;
+};
+struct define_fns {
+	define_fn *fns;
+	size_t size;
+	size_t capacity;
+};
+static struct define_fns define_fns;
+
+struct on_fn {
+	char *fn_name;
+	size_t fn_name_len;
+	size_t arguments_offset;
+	size_t argument_count;
+	size_t body_statements_offset;
+	size_t body_count;
+};
+struct on_fns {
+	on_fn *fns;
+	size_t size;
+	size_t capacity;
+};
+static struct on_fns on_fns;
 
 struct helper_fn {
 	char *fn_name;
@@ -491,44 +516,12 @@ struct helper_fn {
 	size_t body_statements_offset;
 	size_t body_count;
 };
-
 struct helper_fns {
 	helper_fn *fns;
 	size_t size;
 	size_t capacity;
 };
 static struct helper_fns helper_fns;
-
-struct on_fn {
-	char *fn_name;
-	size_t fn_name_len;
-	size_t arguments_offset;
-	size_t argument_count;
-	size_t body_statements_offset;
-	size_t body_count;
-};
-
-struct on_fns {
-	on_fn *fns;
-	size_t size;
-	size_t capacity;
-};
-static struct on_fns on_fns;
-
-struct define_fn {
-	char *fn_name;
-	size_t fn_name_len;
-	char *return_type;
-	size_t return_type_len;
-	compound_literal returned_compound_literal;
-};
-
-struct define_fns {
-	define_fn *fns;
-	size_t size;
-	size_t capacity;
-};
-static struct define_fns define_fns;
 
 // static char *serialize_to_c() {
 // 	char *c_text;
