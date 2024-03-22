@@ -535,6 +535,15 @@ static void print_helper_fns() {
 }
 
 static void print_on_fns() {
+	printf("\"on_fns\": {\n");
+
+	for (size_t fn_index = 0; fn_index < on_fns.size; fn_index++) {
+		on_fn fn = on_fns.fns[fn_index];
+
+		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
+	}
+
+	printf("},\n");
 }
 
 static void print_compound_literal(compound_literal compound_literal) {
@@ -566,7 +575,7 @@ static void print_define_fns() {
 		print_compound_literal(fn.returned_compound_literal);
 	}
 
-	printf("}\n");
+	printf("},\n");
 }
 
 static void print_fns() {
