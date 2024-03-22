@@ -528,16 +528,39 @@ static struct helper_fns helper_fns;
 static void print_helper_fns() {
 }
 
+static void print_arguments(size_t arguments_offset, size_t argument_count) {
+	printf("\"arguments\": [");
+
+	for (size_t argument_index = 0; argument_index < argument_count; argument_index++) {
+		printf("{\n");
+
+		argument arg = arguments.arguments[arguments_offset + argument_index];
+
+		printf("\"name\": \"%.*s\",\n", (int)arg.name_len, arg.name);
+		printf("\"type\": \"%.*s\",\n", (int)arg.type_len, arg.type);
+
+		printf("},\n");
+	}
+
+	printf("],\n");
+}
+
 static void print_on_fns() {
-	printf("\"on_fns\": {\n");
+	printf("\"on_fns\": [\n");
 
 	for (size_t fn_index = 0; fn_index < on_fns.size; fn_index++) {
+		printf("{\n");
+
 		on_fn fn = on_fns.fns[fn_index];
 
 		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
+
+		print_arguments(fn.arguments_offset, fn.argument_count);
+
+		printf("},\n");
 	}
 
-	printf("},\n");
+	printf("],\n");
 }
 
 static void print_compound_literal(compound_literal compound_literal) {
@@ -713,7 +736,7 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 				
 				break;
 			default:
-				snprintf(error_msg, sizeof(error_msg), "Unexpected token type %s at token index %zu", get_token_type_str[token.type], *i);
+				snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
 				longjmp(jmp_buffer, 1);
 		}
 	}
@@ -757,11 +780,10 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 	assert_token_type(*i, TEXT_TOKEN);
 	argument.type = token.start;
 	argument.type_len = token.len;
+	*arguments_offset = arguments.size;
 	push_argument(argument);
 	(*argument_count)++;
 	(*i)++;
-
-	*arguments_offset = arguments.size;
 
 	// The second, third, etc. arguments all must have a comma before them
 	while (true)
@@ -844,14 +866,12 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
 
-	compound_literal compound_literal = {0};
+	compound_literal compound_literal = {.fields_offset = fields.size};
 
 	assert_1_newline(*i);
 	(*i)++;
 
 	size_t expected_spaces = (indents + 1) * SPACES_PER_INDENT;
-
-	compound_literal.fields_offset = fields.size;
 
 	// Parse any other fields
 	while (true) {
