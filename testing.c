@@ -776,11 +776,11 @@ static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset
 				snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
 				longjmp(jmp_buffer, 1);
 		}
-	}
-	skip_any_comment(i);
+		skip_any_comment(i);
 
-	assert_1_newline(*i);
-	(*i)++;
+		assert_1_newline(*i);
+		(*i)++;
+	}
 
 	// Close the function
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
