@@ -8,6 +8,15 @@
 #include <string.h>
 #include <sys/types.h>
 
+#define MAX_TOKENS_IN_FILE 420420
+#define MAX_FIELDS_IN_FILE 420420
+#define MAX_EXPRS_IN_FILE 420420
+#define MAX_STATEMENTS_IN_FILE 420420
+#define MAX_ARGUMENTS_IN_FILE 420420
+#define MAX_HELPER_FNS_IN_FILE 420420
+#define MAX_ON_FNS_IN_FILE 420420
+#define SPACES_PER_INDENT 4
+
 static char error_msg[420];
 jmp_buf jmp_buffer;
 
@@ -72,12 +81,8 @@ static char *get_token_type_str[] = {
 	[NUMBER_TOKEN] = "NUMBER_TOKEN",
 	[COMMENT_TOKEN] = "COMMENT_TOKEN",
 };
-struct tokens {
-	token *tokens;
-	size_t size;
-	size_t capacity;
-};
-static struct tokens tokens;
+static token tokens[MAX_TOKENS_IN_FILE];
+static size_t tokens_size;
 
 static size_t max_size_t(size_t a, size_t b) {
 	if (a > b) {
@@ -87,16 +92,16 @@ static size_t max_size_t(size_t a, size_t b) {
 }
 
 static token get_token(size_t token_index) {
-	if (token_index >= tokens.size) {
+	if (token_index >= tokens_size) {
 		snprintf(error_msg, sizeof(error_msg), "token_index %zu was out of bounds in get_token()", token_index);
 		longjmp(jmp_buffer, 1);
 	}
-	return tokens.tokens[token_index];
+	return tokens[token_index];
 }
 
 static void print_tokens() {
 	size_t longest_token_type_len = 0;
-	for (size_t i = 0; i < tokens.size; i++) {
+	for (size_t i = 0; i < tokens_size; i++) {
 		token token = get_token(i);
 		char *token_type_str = get_token_type_str[token.type];
 		longest_token_type_len = max_size_t(strlen(token_type_str), longest_token_type_len);
@@ -105,7 +110,7 @@ static void print_tokens() {
 	// Leave enough space for the word "index", but if the index exceeds 99999, add extra spaces
 	// In pseudocode this does longest_index = max(floor(log10(tokens.size)), strlen("index"))
 	size_t longest_index = 1;
-	size_t n = tokens.size;
+	size_t n = tokens_size;
 	while (true) {
 		n /= 10;
 		if (n == 0) {
@@ -117,7 +122,7 @@ static void print_tokens() {
 
 	printf("| %-*s | %-*s | str\n", (int)longest_index, "index", (int)longest_token_type_len, "type");
 
-	for (size_t i = 0; i < tokens.size; i++) {
+	for (size_t i = 0; i < tokens_size; i++) {
 		token token = get_token(i);
 
 		printf("| %*zu ", (int)longest_index, i);
@@ -159,16 +164,11 @@ static bool is_escaped_char(char c) {
 
 static void push_token(token token) {
 	// Make sure there's enough room to push token
-	if (tokens.size + 1 > tokens.capacity) {
-		tokens.capacity = tokens.capacity == 0 ? 1 : tokens.capacity * 2;
-		tokens.tokens = realloc(tokens.tokens, tokens.capacity * sizeof(*tokens.tokens));
-		if (!tokens.tokens) {
-			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
-			longjmp(jmp_buffer, 1);
-		}
+	if (tokens_size + 1 > MAX_TOKENS_IN_FILE) {
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d tokens in the grug file, exceeding MAX_TOKENS_IN_FILE!", MAX_TOKENS_IN_FILE);
+		longjmp(jmp_buffer, 1);
 	}
-
-	tokens.tokens[tokens.size++] = token;
+	tokens[tokens_size++] = token;
 }
 
 static void tokenize(char *grug_text) {
@@ -332,8 +332,6 @@ static void tokenize(char *grug_text) {
 
 //// PARSING
 
-#define SPACES_PER_INDENT 4
-
 typedef struct literal literal;
 typedef struct unary_expr unary_expr;
 typedef struct binary_expr binary_expr;
@@ -386,13 +384,8 @@ struct field {
 	char *value;
 	size_t value_len;
 };
-
-struct fields {
-	field *fields;
-	size_t size;
-	size_t capacity;
-};
-static struct fields fields;
+static field fields[MAX_FIELDS_IN_FILE];
+static size_t fields_size;
 
 struct compound_literal {
 	size_t fields_offset;
@@ -414,12 +407,8 @@ struct expr {
 		compound_literal compound_literal;
 	};
 };
-struct exprs {
-	expr *exprs;
-	size_t size;
-	size_t capacity;
-};
-static struct exprs exprs;
+static expr exprs[MAX_EXPRS_IN_FILE];
+static size_t exprs_size;
 
 struct variable_statement {
 	char *variable_name;
@@ -470,12 +459,8 @@ static char *get_statement_type_str[] = {
 	[BREAK_STATEMENT] = "BREAK_STATEMENT",
 	[CONTINUE_STATEMENT] = "CONTINUE_STATEMENT",
 };
-struct statements {
-	statement *statements;
-	size_t size;
-	size_t capacity;
-};
-static struct statements statements;
+static statement statements[MAX_STATEMENTS_IN_FILE];
+static size_t statements_size;
 
 struct argument {
 	char *type;
@@ -483,12 +468,8 @@ struct argument {
 	char *name;
 	size_t name_len;
 };
-struct arguments {
-	argument *arguments;
-	size_t size;
-	size_t capacity;
-};
-static struct arguments arguments;
+static argument arguments[MAX_ARGUMENTS_IN_FILE];
+static size_t arguments_size;
 
 struct define_fn {
 	char *fn_name;
@@ -507,12 +488,8 @@ struct on_fn {
 	size_t body_statements_offset;
 	size_t body_statement_count;
 };
-struct on_fns {
-	on_fn *fns;
-	size_t size;
-	size_t capacity;
-};
-static struct on_fns on_fns;
+static on_fn on_fns[MAX_ON_FNS_IN_FILE];
+static size_t on_fns_size;
 
 struct helper_fn {
 	char *fn_name;
@@ -524,12 +501,8 @@ struct helper_fn {
 	size_t body_statements_offset;
 	size_t body_statement_count;
 };
-struct helper_fns {
-	helper_fn *fns;
-	size_t size;
-	size_t capacity;
-};
-static struct helper_fns helper_fns;
+static helper_fn helper_fns[MAX_HELPER_FNS_IN_FILE];
+static size_t helper_fns_size;
 
 // static char *serialize_to_c() {
 // 	char *c_text;
@@ -548,7 +521,7 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 	for (size_t statement_index = 0; statement_index < statement_count; statement_index++) {
 		printf("{\n");
 
-		statement st = statements.statements[statements_offset + statement_index];
+		statement st = statements[statements_offset + statement_index];
 
 		printf("\"type\": \"%s\",\n", get_statement_type_str[st.type]);
 
@@ -579,7 +552,7 @@ static void print_arguments(size_t arguments_offset, size_t argument_count) {
 	for (size_t argument_index = 0; argument_index < argument_count; argument_index++) {
 		printf("{\n");
 
-		argument arg = arguments.arguments[arguments_offset + argument_index];
+		argument arg = arguments[arguments_offset + argument_index];
 
 		printf("\"name\": \"%.*s\",\n", (int)arg.name_len, arg.name);
 		printf("\"type\": \"%.*s\",\n", (int)arg.type_len, arg.type);
@@ -593,10 +566,10 @@ static void print_arguments(size_t arguments_offset, size_t argument_count) {
 static void print_on_fns() {
 	printf("\"on_fns\": [\n");
 
-	for (size_t fn_index = 0; fn_index < on_fns.size; fn_index++) {
+	for (size_t fn_index = 0; fn_index < on_fns_size; fn_index++) {
 		printf("{\n");
 
-		on_fn fn = on_fns.fns[fn_index];
+		on_fn fn = on_fns[fn_index];
 
 		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
 
@@ -615,7 +588,7 @@ static void print_compound_literal(compound_literal compound_literal) {
 	for (size_t field_index = 0; field_index < compound_literal.field_count; field_index++) {
 		printf("{\n");
 
-		field field = fields.fields[compound_literal.fields_offset + field_index];
+		field field = fields[compound_literal.fields_offset + field_index];
 
 		printf("\"key\": \"%.*s\",\n", (int)field.key_len, field.key);
 		printf("\"value\": %.*s,\n", (int)field.value_len, field.value);
@@ -651,32 +624,22 @@ static void parse_helper_fn(size_t *i) {
 	(*i)++;
 }
 
-static void push_on_fn(on_fn fn) {
-	// Make sure there's enough room to push fn
-	if (on_fns.size + 1 > on_fns.capacity) {
-		on_fns.capacity = on_fns.capacity == 0 ? 1 : on_fns.capacity * 2;
-		on_fns.fns = realloc(on_fns.fns, on_fns.capacity * sizeof(*on_fns.fns));
-		if (!on_fns.fns) {
-			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
-			longjmp(jmp_buffer, 1);
-		}
+static void push_on_fn(on_fn on_fn) {
+	// Make sure there's enough room to push on_fn
+	if (on_fns_size + 1 > MAX_ON_FNS_IN_FILE) {
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d on_fns in the grug file, exceeding MAX_ON_FNS_IN_FILE!", MAX_ON_FNS_IN_FILE);
+		longjmp(jmp_buffer, 1);
 	}
-
-	on_fns.fns[on_fns.size++] = fn;
+	on_fns[on_fns_size++] = on_fn;
 }
 
 static void push_statement(statement statement) {
 	// Make sure there's enough room to push statement
-	if (statements.size + 1 > statements.capacity) {
-		statements.capacity = statements.capacity == 0 ? 1 : statements.capacity * 2;
-		statements.statements = realloc(statements.statements, statements.capacity * sizeof(*statements.statements));
-		if (!statements.statements) {
-			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
-			longjmp(jmp_buffer, 1);
-		}
+	if (statements_size + 1 > MAX_STATEMENTS_IN_FILE) {
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in the grug file, exceeding MAX_STATEMENTS_IN_FILE!", MAX_STATEMENTS_IN_FILE);
+		longjmp(jmp_buffer, 1);
 	}
-
-	statements.statements[statements.size++] = statement;
+	statements[statements_size++] = statement;
 }
 
 static void skip_any_comment(size_t *i) {
@@ -733,7 +696,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 	assert_1_newline(*i);
 	(*i)++;
 
-	*body_statements_offset = statements.size;
+	*body_statements_offset = statements_size;
 
 	while (true) {
 		token token = get_token(*i);
@@ -795,16 +758,11 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 
 static void push_argument(argument argument) {
 	// Make sure there's enough room to push argument
-	if (arguments.size + 1 > arguments.capacity) {
-		arguments.capacity = arguments.capacity == 0 ? 1 : arguments.capacity * 2;
-		arguments.arguments = realloc(arguments.arguments, arguments.capacity * sizeof(*arguments.arguments));
-		if (!arguments.arguments) {
-			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
-			longjmp(jmp_buffer, 1);
-		}
+	if (arguments_size + 1 > MAX_ARGUMENTS_IN_FILE) {
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d arguments in the grug file, exceeding MAX_ARGUMENTS_IN_FILE!", MAX_ARGUMENTS_IN_FILE);
+		longjmp(jmp_buffer, 1);
 	}
-
-	arguments.arguments[arguments.size++] = argument;
+	arguments[arguments_size++] = argument;
 }
 
 static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
@@ -822,7 +780,7 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 	assert_token_type(*i, TEXT_TOKEN);
 	argument.type = token.start;
 	argument.type_len = token.len;
-	*arguments_offset = arguments.size;
+	*arguments_offset = arguments_size;
 	push_argument(argument);
 	(*argument_count)++;
 	(*i)++;
@@ -892,23 +850,18 @@ static void parse_on_fn(size_t *i) {
 
 static void push_field(field field) {
 	// Make sure there's enough room to push field
-	if (fields.size + 1 > fields.capacity) {
-		fields.capacity = fields.capacity == 0 ? 1 : fields.capacity * 2;
-		fields.fields = realloc(fields.fields, fields.capacity * sizeof(*fields.fields));
-		if (!fields.fields) {
-			snprintf(error_msg, sizeof(error_msg), "realloc: %s", strerror(errno));
-			longjmp(jmp_buffer, 1);
-		}
+	if (fields_size + 1 > MAX_FIELDS_IN_FILE) {
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d fields in the grug file, exceeding MAX_FIELDS_IN_FILE!", MAX_FIELDS_IN_FILE);
+		longjmp(jmp_buffer, 1);
 	}
-
-	fields.fields[fields.size++] = field;
+	fields[fields_size++] = field;
 }
 
 static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
 
-	compound_literal compound_literal = {.fields_offset = fields.size};
+	compound_literal compound_literal = {.fields_offset = fields_size};
 
 	assert_1_newline(*i);
 	(*i)++;
@@ -1032,7 +985,7 @@ static bool starts_with(char *a, char *b) {
 
 static void parse() {
 	size_t i = 0;
-	while (i < tokens.size) {
+	while (i < tokens_size) {
 		token token = get_token(i);
 		int type = token.type;
 
@@ -1053,24 +1006,14 @@ static void parse() {
 	}
 }
 
-static void grug_free() {
-	free(tokens.tokens);
-	free(fields.fields);
-	free(exprs.exprs);
-	free(statements.statements);
-	free(arguments.arguments);
-	free(helper_fns.fns);
-	free(on_fns.fns);
-}
-
 static void reset() {
-	tokens.size = 0;
-	fields.size = 0;
-	exprs.size = 0;
-	statements.size = 0;
-	arguments.size = 0;
-	helper_fns.size = 0;
-	on_fns.size = 0;
+	tokens_size = 0;
+	fields_size = 0;
+	exprs_size = 0;
+	statements_size = 0;
+	arguments_size = 0;
+	helper_fns_size = 0;
+	on_fns_size = 0;
 }
 
 static char *read_file(char *path) {
@@ -1126,7 +1069,6 @@ void run() {
 	// char *c_text = serialize_to_c();
 	// printf("c_text:\n%s\n", c_text);
 
-	grug_free();
 	free(grug_text);
 }
 
@@ -1149,4 +1091,8 @@ int main() {
 	}
 
 	run();
+
+	// TODO: REMOVE
+	(void)exprs;
+	(void)helper_fns;
 }
