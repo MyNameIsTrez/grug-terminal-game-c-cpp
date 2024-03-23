@@ -431,8 +431,8 @@ struct variable_statement {
 
 struct if_statement {
 	expr condition;
-	size_t body_statements_offset;
-	size_t body_statement_count;
+	size_t if_body_statements_offset;
+	size_t if_body_statement_count;
 	size_t else_body_statements_offset;
 	size_t else_body_statement_count;
 };
