@@ -726,14 +726,12 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
-static void parse_on_or_helper_fn_body(size_t *i, size_t *body_statements_offset, size_t *body_count, size_t indents) {
+static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_count, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
 
 	assert_1_newline(*i);
 	(*i)++;
-
-	(void)indents;
 
 	// TODO: Use recursion with braces to check whether we're going
 	// up/down/are staying at the same indentation,
@@ -885,7 +883,7 @@ static void parse_on_fn(size_t *i) {
 	(*i)++;
 
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	parse_on_or_helper_fn_body(i, &fn.body_statements_offset, &fn.body_count, 1);
+	parse_statements(i, &fn.body_statements_offset, &fn.body_count, 1);
 
 	push_on_fn(fn);
 }
