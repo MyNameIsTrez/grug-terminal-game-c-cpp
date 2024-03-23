@@ -733,18 +733,13 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 	assert_1_newline(*i);
 	(*i)++;
 
-	// TODO: Use recursion with braces to check whether we're going
-	// up/down/are staying at the same indentation,
-	// and assert indents * SPACES_PER_INDENT is true along the way
-
 	*body_statements_offset = statements.size;
 
 	while (true) {
 		token token = get_token(*i);
-		if (token.type != SPACES_TOKEN) {
+		if (token.type != SPACES_TOKEN || token.len != indents * SPACES_PER_INDENT) {
 			break;
 		}
-		assert_spaces(*i, indents * SPACES_PER_INDENT);
 		(*i)++;
 
 		// TODO: Turn this into parse_statement()
@@ -766,6 +761,9 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				break;
 			case LOOP_TOKEN:
 				statement.type = LOOP_STATEMENT;
+				assert_spaces(*i, 1);
+				(*i)++;
+				parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count, indents + 1);
 				break;
 			case BREAK_TOKEN:
 				statement.type = BREAK_STATEMENT;
@@ -785,7 +783,11 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 		(*i)++;
 	}
 
-	// Close the function
+	if (indents > 1) {
+		assert_spaces(*i, (indents - 1) * SPACES_PER_INDENT);
+		(*i)++;
+	}
+
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
 	skip_any_comment(i);
