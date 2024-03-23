@@ -344,6 +344,7 @@ typedef struct expr expr;
 typedef struct variable_statement variable_statement;
 typedef struct if_statement if_statement;
 typedef struct return_statement return_statement;
+typedef struct loop_statement loop_statement;
 typedef struct statement statement;
 typedef struct argument argument;
 typedef struct on_fn on_fn;
@@ -440,6 +441,11 @@ struct return_statement {
 	size_t value_expr_index;
 };
 
+struct loop_statement {
+	size_t body_statements_offset;
+	size_t body_count;
+};
+
 struct statement {
 	enum {
 		VARIABLE_STATEMENT,
@@ -453,6 +459,7 @@ struct statement {
 		variable_statement variable_statement;
 		if_statement if_statement;
 		return_statement return_statement;
+		loop_statement loop_statement;
 	};
 };
 static char *get_statement_type_str[] = {
