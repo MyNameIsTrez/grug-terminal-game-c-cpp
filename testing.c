@@ -432,9 +432,9 @@ struct variable_statement {
 struct if_statement {
 	expr condition;
 	size_t body_statements_offset;
-	size_t body_count;
+	size_t body_statement_count;
 	size_t else_body_statements_offset;
-	size_t else_body_count;
+	size_t else_body_statement_count;
 };
 
 struct return_statement {
@@ -443,7 +443,7 @@ struct return_statement {
 
 struct loop_statement {
 	size_t body_statements_offset;
-	size_t body_count;
+	size_t body_statement_count;
 };
 
 struct statement {
@@ -505,7 +505,7 @@ struct on_fn {
 	size_t arguments_offset;
 	size_t argument_count;
 	size_t body_statements_offset;
-	size_t body_count;
+	size_t body_statement_count;
 };
 struct on_fns {
 	on_fn *fns;
@@ -522,7 +522,7 @@ struct helper_fn {
 	char *return_type;
 	size_t return_type_len;
 	size_t body_statements_offset;
-	size_t body_count;
+	size_t body_statement_count;
 };
 struct helper_fns {
 	helper_fn *fns;
@@ -601,7 +601,7 @@ static void print_on_fns() {
 		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
 
 		print_arguments(fn.arguments_offset, fn.argument_count);
-		print_statements(fn.body_statements_offset, fn.body_count);
+		print_statements(fn.body_statements_offset, fn.body_statement_count);
 
 		printf("},\n");
 	}
@@ -726,7 +726,7 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
-static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_count, size_t indents) {
+static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
 
@@ -778,7 +778,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				longjmp(jmp_buffer, 1);
 		}
 		push_statement(statement);
-		(*body_count)++;
+		(*body_statement_count)++;
 		skip_any_comment(i);
 
 		assert_1_newline(*i);
@@ -883,7 +883,7 @@ static void parse_on_fn(size_t *i) {
 	(*i)++;
 
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	parse_statements(i, &fn.body_statements_offset, &fn.body_count, 1);
+	parse_statements(i, &fn.body_statements_offset, &fn.body_statement_count, 1);
 
 	push_on_fn(fn);
 }
