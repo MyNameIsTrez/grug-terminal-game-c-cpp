@@ -16,6 +16,7 @@
 #define MAX_HELPER_FNS_IN_FILE 420420
 #define MAX_ON_FNS_IN_FILE 420420
 #define SPACES_PER_INDENT 4
+#define MAX_STATEMENTS_PER_STACK_FRAME 1337
 
 static char error_msg[420];
 jmp_buf jmp_buffer;
@@ -533,6 +534,7 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 			case RETURN_STATEMENT:
 				break;
 			case LOOP_STATEMENT:
+				print_statements(st.loop_statement.body_statements_offset, st.loop_statement.body_statement_count);
 				break;
 			case BREAK_STATEMENT:
 				break;
@@ -696,7 +698,9 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 	assert_1_newline(*i);
 	(*i)++;
 
-	*body_statements_offset = statements_size;
+	// This local array is necessary due to the depth-first recursion we're doing
+	statement local_statements[MAX_STATEMENTS_PER_STACK_FRAME];
+	size_t local_statements_size = 0;
 
 	while (true) {
 		token token = get_token(*i);
@@ -724,6 +728,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				break;
 			case LOOP_TOKEN:
 				statement.type = LOOP_STATEMENT;
+				statement.loop_statement.body_statement_count = 0;
 				assert_spaces(*i, 1);
 				(*i)++;
 				parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count, indents + 1);
@@ -738,12 +743,23 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
 				longjmp(jmp_buffer, 1);
 		}
-		push_statement(statement);
+
+		// Make sure there's enough room to push statement
+		if (local_statements_size + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
+			snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME!", MAX_STATEMENTS_PER_STACK_FRAME);
+			longjmp(jmp_buffer, 1);
+		}
+		local_statements[local_statements_size++] = statement;
 		(*body_statement_count)++;
 		skip_any_comment(i);
 
 		assert_1_newline(*i);
 		(*i)++;
+	}
+
+	*body_statements_offset = statements_size;
+	for (size_t i = 0; i < local_statements_size; i++) {
+		push_statement(local_statements[i]);
 	}
 
 	if (indents > 1) {
