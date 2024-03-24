@@ -54,7 +54,7 @@ struct token {
 		NUMBER_TOKEN,
 		COMMENT_TOKEN,
 	} type;
-	char *start;
+	char *str;
 	size_t len;
 };
 static char *get_token_type_str[] = {
@@ -138,7 +138,7 @@ static void print_tokens() {
 			}
 			printf("'\n");
 		} else {
-			printf("| '%.*s'\n", (int)token.len, token.start);
+			printf("| '%.*s'\n", (int)token.len, token.str);
 		}
 	}
 }
@@ -176,73 +176,73 @@ static void tokenize(char *grug_text) {
 	size_t i = 0;
 	while (grug_text[i]) {
 		if (       grug_text[i] == '(') {
-			push_token((token){.type=OPEN_PARENTHESIS_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=OPEN_PARENTHESIS_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ')') {
-			push_token((token){.type=CLOSE_PARENTHESIS_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=CLOSE_PARENTHESIS_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '{') {
-			push_token((token){.type=OPEN_BRACE_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=OPEN_BRACE_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '}') {
-			push_token((token){.type=CLOSE_BRACE_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=CLOSE_BRACE_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '+') {
-			push_token((token){.type=PLUS_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=PLUS_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '-') {
-			push_token((token){.type=MINUS_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=MINUS_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ',') {
-			push_token((token){.type=COMMA_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=COMMA_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == ':') {
-			push_token((token){.type=COLON_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=COLON_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '=' && grug_text[i + 1] == '=') {
-			push_token((token){.type=EQUALITY_TOKEN, .start=grug_text+i, .len=2});
+			push_token((token){.type=EQUALITY_TOKEN, .str=grug_text+i, .len=2});
 			i += 2;
 		} else if (grug_text[i] == '=') {
-			push_token((token){.type=ASSIGNMENT_TOKEN, .start=grug_text+i, .len=1});
+			push_token((token){.type=ASSIGNMENT_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
-			push_token((token){.type=IF_TOKEN, .start=grug_text+i, .len=2});
+			push_token((token){.type=IF_TOKEN, .str=grug_text+i, .len=2});
 			i += 2;
 		} else if (grug_text[i + 0] == 'e' && grug_text[i + 1] == 'l' && grug_text[i + 2] == 's' && grug_text[i + 3] == 'e' && grug_text[i + 4] == ' ') {
-			push_token((token){.type=ELSE_TOKEN, .start=grug_text+i, .len=4});
+			push_token((token){.type=ELSE_TOKEN, .str=grug_text+i, .len=4});
 			i += 4;
 		} else if (grug_text[i + 0] == 'l' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'o' && grug_text[i + 3] == 'p' && grug_text[i + 4] == ' ') {
-			push_token((token){.type=LOOP_TOKEN, .start=grug_text+i, .len=4});
+			push_token((token){.type=LOOP_TOKEN, .str=grug_text+i, .len=4});
 			i += 4;
 		} else if (grug_text[i + 0] == 'b' && grug_text[i + 1] == 'r' && grug_text[i + 2] == 'e' && grug_text[i + 3] == 'a' && grug_text[i + 4] == 'k' && (grug_text[i + 5] == ' ' || grug_text[i + 5] == '\n')) {
-			push_token((token){.type=BREAK_TOKEN, .start=grug_text+i, .len=5});
+			push_token((token){.type=BREAK_TOKEN, .str=grug_text+i, .len=5});
 			i += 5;
 		} else if (grug_text[i + 0] == 'r' && grug_text[i + 1] == 'e' && grug_text[i + 2] == 't' && grug_text[i + 3] == 'u' && grug_text[i + 4] == 'r' && grug_text[i + 5] == 'n' && (grug_text[i + 6] == ' ' || grug_text[i + 6] == '\n')) {
-			push_token((token){.type=RETURN_TOKEN, .start=grug_text+i, .len=6});
+			push_token((token){.type=RETURN_TOKEN, .str=grug_text+i, .len=6});
 			i += 6;
 		} else if (grug_text[i + 0] == 'c' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 'n' && grug_text[i + 3] == 't' && grug_text[i + 4] == 'i' && grug_text[i + 5] == 'n' && grug_text[i + 6] == 'u' && grug_text[i + 7] == 'e' && (grug_text[i + 8] == ' ' || grug_text[i + 8] == '\n')) {
-			push_token((token){.type=CONTINUE_TOKEN, .start=grug_text+i, .len=8});
+			push_token((token){.type=CONTINUE_TOKEN, .str=grug_text+i, .len=8});
 			i += 8;
 		} else if (grug_text[i] == ' ') {
-			token token = {.type=SPACES_TOKEN, .start=grug_text+i};
+			token token = {.type=SPACES_TOKEN, .str=grug_text+i};
 
 			do {
 				i++;
 			} while (grug_text[i] == ' ');
 
-			token.len = i - (token.start - grug_text);
+			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == '\n') {
-			token token = {.type=NEWLINES_TOKEN, .start=grug_text+i};
+			token token = {.type=NEWLINES_TOKEN, .str=grug_text+i};
 
 			do {
 				i++;
 			} while (grug_text[i] == '\n');
 
-			token.len = i - (token.start - grug_text);
+			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == '\"') {
-			token token = {.type=STRING_TOKEN, .start=grug_text+i};
+			token token = {.type=STRING_TOKEN, .str=grug_text+i};
 
 			do {
 				i++;
@@ -252,10 +252,10 @@ static void tokenize(char *grug_text) {
 				i++;
 			}
 
-			token.len = i - (token.start - grug_text);
+			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == '.') {
-			token token = {.type=FIELD_NAME_TOKEN, .start=grug_text+i};
+			token token = {.type=FIELD_NAME_TOKEN, .str=grug_text+i};
 
 			i++;
 
@@ -265,30 +265,30 @@ static void tokenize(char *grug_text) {
 				i++;
 			}
 
-			token.len = i - (token.start - grug_text);
+			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (isalpha(grug_text[i]) || grug_text[i] == '_') {
-			token token = {.type=TEXT_TOKEN, .start=grug_text+i};
+			token token = {.type=TEXT_TOKEN, .str=grug_text+i};
 
 			// TODO: Decide if this should return an error value when the input is ".."
 			do {
 				i++;
 			} while (isalnum(grug_text[i]) || grug_text[i] == '_' || grug_text[i] == '.');
 
-			token.len = i - (token.start - grug_text);
+			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (isdigit(grug_text[i])) {
-			token token = {.type=NUMBER_TOKEN, .start=grug_text+i};
+			token token = {.type=NUMBER_TOKEN, .str=grug_text+i};
 
 			// TODO: Decide if this should return an error value when the input is ".."
 			do {
 				i++;
 			} while (isdigit(grug_text[i]) || grug_text[i] == '.');
 
-			token.len = i - (token.start - grug_text);
+			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (grug_text[i] == ';') {
-			token token = {.type=COMMENT_TOKEN, .start=grug_text+i};
+			token token = {.type=COMMENT_TOKEN, .str=grug_text+i};
 
 			while (true) {
 				i++;
@@ -302,22 +302,22 @@ static void tokenize(char *grug_text) {
 				}
 			}
 
-			token.len = i - (token.start - grug_text);
+			token.len = i - (token.str - grug_text);
 
-			size_t comment_index = token.start - grug_text;
-			if (token.len < 2 || token.start[1] != ' ')
+			size_t comment_index = token.str - grug_text;
+			if (token.len < 2 || token.str[1] != ' ')
 			{
-				snprintf(error_msg, sizeof(error_msg), "Expected the comment to start with a space character, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
+				snprintf(error_msg, sizeof(error_msg), "Expected the comment to str with a space character, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
 				longjmp(jmp_buffer, 1);
 			}
 
-			if (token.len < 3 || isspace(token.start[2]))
+			if (token.len < 3 || isspace(token.str[2]))
 			{
 				snprintf(error_msg, sizeof(error_msg), "Expected the comment to have a text character directly after the space, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
 				longjmp(jmp_buffer, 1);
 			}
 
-			if (isspace(token.start[token.len - 1]))
+			if (isspace(token.str[token.len - 1]))
 			{
 				snprintf(error_msg, sizeof(error_msg), "Unexpected trailing whitespace '%.*s' at the end of the comment at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + token.len);
 				longjmp(jmp_buffer, 1);
@@ -333,7 +333,7 @@ static void tokenize(char *grug_text) {
 
 //// PARSING
 
-typedef struct literal literal;
+typedef struct literal_expr literal_expr;
 typedef struct unary_expr unary_expr;
 typedef struct binary_expr binary_expr;
 typedef struct call_expr call_expr;
@@ -349,25 +349,18 @@ typedef struct argument argument;
 typedef struct on_fn on_fn;
 typedef struct helper_fn helper_fn;
 
-struct literal {
+struct literal_expr {
 	char *str;
 	size_t len;
 };
 
 struct unary_expr {
-	enum {
-		MINUS_UNARY_EXPR,
-	} operator;
+	char operator;
 	size_t expr_index;
 };
 
 struct binary_expr {
-	enum {
-		ADDITION,
-		SUBTRACTION,
-		MULTIPLICATION,
-		DIVISION,
-	} operator;
+	char operator;
 	size_t left_expr_index;
 	size_t right_expr_index;
 };
@@ -395,18 +388,24 @@ struct compound_literal {
 
 struct expr {
 	enum {
-		LITERAL,
+		LITERAL_EXPR,
 		UNARY_EXPR,
 		BINARY_EXPR,
 		CALL_EXPR,
 	} type;
 	union {
-		literal literal;
+		literal_expr literal_expr;
 		unary_expr unary_expr;
 		binary_expr binary_expr;
 		call_expr call_expr;
 		compound_literal compound_literal;
 	};
+};
+static char *get_expr_type_str[] = {
+	[LITERAL_EXPR] = "LITERAL_EXPR",
+	[UNARY_EXPR] = "UNARY_EXPR",
+	[BINARY_EXPR] = "BINARY_EXPR",
+	[CALL_EXPR] = "CALL_EXPR",
 };
 static expr exprs[MAX_EXPRS_IN_FILE];
 static size_t exprs_size;
@@ -516,8 +515,47 @@ static size_t helper_fns_size;
 static void print_helper_fns() {
 }
 
+static void print_call_expr() {
+	abort();
+}
+
+static void print_binary_expr() {
+	abort();
+}
+
+static void print_unary_expr() {
+	abort();
+}
+
+static void print_literal_expr(literal_expr literal_expr) {
+	printf("\"str\": %.*s,\n", (int)literal_expr.len, literal_expr.str);
+}
+
+static void print_expr(expr expr) {
+	printf("\"expr\": {\n");
+
+	printf("\"type\": \"%s\",\n", get_expr_type_str[expr.type]);
+
+	switch (expr.type) {
+		case LITERAL_EXPR:
+			print_literal_expr(expr.literal_expr);
+			break;
+		case UNARY_EXPR:
+			print_unary_expr();
+			break;
+		case BINARY_EXPR:
+			print_binary_expr();
+			break;
+		case CALL_EXPR:
+			print_call_expr();
+			break;
+	}
+
+	printf("},\n");
+}
+
 static void print_statements(size_t statements_offset, size_t statement_count) {
-	printf("\"statements\": [");
+	printf("\"statements\": [\n");
 
 	for (size_t statement_index = 0; statement_index < statement_count; statement_index++) {
 		printf("{\n");
@@ -532,7 +570,11 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 			case IF_STATEMENT:
 				break;
 			case RETURN_STATEMENT:
+			{
+				expr return_expr = exprs[st.return_statement.value_expr_index];
+				print_expr(return_expr);
 				break;
+			}
 			case LOOP_STATEMENT:
 				print_statements(st.loop_statement.body_statements_offset, st.loop_statement.body_statement_count);
 				break;
@@ -549,7 +591,7 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 }
 
 static void print_arguments(size_t arguments_offset, size_t argument_count) {
-	printf("\"arguments\": [");
+	printf("\"arguments\": [\n");
 
 	for (size_t argument_index = 0; argument_index < argument_count; argument_index++) {
 		printf("{\n");
@@ -644,6 +686,15 @@ static void push_statement(statement statement) {
 	statements[statements_size++] = statement;
 }
 
+static void push_expr(expr expr) {
+	// Make sure there's enough room to push expr
+	if (exprs_size + 1 > MAX_EXPRS_IN_FILE) {
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d exprs in the grug file, exceeding MAX_EXPRS_IN_FILE!", MAX_EXPRS_IN_FILE);
+		longjmp(jmp_buffer, 1);
+	}
+	exprs[exprs_size++] = expr;
+}
+
 static void skip_any_comment(size_t *i) {
 	// If there is a comment token with exactly one space before it, skip them
 	token space_token = get_token(*i);
@@ -656,8 +707,11 @@ static void skip_any_comment(size_t *i) {
 				snprintf(error_msg, sizeof(error_msg), "There were too many spaces before the comment at token index %zu", *i);
 				longjmp(jmp_buffer, 1);
 			}
-		} else {
+		} else if (comment_token.type == SPACES_TOKEN) {
 			snprintf(error_msg, sizeof(error_msg), "There was a trailing space at token index %zu", *i);
+			longjmp(jmp_buffer, 1);
+		} else {
+			snprintf(error_msg, sizeof(error_msg), "Expected token type COMMENT_TOKEN, but got %s at token index %zu", get_token_type_str[comment_token.type], *i);
 			longjmp(jmp_buffer, 1);
 		}
 	}
@@ -691,6 +745,52 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
+static size_t parse_expr(size_t *i) {
+	expr expr = {0};
+
+	token left_token = get_token(*i);
+	(*i)++;
+	switch (left_token.type) {
+		case NUMBER_TOKEN:
+		{
+			token space_or_newlines_token = get_token(*i);
+			if (space_or_newlines_token.type == SPACES_TOKEN && space_or_newlines_token.len == 1) {
+				(*i)++;
+				// TODO: See https://ts-ast-viewer.com/#code/BQRgBA1GBMCUYCozAMyTAFkcgrOgbLPEsAOzoAcsQA
+				struct expr left_expr = {0};
+				left_expr.type = LITERAL_EXPR;
+				left_expr.literal_expr.str = left_token.str;
+				left_expr.literal_expr.len = left_token.len;
+				size_t left_expr_index = exprs_size;
+				push_expr(left_expr);
+
+				token operator_token = get_token(*i);
+				(*i)++;
+				if (operator_token.type == PLUS_TOKEN) {
+					assert_spaces(*i, 1);
+					(*i)++;
+
+					expr.binary_expr.left_expr_index = left_expr_index;
+					expr.binary_expr.operator = *operator_token.str;
+					expr.binary_expr.right_expr_index = parse_expr(i);
+				}
+			} else if (space_or_newlines_token.type == NEWLINES_TOKEN) {
+				expr.type = LITERAL_EXPR;
+				expr.literal_expr.str = left_token.str;
+				expr.literal_expr.len = left_token.len;
+			}
+
+			break;
+		}
+		default:
+			snprintf(error_msg, sizeof(error_msg), "Expected an expression token, but got token type %s at token index %zu", get_token_type_str[left_token.type], *i - 1);
+			longjmp(jmp_buffer, 1);
+	}
+
+	push_expr(expr);
+	return exprs_size - 1;
+}
+
 static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents) {
 	(*i)++;
 	skip_any_comment(i);
@@ -722,9 +822,10 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				break;
 			case RETURN_TOKEN:
 				statement.type = RETURN_STATEMENT;
-				// expr expr = {.};
-				// push_expr(expr);
-				// statement.return_statement.value_expr_index = exprs.size;
+				assert_spaces(*i, 1);
+				(*i)++;
+				// TODO: How do I want to store there being no return value in .return_statement?
+				statement.return_statement.value_expr_index = parse_expr(i);
 				break;
 			case LOOP_TOKEN:
 				statement.type = LOOP_STATEMENT;
@@ -783,7 +884,7 @@ static void push_argument(argument argument) {
 
 static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
 	token token = get_token(*i);
-	argument argument = {.name = token.start, .name_len = token.len};
+	argument argument = {.name = token.str, .name_len = token.len};
 	(*i)++;
 
 	assert_token_type(*i, COLON_TOKEN);
@@ -794,7 +895,7 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 
 	token = get_token(*i);
 	assert_token_type(*i, TEXT_TOKEN);
-	argument.type = token.start;
+	argument.type = token.str;
 	argument.type_len = token.len;
 	*arguments_offset = arguments_size;
 	push_argument(argument);
@@ -815,7 +916,7 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 
 		token = get_token(*i);
 		assert_token_type(*i, TEXT_TOKEN);
-		struct argument argument = {.name = token.start, .name_len = token.len};
+		struct argument argument = {.name = token.str, .name_len = token.len};
 		(*i)++;
 
 		assert_token_type(*i, COLON_TOKEN);
@@ -826,7 +927,7 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 
 		token = get_token(*i);
 		assert_token_type(*i, TEXT_TOKEN);
-		argument.type = token.start;
+		argument.type = token.str;
 		argument.type_len = token.len;
 		push_argument(argument);
 		(*argument_count)++;
@@ -839,7 +940,7 @@ static void parse_on_fn(size_t *i) {
 
 	// Parse the function's signature
 	token token = get_token(*i);
-	fn.fn_name = token.start;
+	fn.fn_name = token.str;
 	fn.fn_name_len = token.len;
 	(*i)++;
 
@@ -894,7 +995,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 
 		token = get_token(*i);
 		assert_token_type(*i, FIELD_NAME_TOKEN);
-		field field = {.key = token.start, .key_len = token.len};
+		field field = {.key = token.str, .key_len = token.len};
 		(*i)++;
 
 		assert_spaces(*i, 1);
@@ -911,7 +1012,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 			snprintf(error_msg, sizeof(error_msg), "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu", get_token_type_str[token.type], *i);
 			longjmp(jmp_buffer, 1);
 		}
-		field.value = token.start;
+		field.value = token.str;
 		field.value_len = token.len;
 		push_field(field);
 		compound_literal.field_count++;
@@ -947,7 +1048,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 static void parse_define_fn(size_t *i) {
 	// Parse the function's signature
 	token token = get_token(*i);
-	define_fn.fn_name = token.start;
+	define_fn.fn_name = token.str;
 	define_fn.fn_name_len = token.len;
 	(*i)++;
 
@@ -962,7 +1063,7 @@ static void parse_define_fn(size_t *i) {
 
 	token = get_token(*i);
 	assert_token_type(*i, TEXT_TOKEN);
-	define_fn.return_type = token.start;
+	define_fn.return_type = token.str;
 	define_fn.return_type_len = token.len;
 	(*i)++;
 
@@ -1005,9 +1106,9 @@ static void parse() {
 		token token = get_token(i);
 		int type = token.type;
 
-		if (       type == TEXT_TOKEN && starts_with(token.start, "define_")) {
+		if (       type == TEXT_TOKEN && starts_with(token.str, "define_")) {
 			parse_define_fn(&i);
-		} else if (type == TEXT_TOKEN && starts_with(token.start, "on_")) {
+		} else if (type == TEXT_TOKEN && starts_with(token.str, "on_")) {
 			parse_on_fn(&i);
 		} else if (type == TEXT_TOKEN) {
 			parse_helper_fn(&i);
@@ -1016,7 +1117,7 @@ static void parse() {
 		} else if (type == NEWLINES_TOKEN) {
 			i++;
 		} else {
-			snprintf(error_msg, sizeof(error_msg), "Unexpected token '%.*s' at token index %zu in parse()", (int)token.len, token.start, i);
+			snprintf(error_msg, sizeof(error_msg), "Unexpected token '%.*s' at token index %zu in parse()", (int)token.len, token.str, i);
 			longjmp(jmp_buffer, 1);
 		}
 	}
