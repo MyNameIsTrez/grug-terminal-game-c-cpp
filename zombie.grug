@@ -1,3 +1,7 @@
 on_a() {
-    return foo(42, foo(69))
+    return 42 ; foo
+    if 1 + 2 {
+        break
+        continue
+    }
 }

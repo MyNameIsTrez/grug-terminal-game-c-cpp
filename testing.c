@@ -582,9 +582,13 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 			case VARIABLE_STATEMENT:
 				break;
 			case IF_STATEMENT:
+				printf("\"condition\": {\n");
+				print_expr(st.if_statement.condition);
+				printf("},\n");
+				print_statements(st.if_statement.if_body_statements_offset, st.if_statement.if_body_statement_count);
+				// TODO: Print else statement
 				break;
 			case RETURN_STATEMENT:
-			{
 				if (st.return_statement.has_value) {
 					expr return_expr = exprs[st.return_statement.value_expr_index];
 					printf("\"expr\": {\n");
@@ -592,7 +596,6 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 					printf("},\n");
 				}
 				break;
-			}
 			case LOOP_STATEMENT:
 				print_statements(st.loop_statement.body_statements_offset, st.loop_statement.body_statement_count);
 				break;
@@ -834,8 +837,10 @@ static expr parse_expr(size_t *i) {
 		case NUMBER_TOKEN:
 		{
 			token token = get_token(*i);
-			if (token.type == SPACES_TOKEN && token.len == 1) {
-				(*i)++;
+			struct token next_token = get_token(*i + 1);
+			if (token.type == SPACES_TOKEN && next_token.type == PLUS_TOKEN) {
+				assert_spaces(*i, 1);
+				(*i) += 2;
 				expr.type = BINARY_EXPR;
 
 				// TODO: See https://ts-ast-viewer.com/#code/BQRgBA1GBMCUYCozAMyTAFkcgrOgbLPEsAOzoAcsQA
@@ -847,21 +852,14 @@ static expr parse_expr(size_t *i) {
 				expr.binary_expr.left_expr_index = exprs_size;
 				push_expr(left_expr);
 
-				struct token operator_token = get_token(*i);
+				assert_spaces(*i, 1);
 				(*i)++;
-				if (operator_token.type == PLUS_TOKEN) {
-					assert_spaces(*i, 1);
-					(*i)++;
 
-					expr.binary_expr.operator = *operator_token.str;
-					struct expr right_expr = parse_expr(i);
-					expr.binary_expr.right_expr_index = exprs_size;
-					push_expr(right_expr);
-				} else {
-					snprintf(error_msg, sizeof(error_msg), "Expected an operator token, but got token type %s at token index %zu", get_token_type_str[operator_token.type], *i - 1);
-					longjmp(jmp_buffer, 1);
-				}
-			} else if (token.type == COMMA_TOKEN || token.type == CLOSE_PARENTHESIS_TOKEN || token.type == NEWLINES_TOKEN) {
+				expr.binary_expr.operator = *next_token.str;
+				struct expr right_expr = parse_expr(i);
+				expr.binary_expr.right_expr_index = exprs_size;
+				push_expr(right_expr);
+			} else if (token.type == COMMA_TOKEN || token.type == CLOSE_PARENTHESIS_TOKEN || token.type == NEWLINES_TOKEN || (token.type == SPACES_TOKEN && token.len == 1 && (next_token.type == OPEN_BRACE_TOKEN || next_token.type == COMMENT_TOKEN))) {
 				expr.type = LITERAL_EXPR;
 				expr.literal_expr.str = left_token.str;
 				expr.literal_expr.len = left_token.len;
@@ -910,14 +908,19 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				statement.type = IF_STATEMENT;
 				assert_spaces(*i, 1);
 				(*i)++;
+				statement.if_statement.condition = parse_expr(i);
+				assert_spaces(*i, 1);
+				(*i)++;
+				parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count, indents + 1);
+				// TODO: Handle ELSE_TOKEN
 				break;
 			case RETURN_TOKEN:
 				statement.type = RETURN_STATEMENT;
 				token = get_token(*i);
 				if (token.type == SPACES_TOKEN) {
 					(*i)++;
-					statement.return_statement.has_value = true;
 					if (token.len == 1) {
+						statement.return_statement.has_value = true;
 						expr value_expr = parse_expr(i);
 						statement.return_statement.value_expr_index = exprs_size;
 						push_expr(value_expr);
