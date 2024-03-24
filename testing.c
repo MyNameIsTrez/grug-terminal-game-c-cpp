@@ -429,6 +429,7 @@ struct if_statement {
 
 struct return_statement {
 	size_t value_expr_index;
+	bool has_value;
 };
 
 struct loop_statement {
@@ -584,10 +585,12 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 				break;
 			case RETURN_STATEMENT:
 			{
-				expr return_expr = exprs[st.return_statement.value_expr_index];
-				printf("\"expr\": {\n");
-				print_expr(return_expr);
-				printf("},\n");
+				if (st.return_statement.has_value) {
+					expr return_expr = exprs[st.return_statement.value_expr_index];
+					printf("\"expr\": {\n");
+					print_expr(return_expr);
+					printf("},\n");
+				}
 				break;
 			}
 			case LOOP_STATEMENT:
@@ -905,15 +908,26 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				break;
 			case IF_TOKEN:
 				statement.type = IF_STATEMENT;
+				assert_spaces(*i, 1);
+				(*i)++;
 				break;
 			case RETURN_TOKEN:
 				statement.type = RETURN_STATEMENT;
-				assert_spaces(*i, 1);
-				(*i)++;
-				// TODO: How do I want to store there being no return value in .return_statement?
-				expr value_expr = parse_expr(i);
-				statement.return_statement.value_expr_index = exprs_size;
-				push_expr(value_expr);
+				token = get_token(*i);
+				if (token.type == SPACES_TOKEN) {
+					(*i)++;
+					statement.return_statement.has_value = true;
+					if (token.len == 1) {
+						expr value_expr = parse_expr(i);
+						statement.return_statement.value_expr_index = exprs_size;
+						push_expr(value_expr);
+					} else {
+						snprintf(error_msg, sizeof(error_msg), "Got several spaces after the return statement at token index %zu", *i - 2);
+						longjmp(jmp_buffer, 1);
+					}
+				} else {
+					statement.return_statement.has_value = false;
+				}
 				break;
 			case LOOP_TOKEN:
 				statement.type = LOOP_STATEMENT;
