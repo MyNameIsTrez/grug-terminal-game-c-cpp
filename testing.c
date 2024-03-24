@@ -16,6 +16,7 @@
 #define MAX_HELPER_FNS_IN_FILE 420420
 #define MAX_ON_FNS_IN_FILE 420420
 #define SPACES_PER_INDENT 4
+#define MAX_CALL_ARGUMENTS_PER_STACK_FRAME 69
 #define MAX_STATEMENTS_PER_STACK_FRAME 1337
 
 static char error_msg[420];
@@ -166,7 +167,7 @@ static bool is_escaped_char(char c) {
 static void push_token(token token) {
 	// Make sure there's enough room to push token
 	if (tokens_size + 1 > MAX_TOKENS_IN_FILE) {
-		snprintf(error_msg, sizeof(error_msg), "There are more than %d tokens in the grug file, exceeding MAX_TOKENS_IN_FILE!", MAX_TOKENS_IN_FILE);
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d tokens in the grug file, exceeding MAX_TOKENS_IN_FILE", MAX_TOKENS_IN_FILE);
 		longjmp(jmp_buffer, 1);
 	}
 	tokens[tokens_size++] = token;
@@ -368,7 +369,7 @@ struct binary_expr {
 struct call_expr {
 	char *fn_name;
 	size_t fn_name_len;
-	size_t arguments_expr_offset;
+	size_t arguments_exprs_offset;
 	size_t argument_count;
 };
 
@@ -522,7 +523,9 @@ static void print_call_expr(call_expr call_expr) {
 
 	printf("\"arguments\": [\n");
 	for (size_t argument_index = 0; argument_index < call_expr.argument_count; argument_index++) {
-		print_expr(exprs[call_expr.arguments_expr_offset + argument_index]);
+		printf("{\n");
+		print_expr(exprs[call_expr.arguments_exprs_offset + argument_index]);
+		printf("},\n");
 	}
 	printf("],\n");
 }
@@ -683,7 +686,7 @@ static void parse_helper_fn(size_t *i) {
 static void push_on_fn(on_fn on_fn) {
 	// Make sure there's enough room to push on_fn
 	if (on_fns_size + 1 > MAX_ON_FNS_IN_FILE) {
-		snprintf(error_msg, sizeof(error_msg), "There are more than %d on_fns in the grug file, exceeding MAX_ON_FNS_IN_FILE!", MAX_ON_FNS_IN_FILE);
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d on_fns in the grug file, exceeding MAX_ON_FNS_IN_FILE", MAX_ON_FNS_IN_FILE);
 		longjmp(jmp_buffer, 1);
 	}
 	on_fns[on_fns_size++] = on_fn;
@@ -692,7 +695,7 @@ static void push_on_fn(on_fn on_fn) {
 static void push_statement(statement statement) {
 	// Make sure there's enough room to push statement
 	if (statements_size + 1 > MAX_STATEMENTS_IN_FILE) {
-		snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in the grug file, exceeding MAX_STATEMENTS_IN_FILE!", MAX_STATEMENTS_IN_FILE);
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in the grug file, exceeding MAX_STATEMENTS_IN_FILE", MAX_STATEMENTS_IN_FILE);
 		longjmp(jmp_buffer, 1);
 	}
 	statements[statements_size++] = statement;
@@ -701,7 +704,7 @@ static void push_statement(statement statement) {
 static void push_expr(expr expr) {
 	// Make sure there's enough room to push expr
 	if (exprs_size + 1 > MAX_EXPRS_IN_FILE) {
-		snprintf(error_msg, sizeof(error_msg), "There are more than %d exprs in the grug file, exceeding MAX_EXPRS_IN_FILE!", MAX_EXPRS_IN_FILE);
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d exprs in the grug file, exceeding MAX_EXPRS_IN_FILE", MAX_EXPRS_IN_FILE);
 		longjmp(jmp_buffer, 1);
 	}
 	exprs[exprs_size++] = expr;
@@ -719,11 +722,8 @@ static void skip_any_comment(size_t *i) {
 				snprintf(error_msg, sizeof(error_msg), "There were too many spaces before the comment at token index %zu", *i);
 				longjmp(jmp_buffer, 1);
 			}
-		} else if (comment_token.type == SPACES_TOKEN) {
-			snprintf(error_msg, sizeof(error_msg), "There was a trailing space at token index %zu", *i);
-			longjmp(jmp_buffer, 1);
 		} else {
-			snprintf(error_msg, sizeof(error_msg), "Expected token type COMMENT_TOKEN, but got %s at token index %zu", get_token_type_str[comment_token.type], *i);
+			snprintf(error_msg, sizeof(error_msg), "Expected token type COMMENT_TOKEN, but got %s at token index %zu", get_token_type_str[comment_token.type], *i + 1);
 			longjmp(jmp_buffer, 1);
 		}
 	}
@@ -757,7 +757,55 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	}
 }
 
-static size_t parse_expr(size_t *i) {
+static expr parse_expr(size_t *i);
+
+static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *argument_count) {
+	*argument_count = 0;
+
+	token token = get_token(*i);
+	if (token.type != CLOSE_PARENTHESIS_TOKEN) {
+		struct expr local_call_arguments[MAX_CALL_ARGUMENTS_PER_STACK_FRAME];
+
+		while (true)
+		{
+			struct expr call_argument = parse_expr(i);
+
+			// Make sure there's enough room to push call_argument
+			if (*argument_count + 1 > MAX_CALL_ARGUMENTS_PER_STACK_FRAME) {
+				snprintf(error_msg, sizeof(error_msg), "There are more than %d arguments to a function call in one of the grug file's stack frames, exceeding MAX_CALL_ARGUMENTS_PER_STACK_FRAME", MAX_CALL_ARGUMENTS_PER_STACK_FRAME);
+				longjmp(jmp_buffer, 1);
+			}
+			local_call_arguments[(*argument_count)++] = call_argument;
+
+			token = get_token(*i);
+			(*i)++;
+			if (token.type != COMMA_TOKEN) {
+				break;
+			}
+
+			token = get_token(*i);
+			(*i)++;
+			if (token.type != SPACES_TOKEN) {
+				snprintf(error_msg, sizeof(error_msg), "Expected a space after a comma, but got token type %s at token index %zu", get_token_type_str[token.type], *i - 1);
+				longjmp(jmp_buffer, 1);
+			}
+
+			if (token.len != 1) {
+				snprintf(error_msg, sizeof(error_msg), "Got several spaces after the comma at token index %zu", *i - 2);
+				longjmp(jmp_buffer, 1);
+			}
+		}
+
+		*arguments_exprs_offset = exprs_size;
+		for (size_t i = 0; i < *argument_count; i++) {
+			push_expr(local_call_arguments[i]);
+		}
+	} else {
+		(*i)++;
+	}
+}
+
+static expr parse_expr(size_t *i) {
 	expr expr = {0};
 
 	token left_token = get_token(*i);
@@ -765,17 +813,13 @@ static size_t parse_expr(size_t *i) {
 	switch (left_token.type) {
 		case TEXT_TOKEN:
 		{
-			token maybe_parenthesis_token = get_token(*i);
-			if (maybe_parenthesis_token.type == OPEN_PARENTHESIS_TOKEN) {
+			token token = get_token(*i);
+			if (token.type == OPEN_PARENTHESIS_TOKEN) {
 				(*i)++;
 				expr.type = CALL_EXPR;
-
-				// TODO:
-				// expr.call_expr.fn_name = ;
-				// expr.call_expr.fn_name_len = ;
-				// expr.call_expr.arguments_expr_offset = ;
-				// expr.call_expr.argument_count = ;
-				// parse_fn_call();
+				expr.call_expr.fn_name = left_token.str;
+				expr.call_expr.fn_name_len = left_token.len;
+				parse_fn_call(i, &expr.call_expr.arguments_exprs_offset, &expr.call_expr.argument_count);
 			} else {
 				expr.type = LITERAL_EXPR;
 				expr.literal_expr.str = left_token.str;
@@ -786,8 +830,8 @@ static size_t parse_expr(size_t *i) {
 		}
 		case NUMBER_TOKEN:
 		{
-			token space_or_newlines_token = get_token(*i);
-			if (space_or_newlines_token.type == SPACES_TOKEN && space_or_newlines_token.len == 1) {
+			token token = get_token(*i);
+			if (token.type == SPACES_TOKEN && token.len == 1) {
 				(*i)++;
 				expr.type = BINARY_EXPR;
 
@@ -800,22 +844,27 @@ static size_t parse_expr(size_t *i) {
 				expr.binary_expr.left_expr_index = exprs_size;
 				push_expr(left_expr);
 
-				token operator_token = get_token(*i);
+				struct token operator_token = get_token(*i);
 				(*i)++;
 				if (operator_token.type == PLUS_TOKEN) {
 					assert_spaces(*i, 1);
 					(*i)++;
 
 					expr.binary_expr.operator = *operator_token.str;
-					expr.binary_expr.right_expr_index = parse_expr(i);
+					struct expr right_expr = parse_expr(i);
+					expr.binary_expr.right_expr_index = exprs_size;
+					push_expr(right_expr);
 				} else {
 					snprintf(error_msg, sizeof(error_msg), "Expected an operator token, but got token type %s at token index %zu", get_token_type_str[operator_token.type], *i - 1);
 					longjmp(jmp_buffer, 1);
 				}
-			} else if (space_or_newlines_token.type == NEWLINES_TOKEN) {
+			} else if (token.type == COMMA_TOKEN || token.type == CLOSE_PARENTHESIS_TOKEN || token.type == NEWLINES_TOKEN) {
 				expr.type = LITERAL_EXPR;
 				expr.literal_expr.str = left_token.str;
 				expr.literal_expr.len = left_token.len;
+			} else {
+				snprintf(error_msg, sizeof(error_msg), "Unexpected token after NUMBER_TOKEN: %s at token index %zu", get_token_type_str[token.type], *i);
+				longjmp(jmp_buffer, 1);
 			}
 
 			break;
@@ -825,8 +874,7 @@ static size_t parse_expr(size_t *i) {
 			longjmp(jmp_buffer, 1);
 	}
 
-	push_expr(expr);
-	return exprs_size - 1;
+	return expr;
 }
 
 static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents) {
@@ -836,9 +884,9 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 	assert_1_newline(*i);
 	(*i)++;
 
-	// This local array is necessary due to the depth-first recursion we're doing
+	// This local array is necessary, cause an IF or LOOP substatement can contain its own statements
 	statement local_statements[MAX_STATEMENTS_PER_STACK_FRAME];
-	size_t local_statements_size = 0;
+	*body_statement_count = 0;
 
 	while (true) {
 		token token = get_token(*i);
@@ -863,11 +911,12 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				assert_spaces(*i, 1);
 				(*i)++;
 				// TODO: How do I want to store there being no return value in .return_statement?
-				statement.return_statement.value_expr_index = parse_expr(i);
+				expr value_expr = parse_expr(i);
+				statement.return_statement.value_expr_index = exprs_size;
+				push_expr(value_expr);
 				break;
 			case LOOP_TOKEN:
 				statement.type = LOOP_STATEMENT;
-				statement.loop_statement.body_statement_count = 0;
 				assert_spaces(*i, 1);
 				(*i)++;
 				parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count, indents + 1);
@@ -887,12 +936,11 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 
 		if (token.type != COMMENT_TOKEN) {
 			// Make sure there's enough room to push statement
-			if (local_statements_size + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
-				snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME!", MAX_STATEMENTS_PER_STACK_FRAME);
+			if (*body_statement_count + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
+				snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME", MAX_STATEMENTS_PER_STACK_FRAME);
 				longjmp(jmp_buffer, 1);
 			}
-			local_statements[local_statements_size++] = statement;
-			(*body_statement_count)++;
+			local_statements[(*body_statement_count)++] = statement;
 		}
 		skip_any_comment(i);
 
@@ -901,7 +949,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 	}
 
 	*body_statements_offset = statements_size;
-	for (size_t i = 0; i < local_statements_size; i++) {
+	for (size_t i = 0; i < *body_statement_count; i++) {
 		push_statement(local_statements[i]);
 	}
 
@@ -918,13 +966,13 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 static void push_argument(argument argument) {
 	// Make sure there's enough room to push argument
 	if (arguments_size + 1 > MAX_ARGUMENTS_IN_FILE) {
-		snprintf(error_msg, sizeof(error_msg), "There are more than %d arguments in the grug file, exceeding MAX_ARGUMENTS_IN_FILE!", MAX_ARGUMENTS_IN_FILE);
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d arguments in the grug file, exceeding MAX_ARGUMENTS_IN_FILE", MAX_ARGUMENTS_IN_FILE);
 		longjmp(jmp_buffer, 1);
 	}
 	arguments[arguments_size++] = argument;
 }
 
-static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
+static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
 	token token = get_token(*i);
 	argument argument = {.name = token.str, .name_len = token.len};
 	(*i)++;
@@ -980,7 +1028,6 @@ static void parse_on_or_helper_fn_arguments(size_t *i, size_t *arguments_offset,
 static void parse_on_fn(size_t *i) {
 	on_fn fn = {0};
 
-	// Parse the function's signature
 	token token = get_token(*i);
 	fn.fn_name = token.str;
 	fn.fn_name_len = token.len;
@@ -989,10 +1036,9 @@ static void parse_on_fn(size_t *i) {
 	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
 	(*i)++;
 
-	// The first argument must not have a comma before it
 	token = get_token(*i);
 	if (token.type == TEXT_TOKEN) {
-		parse_on_or_helper_fn_arguments(i, &fn.arguments_offset, &fn.argument_count);
+		parse_arguments(i, &fn.arguments_offset, &fn.argument_count);
 	}
 
 	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
@@ -1010,7 +1056,7 @@ static void parse_on_fn(size_t *i) {
 static void push_field(field field) {
 	// Make sure there's enough room to push field
 	if (fields_size + 1 > MAX_FIELDS_IN_FILE) {
-		snprintf(error_msg, sizeof(error_msg), "There are more than %d fields in the grug file, exceeding MAX_FIELDS_IN_FILE!", MAX_FIELDS_IN_FILE);
+		snprintf(error_msg, sizeof(error_msg), "There are more than %d fields in the grug file, exceeding MAX_FIELDS_IN_FILE", MAX_FIELDS_IN_FILE);
 		longjmp(jmp_buffer, 1);
 	}
 	fields[fields_size++] = field;
