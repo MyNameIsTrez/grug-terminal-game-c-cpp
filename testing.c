@@ -879,6 +879,7 @@ static expr parse_expr(size_t *i) {
 }
 
 static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents) {
+	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	(*i)++;
 	skip_any_comment(i);
 
@@ -906,11 +907,14 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				break;
 			case IF_TOKEN:
 				statement.type = IF_STATEMENT;
+
 				assert_spaces(*i, 1);
 				(*i)++;
+
 				statement.if_statement.condition = parse_expr(i);
 				assert_spaces(*i, 1);
 				(*i)++;
+
 				parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count, indents + 1);
 				// TODO: Handle ELSE_TOKEN
 				break;
@@ -934,8 +938,10 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				break;
 			case LOOP_TOKEN:
 				statement.type = LOOP_STATEMENT;
+
 				assert_spaces(*i, 1);
 				(*i)++;
+
 				parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count, indents + 1);
 				break;
 			case BREAK_TOKEN:
@@ -1064,7 +1070,6 @@ static void parse_on_fn(size_t *i) {
 	assert_spaces(*i, 1);
 	(*i)++;
 
-	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	parse_statements(i, &fn.body_statements_offset, &fn.body_statement_count, 1);
 
 	push_on_fn(fn);
