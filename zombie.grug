@@ -10,8 +10,8 @@ define_human() human {
 
 on_human_death(self: human, a: b) {
     loop {
-        break
-        return
+        ; break
+        return 42 + 69
     }
     continue
 }

@@ -840,18 +840,22 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 			case CONTINUE_TOKEN:
 				statement.type = CONTINUE_STATEMENT;
 				break;
+			case COMMENT_TOKEN:
+				break;
 			default:
 				snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
 				longjmp(jmp_buffer, 1);
 		}
 
-		// Make sure there's enough room to push statement
-		if (local_statements_size + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
-			snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME!", MAX_STATEMENTS_PER_STACK_FRAME);
-			longjmp(jmp_buffer, 1);
+		if (token.type != COMMENT_TOKEN) {
+			// Make sure there's enough room to push statement
+			if (local_statements_size + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
+				snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME!", MAX_STATEMENTS_PER_STACK_FRAME);
+				longjmp(jmp_buffer, 1);
+			}
+			local_statements[local_statements_size++] = statement;
+			(*body_statement_count)++;
 		}
-		local_statements[local_statements_size++] = statement;
-		(*body_statement_count)++;
 		skip_any_comment(i);
 
 		assert_1_newline(*i);
