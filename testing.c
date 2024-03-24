@@ -864,7 +864,7 @@ static expr parse_expr(size_t *i) {
 				expr.literal_expr.str = left_token.str;
 				expr.literal_expr.len = left_token.len;
 			} else {
-				snprintf(error_msg, sizeof(error_msg), "Unexpected token after NUMBER_TOKEN: %s at token index %zu", get_token_type_str[token.type], *i);
+				snprintf(error_msg, sizeof(error_msg), "Expected a binary operator token, but got %s at token index %zu", get_token_type_str[next_token.type], *i + 1);
 				longjmp(jmp_buffer, 1);
 			}
 
