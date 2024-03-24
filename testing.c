@@ -512,15 +512,29 @@ static size_t helper_fns_size;
 // 	return c_text;
 // }
 
+static void print_expr(expr expr);
+
 static void print_helper_fns() {
 }
 
-static void print_call_expr() {
-	abort();
+static void print_call_expr(call_expr call_expr) {
+	printf("\"fn_name\": \"%.*s\",\n", (int)call_expr.fn_name_len, call_expr.fn_name);
+
+	printf("\"arguments\": [\n");
+	for (size_t argument_index = 0; argument_index < call_expr.argument_count; argument_index++) {
+		print_expr(exprs[call_expr.arguments_expr_offset + argument_index]);
+	}
+	printf("],\n");
 }
 
-static void print_binary_expr() {
-	abort();
+static void print_binary_expr(binary_expr binary_expr) {
+	printf("\"left_expr\": {\n");
+	print_expr(exprs[binary_expr.left_expr_index]);
+	printf("},\n");
+	printf("\"operator\": \"%c\",\n", binary_expr.operator);
+	printf("\"right_expr\": {\n");
+	print_expr(exprs[binary_expr.right_expr_index]);
+	printf("},\n");
 }
 
 static void print_unary_expr() {
@@ -528,12 +542,10 @@ static void print_unary_expr() {
 }
 
 static void print_literal_expr(literal_expr literal_expr) {
-	printf("\"str\": %.*s,\n", (int)literal_expr.len, literal_expr.str);
+	printf("\"str\": \"%.*s\",\n", (int)literal_expr.len, literal_expr.str);
 }
 
 static void print_expr(expr expr) {
-	printf("\"expr\": {\n");
-
 	printf("\"type\": \"%s\",\n", get_expr_type_str[expr.type]);
 
 	switch (expr.type) {
@@ -544,14 +556,12 @@ static void print_expr(expr expr) {
 			print_unary_expr();
 			break;
 		case BINARY_EXPR:
-			print_binary_expr();
+			print_binary_expr(expr.binary_expr);
 			break;
 		case CALL_EXPR:
-			print_call_expr();
+			print_call_expr(expr.call_expr);
 			break;
 	}
-
-	printf("},\n");
 }
 
 static void print_statements(size_t statements_offset, size_t statement_count) {
@@ -572,7 +582,9 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 			case RETURN_STATEMENT:
 			{
 				expr return_expr = exprs[st.return_statement.value_expr_index];
+				printf("\"expr\": {\n");
 				print_expr(return_expr);
+				printf("},\n");
 				break;
 			}
 			case LOOP_STATEMENT:
@@ -751,17 +763,41 @@ static size_t parse_expr(size_t *i) {
 	token left_token = get_token(*i);
 	(*i)++;
 	switch (left_token.type) {
+		case TEXT_TOKEN:
+		{
+			token maybe_parenthesis_token = get_token(*i);
+			if (maybe_parenthesis_token.type == OPEN_PARENTHESIS_TOKEN) {
+				(*i)++;
+				expr.type = CALL_EXPR;
+
+				// TODO:
+				// expr.call_expr.fn_name = ;
+				// expr.call_expr.fn_name_len = ;
+				// expr.call_expr.arguments_expr_offset = ;
+				// expr.call_expr.argument_count = ;
+				// parse_fn_call();
+			} else {
+				expr.type = LITERAL_EXPR;
+				expr.literal_expr.str = left_token.str;
+				expr.literal_expr.len = left_token.len;
+			}
+
+			break;
+		}
 		case NUMBER_TOKEN:
 		{
 			token space_or_newlines_token = get_token(*i);
 			if (space_or_newlines_token.type == SPACES_TOKEN && space_or_newlines_token.len == 1) {
 				(*i)++;
+				expr.type = BINARY_EXPR;
+
 				// TODO: See https://ts-ast-viewer.com/#code/BQRgBA1GBMCUYCozAMyTAFkcgrOgbLPEsAOzoAcsQA
 				struct expr left_expr = {0};
 				left_expr.type = LITERAL_EXPR;
 				left_expr.literal_expr.str = left_token.str;
 				left_expr.literal_expr.len = left_token.len;
-				size_t left_expr_index = exprs_size;
+
+				expr.binary_expr.left_expr_index = exprs_size;
 				push_expr(left_expr);
 
 				token operator_token = get_token(*i);
@@ -770,9 +806,11 @@ static size_t parse_expr(size_t *i) {
 					assert_spaces(*i, 1);
 					(*i)++;
 
-					expr.binary_expr.left_expr_index = left_expr_index;
 					expr.binary_expr.operator = *operator_token.str;
 					expr.binary_expr.right_expr_index = parse_expr(i);
+				} else {
+					snprintf(error_msg, sizeof(error_msg), "Expected an operator token, but got token type %s at token index %zu", get_token_type_str[operator_token.type], *i - 1);
+					longjmp(jmp_buffer, 1);
 				}
 			} else if (space_or_newlines_token.type == NEWLINES_TOKEN) {
 				expr.type = LITERAL_EXPR;
