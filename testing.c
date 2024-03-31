@@ -594,9 +594,13 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 
 				printf("\"if_statements\": [\n");
 				print_statements(st.if_statement.if_body_statements_offset, st.if_statement.if_body_statement_count);
+				printf("],\n");
 
-				printf("\"else_statements\": [\n");
-				print_statements(st.if_statement.else_body_statements_offset, st.if_statement.else_body_statement_count);
+				if (st.if_statement.else_body_statement_count > 0) {
+					printf("\"else_statements\": [\n");
+					print_statements(st.if_statement.else_body_statements_offset, st.if_statement.else_body_statement_count);
+					printf("],\n");
+				}
 
 				break;
 			case RETURN_STATEMENT:
@@ -610,6 +614,7 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 			case LOOP_STATEMENT:
 				printf("\"statements\": [\n");
 				print_statements(st.loop_statement.body_statements_offset, st.loop_statement.body_statement_count);
+				printf("],\n");
 				break;
 			case BREAK_STATEMENT:
 				break;
@@ -619,8 +624,6 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 
 		printf("},\n");
 	}
-
-	printf("],\n");
 }
 
 static void print_arguments(size_t arguments_offset, size_t argument_count) {
@@ -654,6 +657,7 @@ static void print_on_fns() {
 
 		printf("\"statements\": [\n");
 		print_statements(fn.body_statements_offset, fn.body_statement_count);
+		printf("],\n");
 
 		printf("},\n");
 	}
@@ -905,6 +909,55 @@ static expr parse_expr(size_t *i) {
 	return expr;
 }
 
+static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents);
+
+static statement parse_if_statement(size_t *i, size_t indents) {
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	statement statement = {0};
+	statement.type = IF_STATEMENT;
+	statement.if_statement.condition = parse_expr(i);
+	assert_spaces(*i, 1);
+	(*i)++;
+
+	parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count, indents + 1);
+
+	if (get_token(*i).type == SPACES_TOKEN) {
+		if (get_token(*i).len == 1) {
+			(*i)++;
+			if (get_token(*i).type == ELSE_TOKEN) {
+				(*i)++;
+
+				assert_spaces(*i, 1);
+				(*i)++;
+
+				if (get_token(*i).type == IF_TOKEN) {
+					(*i)++;
+
+					statement.if_statement.else_body_statement_count = 1;
+
+					struct statement else_if_statement = parse_if_statement(i, indents);
+					statement.if_statement.else_body_statements_offset = statements_size;
+					push_statement(else_if_statement);
+				} else {
+					parse_statements(i, &statement.if_statement.else_body_statements_offset, &statement.if_statement.else_body_statement_count, indents + 1);
+				}
+			} else {
+				snprintf(error_msg, sizeof(error_msg), "Expected an else-statement after the if-statement block at token index %zu", *i - 2);
+				error_line = __LINE__;
+				longjmp(jmp_buffer, 1);
+			}
+		} else {
+			snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the if-statement block at token index %zu", *i - 1);
+			error_line = __LINE__;
+			longjmp(jmp_buffer, 1);
+		}
+	}
+
+	return statement;
+}
+
 static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents) {
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	(*i)++;
@@ -933,39 +986,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				statement.type = VARIABLE_STATEMENT;
 				break;
 			case IF_TOKEN:
-				statement.type = IF_STATEMENT;
-
-				assert_spaces(*i, 1);
-				(*i)++;
-
-				statement.if_statement.condition = parse_expr(i);
-				assert_spaces(*i, 1);
-				(*i)++;
-
-				parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count, indents + 1);
-
-				if (get_token(*i).type == SPACES_TOKEN) {
-					if (get_token(*i).len == 1) {
-						(*i)++;
-						if (get_token(*i).type == ELSE_TOKEN) {
-							(*i)++;
-
-							assert_spaces(*i, 1);
-							(*i)++;
-
-							parse_statements(i, &statement.if_statement.else_body_statements_offset, &statement.if_statement.else_body_statement_count, indents + 1);
-						} else {
-							snprintf(error_msg, sizeof(error_msg), "Expected an else-statement after the if-statement block at token index %zu", *i - 2);
-							error_line = __LINE__;
-							longjmp(jmp_buffer, 1);
-						}
-					} else {
-						snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the if-statement block at token index %zu", *i - 1);
-						error_line = __LINE__;
-						longjmp(jmp_buffer, 1);
-					}
-				}
-
+				statement = parse_if_statement(i, indents);
 				break;
 			case RETURN_TOKEN:
 				statement.type = RETURN_STATEMENT;

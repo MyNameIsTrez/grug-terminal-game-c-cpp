@@ -1,7 +1,9 @@
 on_a() {
     if 1 {
         continue
-    } else {
+    } else if 2 {
         break
+    } else {
+        return
     }
 }
