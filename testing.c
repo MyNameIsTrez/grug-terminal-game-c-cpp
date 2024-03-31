@@ -20,6 +20,7 @@
 #define MAX_STATEMENTS_PER_STACK_FRAME 1337
 
 static char error_msg[420];
+static int error_line;
 jmp_buf jmp_buffer;
 
 typedef void (*grug_error_handler_fn)(char *error_msg);
@@ -96,6 +97,7 @@ static size_t max_size_t(size_t a, size_t b) {
 static token get_token(size_t token_index) {
 	if (token_index >= tokens_size) {
 		snprintf(error_msg, sizeof(error_msg), "token_index %zu was out of bounds in get_token()", token_index);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	return tokens[token_index];
@@ -168,6 +170,7 @@ static void push_token(token token) {
 	// Make sure there's enough room to push token
 	if (tokens_size + 1 > MAX_TOKENS_IN_FILE) {
 		snprintf(error_msg, sizeof(error_msg), "There are more than %d tokens in the grug file, exceeding MAX_TOKENS_IN_FILE", MAX_TOKENS_IN_FILE);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	tokens[tokens_size++] = token;
@@ -299,6 +302,7 @@ static void tokenize(char *grug_text) {
 					}
 
 					snprintf(error_msg, sizeof(error_msg), "Unexpected unprintable character '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
+					error_line = __LINE__;
 					longjmp(jmp_buffer, 1);
 				}
 			}
@@ -309,24 +313,28 @@ static void tokenize(char *grug_text) {
 			if (token.len < 2 || token.str[1] != ' ')
 			{
 				snprintf(error_msg, sizeof(error_msg), "Expected the comment to str with a space character, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 
 			if (token.len < 3 || isspace(token.str[2]))
 			{
 				snprintf(error_msg, sizeof(error_msg), "Expected the comment to have a text character directly after the space, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 
 			if (isspace(token.str[token.len - 1]))
 			{
 				snprintf(error_msg, sizeof(error_msg), "Unexpected trailing whitespace '%.*s' at the end of the comment at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + token.len);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 
 			push_token(token);
 		} else {
 			snprintf(error_msg, sizeof(error_msg), "Unrecognized character '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
+			error_line = __LINE__;
 			longjmp(jmp_buffer, 1);
 		}
 	}
@@ -693,6 +701,7 @@ static void push_on_fn(on_fn on_fn) {
 	// Make sure there's enough room to push on_fn
 	if (on_fns_size + 1 > MAX_ON_FNS_IN_FILE) {
 		snprintf(error_msg, sizeof(error_msg), "There are more than %d on_fns in the grug file, exceeding MAX_ON_FNS_IN_FILE", MAX_ON_FNS_IN_FILE);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	on_fns[on_fns_size++] = on_fn;
@@ -702,6 +711,7 @@ static void push_statement(statement statement) {
 	// Make sure there's enough room to push statement
 	if (statements_size + 1 > MAX_STATEMENTS_IN_FILE) {
 		snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in the grug file, exceeding MAX_STATEMENTS_IN_FILE", MAX_STATEMENTS_IN_FILE);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	statements[statements_size++] = statement;
@@ -711,6 +721,7 @@ static void push_expr(expr expr) {
 	// Make sure there's enough room to push expr
 	if (exprs_size + 1 > MAX_EXPRS_IN_FILE) {
 		snprintf(error_msg, sizeof(error_msg), "There are more than %d exprs in the grug file, exceeding MAX_EXPRS_IN_FILE", MAX_EXPRS_IN_FILE);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	exprs[exprs_size++] = expr;
@@ -726,10 +737,12 @@ static void skip_any_comment(size_t *i) {
 				(*i) += 2;
 			} else {
 				snprintf(error_msg, sizeof(error_msg), "There were too many spaces before the comment at token index %zu", *i);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 		} else {
 			snprintf(error_msg, sizeof(error_msg), "Expected token type COMMENT_TOKEN, but got %s at token index %zu", get_token_type_str[comment_token.type], *i + 1);
+			error_line = __LINE__;
 			longjmp(jmp_buffer, 1);
 		}
 	}
@@ -739,6 +752,7 @@ static void assert_token_type(size_t token_index, unsigned int expected_type) {
 	token token = get_token(token_index);
 	if (token.type != expected_type) {
 		snprintf(error_msg, sizeof(error_msg), "Expected token type %s, but got %s at token index %zu", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 }
@@ -749,6 +763,7 @@ static void assert_1_newline(size_t token_index) {
 	token token = get_token(token_index);
 	if (token.len != 1) {
 		snprintf(error_msg, sizeof(error_msg), "Expected 1 newline, but got %zu at token index %zu", token.len, token_index);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 }
@@ -759,6 +774,7 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 	token token = get_token(token_index);
 	if (token.len != expected_spaces) {
 		snprintf(error_msg, sizeof(error_msg), "Expected %zu space%s, but got %zu at token index %zu", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, token_index);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 }
@@ -779,6 +795,7 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 			// Make sure there's enough room to push call_argument
 			if (*argument_count + 1 > MAX_CALL_ARGUMENTS_PER_STACK_FRAME) {
 				snprintf(error_msg, sizeof(error_msg), "There are more than %d arguments to a function call in one of the grug file's stack frames, exceeding MAX_CALL_ARGUMENTS_PER_STACK_FRAME", MAX_CALL_ARGUMENTS_PER_STACK_FRAME);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 			local_call_arguments[(*argument_count)++] = call_argument;
@@ -793,11 +810,13 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 			(*i)++;
 			if (token.type != SPACES_TOKEN) {
 				snprintf(error_msg, sizeof(error_msg), "Expected a space after a comma, but got token type %s at token index %zu", get_token_type_str[token.type], *i - 1);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 
 			if (token.len != 1) {
 				snprintf(error_msg, sizeof(error_msg), "Got several spaces after the comma at token index %zu", *i - 2);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 		}
@@ -865,6 +884,7 @@ static expr parse_expr(size_t *i) {
 				expr.literal_expr.len = left_token.len;
 			} else {
 				snprintf(error_msg, sizeof(error_msg), "Expected a binary operator token, but got %s at token index %zu", get_token_type_str[next_token.type], *i + 1);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 
@@ -872,6 +892,7 @@ static expr parse_expr(size_t *i) {
 		}
 		default:
 			snprintf(error_msg, sizeof(error_msg), "Expected an expression token, but got token type %s at token index %zu", get_token_type_str[left_token.type], *i - 1);
+			error_line = __LINE__;
 			longjmp(jmp_buffer, 1);
 	}
 
@@ -930,6 +951,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 						push_expr(value_expr);
 					} else {
 						snprintf(error_msg, sizeof(error_msg), "Got several spaces after the return statement at token index %zu", *i - 2);
+						error_line = __LINE__;
 						longjmp(jmp_buffer, 1);
 					}
 				} else {
@@ -954,6 +976,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				break;
 			default:
 				snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 		}
 
@@ -961,6 +984,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 			// Make sure there's enough room to push statement
 			if (*body_statement_count + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
 				snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME", MAX_STATEMENTS_PER_STACK_FRAME);
+				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
 			local_statements[(*body_statement_count)++] = statement;
@@ -990,6 +1014,7 @@ static void push_argument(argument argument) {
 	// Make sure there's enough room to push argument
 	if (arguments_size + 1 > MAX_ARGUMENTS_IN_FILE) {
 		snprintf(error_msg, sizeof(error_msg), "There are more than %d arguments in the grug file, exceeding MAX_ARGUMENTS_IN_FILE", MAX_ARGUMENTS_IN_FILE);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	arguments[arguments_size++] = argument;
@@ -1079,6 +1104,7 @@ static void push_field(field field) {
 	// Make sure there's enough room to push field
 	if (fields_size + 1 > MAX_FIELDS_IN_FILE) {
 		snprintf(error_msg, sizeof(error_msg), "There are more than %d fields in the grug file, exceeding MAX_FIELDS_IN_FILE", MAX_FIELDS_IN_FILE);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	fields[fields_size++] = field;
@@ -1120,6 +1146,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 		token = get_token(*i);
 		if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
 			snprintf(error_msg, sizeof(error_msg), "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu", get_token_type_str[token.type], *i);
+			error_line = __LINE__;
 			longjmp(jmp_buffer, 1);
 		}
 		field.value = token.str;
@@ -1138,6 +1165,7 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 
 	if (compound_literal.field_count == 0) {
 		snprintf(error_msg, sizeof(error_msg), "Expected at least one field in the compound literal near token index %zu", *i);
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 
@@ -1228,6 +1256,7 @@ static void parse() {
 			i++;
 		} else {
 			snprintf(error_msg, sizeof(error_msg), "Unexpected token '%.*s' at token index %zu in parse()", (int)token.len, token.str, i);
+			error_line = __LINE__;
 			longjmp(jmp_buffer, 1);
 		}
 	}
@@ -1247,17 +1276,20 @@ static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
         snprintf(error_msg, sizeof(error_msg), "fopen");
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 
 	if (fseek(f, 0, SEEK_END)) {
         snprintf(error_msg, sizeof(error_msg), "fseek");
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 
 	long count = ftell(f);
 	if (count == -1) {
         snprintf(error_msg, sizeof(error_msg), "ftell");
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 
@@ -1266,12 +1298,14 @@ static char *read_file(char *path) {
 	char *text = malloc(count + 1);
 	if (!text) {
 		snprintf(error_msg, sizeof(error_msg), "malloc");
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 
 	ssize_t bytes_read = fread(text, 1, count, f);
 	if (bytes_read != count) {
         snprintf(error_msg, sizeof(error_msg), "fread");
+		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 
@@ -1301,6 +1335,7 @@ void run() {
 
 void error_handler(char *error_msg) {
 	fprintf(stderr, "%s\n", error_msg);
+	fprintf(stderr, "%s:%d\n", __FILE__, error_line);
 	exit(EXIT_FAILURE);
 }
 
