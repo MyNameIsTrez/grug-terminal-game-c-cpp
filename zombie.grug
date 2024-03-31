@@ -1,7 +1,7 @@
 on_a() {
-    return 42 ; foo
-    if 1 + 2 {
-        break
+    if 1 {
         continue
+    } else {
+        break
     }
 }

@@ -577,8 +577,6 @@ static void print_expr(expr expr) {
 }
 
 static void print_statements(size_t statements_offset, size_t statement_count) {
-	printf("\"statements\": [\n");
-
 	for (size_t statement_index = 0; statement_index < statement_count; statement_index++) {
 		printf("{\n");
 
@@ -593,8 +591,13 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 				printf("\"condition\": {\n");
 				print_expr(st.if_statement.condition);
 				printf("},\n");
+
+				printf("\"if_statements\": [\n");
 				print_statements(st.if_statement.if_body_statements_offset, st.if_statement.if_body_statement_count);
-				// TODO: Print else statement
+
+				printf("\"else_statements\": [\n");
+				print_statements(st.if_statement.else_body_statements_offset, st.if_statement.else_body_statement_count);
+
 				break;
 			case RETURN_STATEMENT:
 				if (st.return_statement.has_value) {
@@ -605,6 +608,7 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 				}
 				break;
 			case LOOP_STATEMENT:
+				printf("\"statements\": [\n");
 				print_statements(st.loop_statement.body_statements_offset, st.loop_statement.body_statement_count);
 				break;
 			case BREAK_STATEMENT:
@@ -647,6 +651,8 @@ static void print_on_fns() {
 		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
 
 		print_arguments(fn.arguments_offset, fn.argument_count);
+
+		printf("\"statements\": [\n");
 		print_statements(fn.body_statements_offset, fn.body_statement_count);
 
 		printf("},\n");
@@ -736,7 +742,7 @@ static void skip_any_comment(size_t *i) {
 			if (space_token.len == 1) {
 				(*i) += 2;
 			} else {
-				snprintf(error_msg, sizeof(error_msg), "There were too many spaces before the comment at token index %zu", *i);
+				snprintf(error_msg, sizeof(error_msg), "Expected 1 space, but got %zu before the comment at token index %zu", space_token.len, *i);
 				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
@@ -815,7 +821,7 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 			}
 
 			if (token.len != 1) {
-				snprintf(error_msg, sizeof(error_msg), "Got several spaces after the comma at token index %zu", *i - 2);
+				snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the comma at token index %zu", *i - 2);
 				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
@@ -937,7 +943,29 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 				(*i)++;
 
 				parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count, indents + 1);
-				// TODO: Handle ELSE_TOKEN
+
+				if (get_token(*i).type == SPACES_TOKEN) {
+					if (get_token(*i).len == 1) {
+						(*i)++;
+						if (get_token(*i).type == ELSE_TOKEN) {
+							(*i)++;
+
+							assert_spaces(*i, 1);
+							(*i)++;
+
+							parse_statements(i, &statement.if_statement.else_body_statements_offset, &statement.if_statement.else_body_statement_count, indents + 1);
+						} else {
+							snprintf(error_msg, sizeof(error_msg), "Expected an else-statement after the if-statement block at token index %zu", *i - 2);
+							error_line = __LINE__;
+							longjmp(jmp_buffer, 1);
+						}
+					} else {
+						snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the if-statement block at token index %zu", *i - 1);
+						error_line = __LINE__;
+						longjmp(jmp_buffer, 1);
+					}
+				}
+
 				break;
 			case RETURN_TOKEN:
 				statement.type = RETURN_STATEMENT;
@@ -950,7 +978,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 						statement.return_statement.value_expr_index = exprs_size;
 						push_expr(value_expr);
 					} else {
-						snprintf(error_msg, sizeof(error_msg), "Got several spaces after the return statement at token index %zu", *i - 2);
+						snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the return statement at token index %zu", *i - 2);
 						error_line = __LINE__;
 						longjmp(jmp_buffer, 1);
 					}
@@ -1007,7 +1035,11 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 
 	assert_token_type(*i, CLOSE_BRACE_TOKEN);
 	(*i)++;
-	skip_any_comment(i);
+
+	// If an else-statement is coming up, don't call skip_any_comment()
+	if (get_token(*i).type == SPACES_TOKEN && get_token(*i + 1).type != ELSE_TOKEN) {
+		skip_any_comment(i);
+	}
 }
 
 static void push_argument(argument argument) {
