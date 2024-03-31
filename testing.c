@@ -958,6 +958,66 @@ static statement parse_if_statement(size_t *i, size_t indents) {
 	return statement;
 }
 
+static statement parse_statement(size_t *i, size_t indents) {
+	token token = get_token(*i);
+	(*i)++;
+
+	statement statement = {0};
+	switch (token.type) {
+		case TEXT_TOKEN:
+			statement.type = VARIABLE_STATEMENT;
+			// TODO:
+			// statement.variable_statement.variable_name = ;
+			// statement.variable_statement.variable_name_len = ;
+			// statement.variable_statement.type = ;
+			// statement.variable_statement.type_len = ;
+			// statement.variable_statement.value_expr_index = ;
+			break;
+		case IF_TOKEN:
+			statement = parse_if_statement(i, indents);
+			break;
+		case RETURN_TOKEN:
+			statement.type = RETURN_STATEMENT;
+			token = get_token(*i);
+			if (token.type == SPACES_TOKEN) {
+				(*i)++;
+				if (token.len == 1) {
+					statement.return_statement.has_value = true;
+					expr value_expr = parse_expr(i);
+					statement.return_statement.value_expr_index = exprs_size;
+					push_expr(value_expr);
+				} else {
+					snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the return statement at token index %zu", *i - 2);
+					error_line = __LINE__;
+					longjmp(jmp_buffer, 1);
+				}
+			} else {
+				statement.return_statement.has_value = false;
+			}
+			break;
+		case LOOP_TOKEN:
+			statement.type = LOOP_STATEMENT;
+
+			assert_spaces(*i, 1);
+			(*i)++;
+
+			parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count, indents + 1);
+			break;
+		case BREAK_TOKEN:
+			statement.type = BREAK_STATEMENT;
+			break;
+		case CONTINUE_TOKEN:
+			statement.type = CONTINUE_STATEMENT;
+			break;
+		default:
+			snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
+			error_line = __LINE__;
+			longjmp(jmp_buffer, 1);
+	}
+
+	return statement;
+}
+
 static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents) {
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
 	(*i)++;
@@ -977,59 +1037,10 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 		}
 		(*i)++;
 
-		// TODO: Turn this into parse_statement()
 		token = get_token(*i);
-		(*i)++;
-		statement statement;
-		switch (token.type) {
-			case TEXT_TOKEN:
-				statement.type = VARIABLE_STATEMENT;
-				break;
-			case IF_TOKEN:
-				statement = parse_if_statement(i, indents);
-				break;
-			case RETURN_TOKEN:
-				statement.type = RETURN_STATEMENT;
-				token = get_token(*i);
-				if (token.type == SPACES_TOKEN) {
-					(*i)++;
-					if (token.len == 1) {
-						statement.return_statement.has_value = true;
-						expr value_expr = parse_expr(i);
-						statement.return_statement.value_expr_index = exprs_size;
-						push_expr(value_expr);
-					} else {
-						snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the return statement at token index %zu", *i - 2);
-						error_line = __LINE__;
-						longjmp(jmp_buffer, 1);
-					}
-				} else {
-					statement.return_statement.has_value = false;
-				}
-				break;
-			case LOOP_TOKEN:
-				statement.type = LOOP_STATEMENT;
-
-				assert_spaces(*i, 1);
-				(*i)++;
-
-				parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count, indents + 1);
-				break;
-			case BREAK_TOKEN:
-				statement.type = BREAK_STATEMENT;
-				break;
-			case CONTINUE_TOKEN:
-				statement.type = CONTINUE_STATEMENT;
-				break;
-			case COMMENT_TOKEN:
-				break;
-			default:
-				snprintf(error_msg, sizeof(error_msg), "Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-		}
-
 		if (token.type != COMMENT_TOKEN) {
+			statement statement = parse_statement(i, indents);
+
 			// Make sure there's enough room to push statement
 			if (*body_statement_count + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
 				snprintf(error_msg, sizeof(error_msg), "There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME", MAX_STATEMENTS_PER_STACK_FRAME);
@@ -1040,7 +1051,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 		}
 		skip_any_comment(i);
 
-		assert_1_newline(*i);
+		assert_token_type(*i, NEWLINES_TOKEN);
 		(*i)++;
 	}
 
@@ -1093,7 +1104,7 @@ static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argumen
 	(*argument_count)++;
 	(*i)++;
 
-	// The second, third, etc. arguments all must have a comma before them
+	// Every argument after the first one starts with a comma
 	while (true)
 	{
 		token = get_token(*i);
