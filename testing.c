@@ -1334,8 +1334,7 @@ void run() {
 }
 
 void error_handler(char *error_msg) {
-	fprintf(stderr, "%s\n", error_msg);
-	fprintf(stderr, "%s:%d\n", __FILE__, error_line);
+	fprintf(stderr, "%s at %s:%d\n", error_msg, __FILE__, error_line);
 	exit(EXIT_FAILURE);
 }
 
