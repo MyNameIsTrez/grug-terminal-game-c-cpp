@@ -52,7 +52,7 @@ struct token {
 		NEWLINES_TOKEN,
 		STRING_TOKEN,
 		FIELD_NAME_TOKEN,
-		TEXT_TOKEN,
+		WORD_TOKEN,
 		NUMBER_TOKEN,
 		COMMENT_TOKEN,
 	} type;
@@ -80,7 +80,7 @@ static char *get_token_type_str[] = {
 	[NEWLINES_TOKEN] = "NEWLINES_TOKEN",
 	[STRING_TOKEN] = "STRING_TOKEN",
 	[FIELD_NAME_TOKEN] = "FIELD_NAME_TOKEN",
-	[TEXT_TOKEN] = "TEXT_TOKEN",
+	[WORD_TOKEN] = "WORD_TOKEN",
 	[NUMBER_TOKEN] = "NUMBER_TOKEN",
 	[COMMENT_TOKEN] = "COMMENT_TOKEN",
 };
@@ -272,7 +272,7 @@ static void tokenize(char *grug_text) {
 			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (isalpha(grug_text[i]) || grug_text[i] == '_') {
-			token token = {.type=TEXT_TOKEN, .str=grug_text+i};
+			token token = {.type=WORD_TOKEN, .str=grug_text+i};
 
 			// TODO: Decide if this should return an error value when the input is ".."
 			do {
@@ -350,6 +350,7 @@ typedef struct field field;
 typedef struct compound_literal compound_literal;
 typedef struct expr expr;
 typedef struct variable_statement variable_statement;
+typedef struct call_statement call_statement;
 typedef struct if_statement if_statement;
 typedef struct return_statement return_statement;
 typedef struct loop_statement loop_statement;
@@ -427,6 +428,10 @@ struct variable_statement {
 	size_t value_expr_index;
 };
 
+struct call_statement {
+	size_t expr_index;
+};
+
 struct if_statement {
 	expr condition;
 	size_t if_body_statements_offset;
@@ -448,6 +453,7 @@ struct loop_statement {
 struct statement {
 	enum {
 		VARIABLE_STATEMENT,
+		CALL_STATEMENT,
 		IF_STATEMENT,
 		RETURN_STATEMENT,
 		LOOP_STATEMENT,
@@ -456,6 +462,7 @@ struct statement {
 	} type;
 	union {
 		variable_statement variable_statement;
+		call_statement call_statement;
 		if_statement if_statement;
 		return_statement return_statement;
 		loop_statement loop_statement;
@@ -463,6 +470,7 @@ struct statement {
 };
 static char *get_statement_type_str[] = {
 	[VARIABLE_STATEMENT] = "VARIABLE_STATEMENT",
+	[CALL_STATEMENT] = "CALL_STATEMENT",
 	[IF_STATEMENT] = "IF_STATEMENT",
 	[RETURN_STATEMENT] = "RETURN_STATEMENT",
 	[LOOP_STATEMENT] = "LOOP_STATEMENT",
@@ -586,6 +594,9 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 
 		switch (st.type) {
 			case VARIABLE_STATEMENT:
+				break;
+			case CALL_STATEMENT:
+				print_call_expr(exprs[st.call_statement.expr_index].call_expr);
 				break;
 			case IF_STATEMENT:
 				printf("\"condition\": {\n");
@@ -846,7 +857,7 @@ static expr parse_expr(size_t *i) {
 	token left_token = get_token(*i);
 	(*i)++;
 	switch (left_token.type) {
-		case TEXT_TOKEN:
+		case WORD_TOKEN:
 		{
 			token token = get_token(*i);
 			if (token.type == OPEN_PARENTHESIS_TOKEN) {
@@ -959,26 +970,51 @@ static statement parse_if_statement(size_t *i, size_t indents) {
 }
 
 static statement parse_statement(size_t *i, size_t indents) {
-	token token = get_token(*i);
+	token switch_token = get_token(*i);
 	(*i)++;
 
 	statement statement = {0};
-	switch (token.type) {
-		case TEXT_TOKEN:
-			statement.type = VARIABLE_STATEMENT;
-			// TODO:
-			// statement.variable_statement.variable_name = ;
-			// statement.variable_statement.variable_name_len = ;
-			// statement.variable_statement.type = ;
-			// statement.variable_statement.type_len = ;
-			// statement.variable_statement.value_expr_index = ;
+	switch (switch_token.type) {
+		case WORD_TOKEN:
+		{
+			token token = get_token(*i);
+			(*i)++;
+			if (token.type == OPEN_PARENTHESIS_TOKEN) {
+				statement.type = CALL_STATEMENT;
+
+				expr expr = {0};
+				expr.call_expr.fn_name = switch_token.str;
+				expr.call_expr.fn_name_len = switch_token.len;
+
+				parse_fn_call(i, &expr.call_expr.arguments_exprs_offset, &expr.call_expr.argument_count);
+
+				statement.call_statement.expr_index = exprs_size;
+				push_expr(expr);
+			} else if (token.type == COLON_TOKEN || token.type == ASSIGNMENT_TOKEN) {
+				statement.type = VARIABLE_STATEMENT;
+
+				assert_spaces(*i, 1);
+				(*i)++;
+
+				// statement.variable_statement.variable_name = ;
+				// statement.variable_statement.variable_name_len = ;
+				// statement.variable_statement.type = ;
+				// statement.variable_statement.type_len = ;
+				// statement.variable_statement.value_expr_index = ;
+			} else {
+				snprintf(error_msg, sizeof(error_msg), "Expected ( or = or : after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i - 2);
+				error_line = __LINE__;
+				longjmp(jmp_buffer, 1);
+			}
+
 			break;
+		}
 		case IF_TOKEN:
 			statement = parse_if_statement(i, indents);
 			break;
 		case RETURN_TOKEN:
 			statement.type = RETURN_STATEMENT;
-			token = get_token(*i);
+			token token = get_token(*i);
 			if (token.type == SPACES_TOKEN) {
 				(*i)++;
 				if (token.len == 1) {
@@ -1096,7 +1132,7 @@ static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argumen
 	(*i)++;
 
 	token = get_token(*i);
-	assert_token_type(*i, TEXT_TOKEN);
+	assert_token_type(*i, WORD_TOKEN);
 	argument.type = token.str;
 	argument.type_len = token.len;
 	*arguments_offset = arguments_size;
@@ -1117,7 +1153,7 @@ static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argumen
 		(*i)++;
 
 		token = get_token(*i);
-		assert_token_type(*i, TEXT_TOKEN);
+		assert_token_type(*i, WORD_TOKEN);
 		struct argument argument = {.name = token.str, .name_len = token.len};
 		(*i)++;
 
@@ -1128,7 +1164,7 @@ static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argumen
 		(*i)++;
 
 		token = get_token(*i);
-		assert_token_type(*i, TEXT_TOKEN);
+		assert_token_type(*i, WORD_TOKEN);
 		argument.type = token.str;
 		argument.type_len = token.len;
 		push_argument(argument);
@@ -1149,7 +1185,7 @@ static void parse_on_fn(size_t *i) {
 	(*i)++;
 
 	token = get_token(*i);
-	if (token.type == TEXT_TOKEN) {
+	if (token.type == WORD_TOKEN) {
 		parse_arguments(i, &fn.arguments_offset, &fn.argument_count);
 	}
 
@@ -1264,7 +1300,7 @@ static void parse_define_fn(size_t *i) {
 	(*i)++;
 
 	token = get_token(*i);
-	assert_token_type(*i, TEXT_TOKEN);
+	assert_token_type(*i, WORD_TOKEN);
 	define_fn.return_type = token.str;
 	define_fn.return_type_len = token.len;
 	(*i)++;
@@ -1308,11 +1344,11 @@ static void parse() {
 		token token = get_token(i);
 		int type = token.type;
 
-		if (       type == TEXT_TOKEN && starts_with(token.str, "define_")) {
+		if (       type == WORD_TOKEN && starts_with(token.str, "define_")) {
 			parse_define_fn(&i);
-		} else if (type == TEXT_TOKEN && starts_with(token.str, "on_")) {
+		} else if (type == WORD_TOKEN && starts_with(token.str, "on_")) {
 			parse_on_fn(&i);
-		} else if (type == TEXT_TOKEN) {
+		} else if (type == WORD_TOKEN) {
 			parse_helper_fn(&i);
 		} else if (type == COMMENT_TOKEN) {
 			i++;
