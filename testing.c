@@ -160,6 +160,8 @@ static void print_tokens() {
 			printf("| '%.*s'\n", (int)token.len, token.str);
 		}
 	}
+
+	printf("\n");
 }
 
 static char *get_escaped_char(char *str) {
@@ -348,29 +350,6 @@ static void tokenize(char *grug_text) {
 			}
 
 			token.len = i - (token.str - grug_text);
-
-			size_t comment_index = token.str - grug_text;
-			if (token.len < 2 || token.str[1] != ' ')
-			{
-				snprintf(error_msg, sizeof(error_msg), "Expected the comment to str with a space character, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + 2);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-			}
-
-			if (token.len < 3 || isspace(token.str[2]))
-			{
-				snprintf(error_msg, sizeof(error_msg), "Expected the comment to have a text character directly after the space, but found '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 2]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 2]), comment_index + 3);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-			}
-
-			if (isspace(token.str[token.len - 1]))
-			{
-				snprintf(error_msg, sizeof(error_msg), "Unexpected trailing whitespace '%.*s' at the end of the comment at character %zu of the grug text file", is_escaped_char(grug_text[comment_index + 1]) ? 2 : 1, get_escaped_char(&grug_text[comment_index + 1]), comment_index + token.len);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-			}
-
 			push_token(token);
 		} else {
 			snprintf(error_msg, sizeof(error_msg), "Unrecognized character '%.*s' at character %zu of the grug text file", is_escaped_char(grug_text[i]) ? 2 : 1, get_escaped_char(&grug_text[i]), i + 1);
@@ -1456,6 +1435,102 @@ static void parse() {
 	}
 }
 
+// Trims whitespace tokens after verifying that the formatting is correct.
+// 1. The whitespace indentation follows the block scope nesting, like in Python.
+// 2. There aren't any leading/trailing/missing/extra spaces.
+static void verify_and_trim_whitespace_tokens() {
+	size_t i = 0;
+	size_t new_index = 0;
+	int depth = 0;
+
+	while (i < tokens_size) {
+		token token = tokens[i];
+
+		// "{" => there has to be a single space before it, and depth must be incremented
+		// "}" => there has to be indentation spaces before it, and depth must be decremented
+		// "if", "loop", "break", "return", "continue" => there has to be indentation spaces before it
+		// "else" => there has to be a single space before it
+		// ";" => there is a single space before and after it, and a text character after that, with no trailing space
+
+		if (token.type == SPACES_TOKEN && i + 1 < tokens_size) {
+			struct token next_token = tokens[i + 1];
+
+			switch (next_token.type) {
+				case OPEN_BRACE_TOKEN:
+					depth++;
+					assert_spaces(i, 1);
+					break;
+				case IF_TOKEN:
+				case LOOP_TOKEN:
+				case BREAK_TOKEN:
+				case RETURN_TOKEN:
+				case CONTINUE_TOKEN:
+					assert_spaces(i, depth * SPACES_PER_INDENT);
+					break;
+				case ELSE_TOKEN:
+					assert_spaces(i, 1);
+					break;
+				case COMMENT_TOKEN:
+					assert_spaces(i, 1);
+
+					if (next_token.len < 2 || next_token.str[1] != ' ')
+					{
+						snprintf(error_msg, sizeof(error_msg), "Expected the comment token '%.*s' to start with a space character at token index %zu", (int)next_token.len, next_token.str, i + 1);
+						error_line = __LINE__;
+						longjmp(jmp_buffer, 1);
+					}
+
+					if (next_token.len < 3 || isspace(next_token.str[2]))
+					{
+						snprintf(error_msg, sizeof(error_msg), "Expected the comment token '%.*s' to have a text character directly after the space at token index %zu", (int)next_token.len, next_token.str, i + 1);
+						error_line = __LINE__;
+						longjmp(jmp_buffer, 1);
+					}
+
+					if (isspace(next_token.str[next_token.len - 1]))
+					{
+						snprintf(error_msg, sizeof(error_msg), "Unexpected trailing whitespace in the comment token '%.*s' at token index %zu", (int)next_token.len, next_token.str, i + 1);
+						error_line = __LINE__;
+						longjmp(jmp_buffer, 1);
+					}
+
+					break;
+				default:
+					break;
+			}
+		}
+
+		if (token.type == CLOSE_BRACE_TOKEN) {
+			depth--;
+			if (depth < 0) {
+				snprintf(error_msg, sizeof(error_msg), "Expected a '{' to match the '}' at token index %zu", i + 1);
+				error_line = __LINE__;
+				longjmp(jmp_buffer, 1);
+			}
+			if (depth > 0) {
+				assert_spaces(i - 1, depth * SPACES_PER_INDENT);
+			}
+		}
+
+		// We're trimming all spaces in a single pass by copying every
+		// non-space token to the start
+		if (token.type != SPACES_TOKEN) {
+			tokens[new_index] = token;
+			new_index++;
+		}
+
+		i++;
+	}
+
+	if (depth > 0) {
+		snprintf(error_msg, sizeof(error_msg), "There were more '{' than '}'");
+		error_line = __LINE__;
+		longjmp(jmp_buffer, 1);
+	}
+
+	tokens_size = new_index;
+}
+
 static void reset() {
 	tokens_size = 0;
 	fields_size = 0;
@@ -1515,6 +1590,11 @@ void run() {
 	reset();
 
 	tokenize(grug_text);
+	printf("After tokenize():\n");
+	print_tokens();
+
+	verify_and_trim_whitespace_tokens();
+	printf("After verify_and_trim_whitespace_tokens():\n");
 	print_tokens();
 
 	parse();
