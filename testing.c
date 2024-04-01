@@ -905,6 +905,8 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 	}
 }
 
+// Recursive descent parsing inspired by the book Crafting Interpreters:
+// https://craftinginterpreters.com/parsing-expressions.html#recursive-descent-parsing
 static expr parse_expr(size_t *i) {
 	expr expr = {0};
 
