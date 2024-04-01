@@ -1,5 +1,3 @@
 on_a() {
-    a: b
-    a = 42
-    a: b = 1 + 2
+    return 1
 }

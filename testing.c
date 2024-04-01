@@ -110,19 +110,23 @@ static size_t max_size_t(size_t a, size_t b) {
 	return b;
 }
 
-static token get_token(size_t token_index) {
+static token peek_token(size_t token_index) {
 	if (token_index >= tokens_size) {
-		snprintf(error_msg, sizeof(error_msg), "token_index %zu was out of bounds in get_token()", token_index);
+		snprintf(error_msg, sizeof(error_msg), "token_index %zu was out of bounds in peek_token()", token_index);
 		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
 	return tokens[token_index];
 }
 
+static token consume_token(size_t *token_index_ptr) {
+	return peek_token((*token_index_ptr)++);
+}
+
 static void print_tokens() {
 	size_t longest_token_type_len = 0;
 	for (size_t i = 0; i < tokens_size; i++) {
-		token token = get_token(i);
+		token token = peek_token(i);
 		char *token_type_str = get_token_type_str[token.type];
 		longest_token_type_len = max_size_t(strlen(token_type_str), longest_token_type_len);
 	}
@@ -143,7 +147,7 @@ static void print_tokens() {
 	printf("| %-*s | %-*s | str\n", (int)longest_index, "index", (int)longest_token_type_len, "type");
 
 	for (size_t i = 0; i < tokens_size; i++) {
-		token token = get_token(i);
+		token token = peek_token(i);
 
 		printf("| %*zu ", (int)longest_index, i);
 
@@ -543,13 +547,13 @@ struct helper_fn {
 static helper_fn helper_fns[MAX_HELPER_FNS_IN_FILE];
 static size_t helper_fns_size;
 
-// static char *serialize_to_c() {
-// 	char *c_text;
+static char *serialize_to_c() {
+	char *c_text;
 
-// 	c_text = "";
+	c_text = "";
 
-// 	return c_text;
-// }
+	return c_text;
+}
 
 static void print_helper_fns() {
 }
@@ -781,29 +785,15 @@ static void push_expr(expr expr) {
 	exprs[exprs_size++] = expr;
 }
 
-static void skip_any_comment(size_t *i) {
-	// If there is a comment token with exactly one space before it, skip them
-	token space_token = get_token(*i);
-	if (space_token.type == SPACES_TOKEN) {
-		token comment_token = get_token(*i + 1);
-		if (comment_token.type == COMMENT_TOKEN) {
-			if (space_token.len == 1) {
-				(*i) += 2;
-			} else {
-				snprintf(error_msg, sizeof(error_msg), "Expected 1 space, but got %zu before the comment at token index %zu", space_token.len, *i);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-			}
-		} else {
-			snprintf(error_msg, sizeof(error_msg), "Expected token type COMMENT_TOKEN, but got %s at token index %zu", get_token_type_str[comment_token.type], *i + 1);
-			error_line = __LINE__;
-			longjmp(jmp_buffer, 1);
-		}
+static void potentially_skip_comment(size_t *i) {
+	token token = peek_token(*i);
+	if (token.type == COMMENT_TOKEN) {
+		(*i)++;
 	}
 }
 
 static void assert_token_type(size_t token_index, unsigned int expected_type) {
-	token token = get_token(token_index);
+	token token = peek_token(token_index);
 	if (token.type != expected_type) {
 		snprintf(error_msg, sizeof(error_msg), "Expected token type %s, but got %s at token index %zu", get_token_type_str[expected_type], get_token_type_str[token.type], token_index);
 		error_line = __LINE__;
@@ -811,26 +801,21 @@ static void assert_token_type(size_t token_index, unsigned int expected_type) {
 	}
 }
 
-static void assert_1_newline(size_t token_index) {
-	assert_token_type(token_index, NEWLINES_TOKEN);
-
-	token token = get_token(token_index);
-	if (token.len != 1) {
-		snprintf(error_msg, sizeof(error_msg), "Expected 1 newline, but got %zu at token index %zu", token.len, token_index);
-		error_line = __LINE__;
-		longjmp(jmp_buffer, 1);
-	}
+static void consume_token_type(size_t *token_index_ptr, unsigned int expected_type) {
+	assert_token_type((*token_index_ptr)++, expected_type);
 }
 
-static void assert_spaces(size_t token_index, size_t expected_spaces) {
-	assert_token_type(token_index, SPACES_TOKEN);
+static void consume_1_newline(size_t *token_index_ptr) {
+	assert_token_type(*token_index_ptr, NEWLINES_TOKEN);
 
-	token token = get_token(token_index);
-	if (token.len != expected_spaces) {
-		snprintf(error_msg, sizeof(error_msg), "Expected %zu space%s, but got %zu at token index %zu", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, token_index);
+	token token = peek_token(*token_index_ptr);
+	if (token.len != 1) {
+		snprintf(error_msg, sizeof(error_msg), "Expected 1 newline, but got %zu at token index %zu", token.len, *token_index_ptr);
 		error_line = __LINE__;
 		longjmp(jmp_buffer, 1);
 	}
+
+	token_index_ptr++;
 }
 
 static expr parse_expr(size_t *i);
@@ -838,7 +823,7 @@ static expr parse_expr(size_t *i);
 static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *argument_count) {
 	*argument_count = 0;
 
-	token token = get_token(*i);
+	token token = peek_token(*i);
 	if (token.type != CLOSE_PARENTHESIS_TOKEN) {
 		struct expr local_call_arguments[MAX_CALL_ARGUMENTS_PER_STACK_FRAME];
 
@@ -854,24 +839,9 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 			}
 			local_call_arguments[(*argument_count)++] = call_argument;
 
-			token = get_token(*i);
-			(*i)++;
+			token = consume_token(i);
 			if (token.type != COMMA_TOKEN) {
 				break;
-			}
-
-			token = get_token(*i);
-			(*i)++;
-			if (token.type != SPACES_TOKEN) {
-				snprintf(error_msg, sizeof(error_msg), "Expected a space after a comma, but got token type %s at token index %zu", get_token_type_str[token.type], *i - 1);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-			}
-
-			if (token.len != 1) {
-				snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the comma at token index %zu", *i - 2);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
 			}
 		}
 
@@ -884,119 +854,134 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 	}
 }
 
-// Recursive descent parsing inspired by the book Crafting Interpreters:
-// https://craftinginterpreters.com/parsing-expressions.html#recursive-descent-parsing
-static expr parse_expr(size_t *i) {
+// static expr parse_primary() {
+
+// }
+
+// static expr parse_unary() {
+
+// }
+
+// static expr parse_factor() {
+
+// }
+
+// static expr parse_term() {
+
+// }
+
+// static expr parse_comparison() {
+
+// }
+
+static expr parse_equality(size_t *i) {
+	// expr expr = parse_comparison();
 	expr expr = {0};
 
-	token left_token = get_token(*i);
-	(*i)++;
-	switch (left_token.type) {
-		case WORD_TOKEN:
-		{
-			token token = get_token(*i);
-			if (token.type == OPEN_PARENTHESIS_TOKEN) {
-				(*i)++;
-				expr.type = CALL_EXPR;
-				expr.call_expr.fn_name = left_token.str;
-				expr.call_expr.fn_name_len = left_token.len;
-				parse_fn_call(i, &expr.call_expr.arguments_exprs_offset, &expr.call_expr.argument_count);
-			} else {
-				expr.type = LITERAL_EXPR;
-				expr.literal_expr.str = left_token.str;
-				expr.literal_expr.len = left_token.len;
-			}
+	(void)i;
 
-			break;
-		}
-		case NUMBER_TOKEN:
-		{
-			token token = get_token(*i);
-			struct token next_token = get_token(*i + 1);
-			if (token.type == SPACES_TOKEN && next_token.type == PLUS_TOKEN) {
-				assert_spaces(*i, 1);
-				(*i) += 2;
-				expr.type = BINARY_EXPR;
+	// while () {
 
-				struct expr left_expr = {0};
-				left_expr.type = LITERAL_EXPR;
-				left_expr.literal_expr.str = left_token.str;
-				left_expr.literal_expr.len = left_token.len;
-
-				expr.binary_expr.left_expr_index = exprs_size;
-				push_expr(left_expr);
-
-				assert_spaces(*i, 1);
-				(*i)++;
-
-				expr.binary_expr.operator = *next_token.str;
-				struct expr right_expr = parse_expr(i);
-				expr.binary_expr.right_expr_index = exprs_size;
-				push_expr(right_expr);
-			} else if (token.type == COMMA_TOKEN || token.type == CLOSE_PARENTHESIS_TOKEN || token.type == NEWLINES_TOKEN || (token.type == SPACES_TOKEN && token.len == 1 && (next_token.type == OPEN_BRACE_TOKEN || next_token.type == COMMENT_TOKEN))) {
-				expr.type = LITERAL_EXPR;
-				expr.literal_expr.str = left_token.str;
-				expr.literal_expr.len = left_token.len;
-			} else {
-				snprintf(error_msg, sizeof(error_msg), "Expected a binary operator token, but got %s at token index %zu", get_token_type_str[next_token.type], *i + 1);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-			}
-
-			break;
-		}
-		default:
-			snprintf(error_msg, sizeof(error_msg), "Expected an expression token, but got token type %s at token index %zu", get_token_type_str[left_token.type], *i - 1);
-			error_line = __LINE__;
-			longjmp(jmp_buffer, 1);
-	}
+	// }
 
 	return expr;
 }
 
-static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents);
+// Recursive descent parsing inspired by the book Crafting Interpreters:
+// https://craftinginterpreters.com/parsing-expressions.html#recursive-descent-parsing
+static expr parse_expr(size_t *i) {
+	return parse_equality(i);
 
-static statement parse_if_statement(size_t *i, size_t indents) {
-	assert_spaces(*i, 1);
-	(*i)++;
+	// TODO: REMOVE
+	// expr expr = {0};
 
+	// token left_token = peek_token(*i);
+	// (*i)++;
+	// switch (left_token.type) {
+	// 	case WORD_TOKEN:
+	// 	{
+	// 		token token = peek_token(*i);
+	// 		if (token.type == OPEN_PARENTHESIS_TOKEN) {
+	// 			(*i)++;
+	// 			expr.type = CALL_EXPR;
+	// 			expr.call_expr.fn_name = left_token.str;
+	// 			expr.call_expr.fn_name_len = left_token.len;
+	// 			parse_fn_call(i, &expr.call_expr.arguments_exprs_offset, &expr.call_expr.argument_count);
+	// 		} else {
+	// 			expr.type = LITERAL_EXPR;
+	// 			expr.literal_expr.str = left_token.str;
+	// 			expr.literal_expr.len = left_token.len;
+	// 		}
+
+	// 		break;
+	// 	}
+	// 	case NUMBER_TOKEN:
+	// 	{
+	// 		token token = peek_token(*i);
+	// 		struct token next_token = peek_token(*i + 1);
+	// 		if (token.type == SPACES_TOKEN && next_token.type == PLUS_TOKEN) {
+	// 			assert_spaces(*i, 1);
+	// 			(*i) += 2;
+	// 			expr.type = BINARY_EXPR;
+
+	// 			struct expr left_expr = {0};
+	// 			left_expr.type = LITERAL_EXPR;
+	// 			left_expr.literal_expr.str = left_token.str;
+	// 			left_expr.literal_expr.len = left_token.len;
+
+	// 			expr.binary_expr.left_expr_index = exprs_size;
+	// 			push_expr(left_expr);
+
+	// 			assert_spaces(*i, 1);
+	// 			(*i)++;
+
+	// 			expr.binary_expr.operator = *next_token.str;
+	// 			struct expr right_expr = parse_expr(i);
+	// 			expr.binary_expr.right_expr_index = exprs_size;
+	// 			push_expr(right_expr);
+	// 		} else if (token.type == COMMA_TOKEN || token.type == CLOSE_PARENTHESIS_TOKEN || token.type == NEWLINES_TOKEN || (token.type == SPACES_TOKEN && token.len == 1 && (next_token.type == OPEN_BRACE_TOKEN || next_token.type == COMMENT_TOKEN))) {
+	// 			expr.type = LITERAL_EXPR;
+	// 			expr.literal_expr.str = left_token.str;
+	// 			expr.literal_expr.len = left_token.len;
+	// 		} else {
+	// 			snprintf(error_msg, sizeof(error_msg), "Expected a binary operator token, but got %s at token index %zu", get_token_type_str[next_token.type], *i + 1);
+	// 			error_line = __LINE__;
+	// 			longjmp(jmp_buffer, 1);
+	// 		}
+
+	// 		break;
+	// 	}
+	// 	default:
+	// 		snprintf(error_msg, sizeof(error_msg), "Expected an expression token, but got token type %s at token index %zu", get_token_type_str[left_token.type], *i - 1);
+	// 		error_line = __LINE__;
+	// 		longjmp(jmp_buffer, 1);
+	// }
+
+	// return expr;
+}
+
+static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count);
+
+static statement parse_if_statement(size_t *i) {
 	statement statement = {0};
 	statement.type = IF_STATEMENT;
 	statement.if_statement.condition = parse_expr(i);
-	assert_spaces(*i, 1);
-	(*i)++;
 
-	parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count, indents + 1);
+	parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count);
 
-	if (get_token(*i).type == SPACES_TOKEN) {
-		if (get_token(*i).len == 1) {
+	if (peek_token(*i).type == ELSE_TOKEN) {
+		(*i)++;
+
+		if (peek_token(*i).type == IF_TOKEN) {
 			(*i)++;
-			if (get_token(*i).type == ELSE_TOKEN) {
-				(*i)++;
 
-				assert_spaces(*i, 1);
-				(*i)++;
+			statement.if_statement.else_body_statement_count = 1;
 
-				if (get_token(*i).type == IF_TOKEN) {
-					(*i)++;
-
-					statement.if_statement.else_body_statement_count = 1;
-
-					struct statement else_if_statement = parse_if_statement(i, indents);
-					statement.if_statement.else_body_statements_offset = statements_size;
-					push_statement(else_if_statement);
-				} else {
-					parse_statements(i, &statement.if_statement.else_body_statements_offset, &statement.if_statement.else_body_statement_count, indents + 1);
-				}
-			} else {
-				snprintf(error_msg, sizeof(error_msg), "Expected an else-statement after the if-statement block at token index %zu", *i - 2);
-				error_line = __LINE__;
-				longjmp(jmp_buffer, 1);
-			}
+			struct statement else_if_statement = parse_if_statement(i);
+			statement.if_statement.else_body_statements_offset = statements_size;
+			push_statement(else_if_statement);
 		} else {
-			snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the if-statement block at token index %zu", *i - 1);
-			error_line = __LINE__;
-			longjmp(jmp_buffer, 1);
+			parse_statements(i, &statement.if_statement.else_body_statements_offset, &statement.if_statement.else_body_statement_count);
 		}
 	}
 
@@ -1008,15 +993,11 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 	variable_statement.name = name_token.str;
 	variable_statement.name_len = name_token.len;
 
-	token token = get_token(*i);
+	token token = peek_token(*i);
 	if (token.type == COLON_TOKEN) {
 		(*i)++;
 
-		assert_spaces(*i, 1);
-		(*i)++;
-
-		struct token type_token = get_token(*i);
-		(*i)++;
+		struct token type_token = consume_token(i);
 		if (type_token.type == WORD_TOKEN) {
 			variable_statement.has_type = true;
 			variable_statement.type = type_token.str;
@@ -1028,14 +1009,8 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 		}
 	}
 
-	token = get_token(*i);
-	if (token.type == SPACES_TOKEN && token.len == 1) {
-		(*i)++;
-
-		assert_token_type(*i, ASSIGNMENT_TOKEN);
-		(*i)++;
-
-		assert_spaces(*i, 1);
+	token = peek_token(*i);
+	if (token.type == ASSIGNMENT_TOKEN) {
 		(*i)++;
 
 		variable_statement.has_assignment = true;
@@ -1048,15 +1023,14 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 	return variable_statement;
 }
 
-static statement parse_statement(size_t *i, size_t indents) {
-	token switch_token = get_token(*i);
-	(*i)++;
+static statement parse_statement(size_t *i) {
+	token switch_token = consume_token(i);
 
 	statement statement = {0};
 	switch (switch_token.type) {
 		case WORD_TOKEN:
 		{
-			token token = get_token(*i);
+			token token = peek_token(*i);
 			if (token.type == OPEN_PARENTHESIS_TOKEN) {
 				(*i)++;
 
@@ -1071,7 +1045,7 @@ static statement parse_statement(size_t *i, size_t indents) {
 
 				statement.call_statement.expr_index = exprs_size;
 				push_expr(expr);
-			} else if (token.type == COLON_TOKEN || (token.type == SPACES_TOKEN && token.len == 1 && get_token(*i + 1).type == ASSIGNMENT_TOKEN)) {
+			} else if (token.type == COLON_TOKEN || (*i + 1 < tokens_size && peek_token(*i + 1).type == ASSIGNMENT_TOKEN)) {
 				statement.type = VARIABLE_STATEMENT;
 				statement.variable_statement = parse_variable_statement(i, switch_token);
 			} else {
@@ -1083,34 +1057,25 @@ static statement parse_statement(size_t *i, size_t indents) {
 			break;
 		}
 		case IF_TOKEN:
-			statement = parse_if_statement(i, indents);
+			statement = parse_if_statement(i);
 			break;
 		case RETURN_TOKEN:
 			statement.type = RETURN_STATEMENT;
-			token token = get_token(*i);
-			if (token.type == SPACES_TOKEN) {
-				(*i)++;
-				if (token.len == 1) {
-					statement.return_statement.has_value = true;
-					expr value_expr = parse_expr(i);
-					statement.return_statement.value_expr_index = exprs_size;
-					push_expr(value_expr);
-				} else {
-					snprintf(error_msg, sizeof(error_msg), "Expected one space, but got several after the return statement at token index %zu", *i - 2);
-					error_line = __LINE__;
-					longjmp(jmp_buffer, 1);
-				}
-			} else {
+
+			token token = peek_token(*i);
+			if (token.type == NEWLINES_TOKEN) {
 				statement.return_statement.has_value = false;
+			} else {
+				statement.return_statement.has_value = true;
+				expr value_expr = parse_expr(i);
+				statement.return_statement.value_expr_index = exprs_size;
+				push_expr(value_expr);
 			}
+
 			break;
 		case LOOP_TOKEN:
 			statement.type = LOOP_STATEMENT;
-
-			assert_spaces(*i, 1);
-			(*i)++;
-
-			parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count, indents + 1);
+			parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count);
 			break;
 		case BREAK_TOKEN:
 			statement.type = BREAK_STATEMENT;
@@ -1127,28 +1092,30 @@ static statement parse_statement(size_t *i, size_t indents) {
 	return statement;
 }
 
-static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count, size_t indents) {
-	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	(*i)++;
-	skip_any_comment(i);
+static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count) {
+	consume_token_type(i, OPEN_BRACE_TOKEN);
+	potentially_skip_comment(i);
 
-	assert_1_newline(*i);
-	(*i)++;
+	consume_1_newline(i);
 
 	// This local array is necessary, cause an IF or LOOP substatement can contain its own statements
 	statement local_statements[MAX_STATEMENTS_PER_STACK_FRAME];
 	*body_statement_count = 0;
 
 	while (true) {
-		token token = get_token(*i);
-		if (token.type != SPACES_TOKEN || token.len != indents * SPACES_PER_INDENT) {
+		token token = peek_token(*i);
+		if (token.type == CLOSE_BRACE_TOKEN) {
 			break;
 		}
 		(*i)++;
 
-		token = get_token(*i);
+		token = peek_token(*i);
+		if (token.type == CLOSE_BRACE_TOKEN) {
+			break;
+		}
+
 		if (token.type != COMMENT_TOKEN) {
-			statement statement = parse_statement(i, indents);
+			statement statement = parse_statement(i);
 
 			// Make sure there's enough room to push statement
 			if (*body_statement_count + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
@@ -1158,10 +1125,9 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 			}
 			local_statements[(*body_statement_count)++] = statement;
 		}
-		skip_any_comment(i);
+		potentially_skip_comment(i);
 
-		assert_token_type(*i, NEWLINES_TOKEN);
-		(*i)++;
+		consume_token_type(i, NEWLINES_TOKEN);
 	}
 
 	*body_statements_offset = statements_size;
@@ -1169,17 +1135,10 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 		push_statement(local_statements[i]);
 	}
 
-	if (indents > 1) {
-		assert_spaces(*i, (indents - 1) * SPACES_PER_INDENT);
-		(*i)++;
-	}
+	consume_token_type(i, CLOSE_BRACE_TOKEN);
 
-	assert_token_type(*i, CLOSE_BRACE_TOKEN);
-	(*i)++;
-
-	// If an else-statement is coming up, don't call skip_any_comment()
-	if (*i + 1 < tokens_size && get_token(*i).type == SPACES_TOKEN && get_token(*i + 1).type != ELSE_TOKEN) {
-		skip_any_comment(i);
+	if (peek_token(*i).type != ELSE_TOKEN) {
+		potentially_skip_comment(i);
 	}
 }
 
@@ -1194,81 +1153,61 @@ static void push_argument(argument argument) {
 }
 
 static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
-	token token = get_token(*i);
+	token token = consume_token(i);
 	argument argument = {.name = token.str, .name_len = token.len};
-	(*i)++;
 
-	assert_token_type(*i, COLON_TOKEN);
-	(*i)++;
+	consume_token_type(i, COLON_TOKEN);
 
-	assert_spaces(*i, 1);
-	(*i)++;
-
-	token = get_token(*i);
 	assert_token_type(*i, WORD_TOKEN);
+	token = consume_token(i);
+
 	argument.type = token.str;
 	argument.type_len = token.len;
 	*arguments_offset = arguments_size;
 	push_argument(argument);
 	(*argument_count)++;
-	(*i)++;
 
 	// Every argument after the first one starts with a comma
 	while (true)
 	{
-		token = get_token(*i);
+		token = peek_token(*i);
 		if (token.type != COMMA_TOKEN) {
 			break;
 		}
 		(*i)++;
 
-		assert_spaces(*i, 1);
-		(*i)++;
-
-		token = get_token(*i);
 		assert_token_type(*i, WORD_TOKEN);
+		token = consume_token(i);
 		struct argument argument = {.name = token.str, .name_len = token.len};
-		(*i)++;
 
-		assert_token_type(*i, COLON_TOKEN);
-		(*i)++;
+		consume_token_type(i, COLON_TOKEN);
 
-		assert_spaces(*i, 1);
-		(*i)++;
-
-		token = get_token(*i);
 		assert_token_type(*i, WORD_TOKEN);
+		token = consume_token(i);
 		argument.type = token.str;
 		argument.type_len = token.len;
 		push_argument(argument);
 		(*argument_count)++;
-		(*i)++;
 	}
 }
 
 static void parse_on_fn(size_t *i) {
 	on_fn fn = {0};
 
-	token token = get_token(*i);
+	token token = consume_token(i);
 	fn.fn_name = token.str;
 	fn.fn_name_len = token.len;
-	(*i)++;
 
-	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
-	(*i)++;
+	consume_token_type(i, OPEN_PARENTHESIS_TOKEN);
 
-	token = get_token(*i);
+	token = peek_token(*i);
 	if (token.type == WORD_TOKEN) {
 		parse_arguments(i, &fn.arguments_offset, &fn.argument_count);
 	}
 
-	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
-	(*i)++;
+	consume_token_type(i, CLOSE_PARENTHESIS_TOKEN);
 
-	assert_spaces(*i, 1);
-	(*i)++;
-
-	parse_statements(i, &fn.body_statements_offset, &fn.body_statement_count, 1);
+	parse_statements(i, &fn.body_statements_offset, &fn.body_statement_count);
 
 	push_on_fn(fn);
 }
@@ -1283,40 +1222,33 @@ static void push_field(field field) {
 	fields[fields_size++] = field;
 }
 
-static compound_literal parse_compound_literal(size_t *i, size_t indents) {
+static compound_literal parse_compound_literal(size_t *i) {
 	(*i)++;
-	skip_any_comment(i);
+	potentially_skip_comment(i);
 
 	compound_literal compound_literal = {.fields_offset = fields_size};
 
-	assert_1_newline(*i);
-	(*i)++;
+	consume_1_newline(i);
 
-	size_t expected_spaces = (indents + 1) * SPACES_PER_INDENT;
-
-	// Parse any other fields
 	while (true) {
-		token token = get_token(*i);
-		if (token.type != SPACES_TOKEN || token.len != expected_spaces) {
+		token token = peek_token(*i);
+		if (token.type == CLOSE_BRACE_TOKEN) {
 			break;
 		}
 		(*i)++;
 
-		token = get_token(*i);
+		token = peek_token(*i);
+		if (token.type == CLOSE_BRACE_TOKEN) {
+			break;
+		}
+
 		assert_token_type(*i, FIELD_NAME_TOKEN);
 		field field = {.key = token.str, .key_len = token.len};
 		(*i)++;
 
-		assert_spaces(*i, 1);
-		(*i)++;
+		consume_token_type(i, ASSIGNMENT_TOKEN);
 
-		assert_token_type(*i, ASSIGNMENT_TOKEN);
-		(*i)++;
-
-		assert_spaces(*i, 1);
-		(*i)++;
-
-		token = get_token(*i);
+		token = peek_token(*i);
 		if (token.type != STRING_TOKEN && token.type != NUMBER_TOKEN) {
 			snprintf(error_msg, sizeof(error_msg), "Expected token type STRING_TOKEN or NUMBER_TOKEN, but got %s at token index %zu", get_token_type_str[token.type], *i);
 			error_line = __LINE__;
@@ -1328,12 +1260,10 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 		compound_literal.field_count++;
 		(*i)++;
 
-		assert_token_type(*i, COMMA_TOKEN);
-		(*i)++;
-		skip_any_comment(i);
+		consume_token_type(i, COMMA_TOKEN);
+		potentially_skip_comment(i);
 
-		assert_1_newline(*i);
-		(*i)++;
+		consume_1_newline(i);
 	}
 
 	if (compound_literal.field_count == 0) {
@@ -1342,69 +1272,41 @@ static compound_literal parse_compound_literal(size_t *i, size_t indents) {
 		longjmp(jmp_buffer, 1);
 	}
 
-	// Close the compound literal
-	assert_spaces(*i, indents * SPACES_PER_INDENT);
-	(*i)++;
+	consume_token_type(i, CLOSE_BRACE_TOKEN);
+	potentially_skip_comment(i);
 
-	assert_token_type(*i, CLOSE_BRACE_TOKEN);
-	(*i)++;
-	skip_any_comment(i);
-
-	assert_1_newline(*i);
-	(*i)++;
+	consume_1_newline(i);
 
 	return compound_literal;
 }
 
 static void parse_define_fn(size_t *i) {
 	// Parse the function's signature
-	token token = get_token(*i);
+	token token = consume_token(i);
 	define_fn.fn_name = token.str;
 	define_fn.fn_name_len = token.len;
-	(*i)++;
 
-	assert_token_type(*i, OPEN_PARENTHESIS_TOKEN);
-	(*i)++;
+	consume_token_type(i, OPEN_PARENTHESIS_TOKEN);
+	consume_token_type(i, CLOSE_PARENTHESIS_TOKEN);
 
-	assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
-	(*i)++;
-
-	assert_spaces(*i, 1);
-	(*i)++;
-
-	token = get_token(*i);
 	assert_token_type(*i, WORD_TOKEN);
+	token = consume_token(i);
 	define_fn.return_type = token.str;
 	define_fn.return_type_len = token.len;
-	(*i)++;
 
-	assert_spaces(*i, 1);
-	(*i)++;
+	consume_token_type(i, OPEN_BRACE_TOKEN);
+	potentially_skip_comment(i);
 
-	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	(*i)++;
-	skip_any_comment(i);
-
-	assert_1_newline(*i);
-	(*i)++;
+	consume_1_newline(i);
 
 	// Parse the body of the function
-	assert_spaces(*i, SPACES_PER_INDENT);
-	(*i)++;
-
-	assert_token_type(*i, RETURN_TOKEN);
-	(*i)++;
-
-	assert_spaces(*i, 1);
-	(*i)++;
+	consume_token_type(i, RETURN_TOKEN);
 
 	assert_token_type(*i, OPEN_BRACE_TOKEN);
-	define_fn.returned_compound_literal = parse_compound_literal(i, 1);
+	define_fn.returned_compound_literal = parse_compound_literal(i);
 
-	// Close the function
-	assert_token_type(*i, CLOSE_BRACE_TOKEN);
-	(*i)++;
-	skip_any_comment(i);
+	consume_token_type(i, CLOSE_BRACE_TOKEN);
+	potentially_skip_comment(i);
 }
 
 static bool starts_with(char *a, char *b) {
@@ -1414,7 +1316,7 @@ static bool starts_with(char *a, char *b) {
 static void parse() {
 	size_t i = 0;
 	while (i < tokens_size) {
-		token token = get_token(i);
+		token token = peek_token(i);
 		int type = token.type;
 
 		if (       type == WORD_TOKEN && starts_with(token.str, "define_")) {
@@ -1435,26 +1337,36 @@ static void parse() {
 	}
 }
 
+static void assert_spaces(size_t token_index, size_t expected_spaces) {
+	assert_token_type(token_index, SPACES_TOKEN);
+
+	token token = peek_token(token_index);
+	if (token.len != expected_spaces) {
+		snprintf(error_msg, sizeof(error_msg), "Expected %zu space%s, but got %zu at token index %zu", expected_spaces, expected_spaces > 1 ? "s" : "", token.len, token_index);
+		error_line = __LINE__;
+		longjmp(jmp_buffer, 1);
+	}
+}
+
 // Trims whitespace tokens after verifying that the formatting is correct.
 // 1. The whitespace indentation follows the block scope nesting, like in Python.
 // 2. There aren't any leading/trailing/missing/extra spaces.
-static void verify_and_trim_whitespace_tokens() {
+static void verify_and_trim_space_tokens() {
 	size_t i = 0;
 	size_t new_index = 0;
 	int depth = 0;
 
 	while (i < tokens_size) {
-		token token = tokens[i];
+		token token = peek_token(i);
 
-		// "{" => there has to be a single space before it, and depth must be incremented
-		// "}" => there has to be indentation spaces before it, and depth must be decremented
-		// "if", "loop", "break", "return", "continue" => there has to be indentation spaces before it
-		// "else" => there has to be a single space before it
-		// ";" => there is a single space before and after it, and a text character after that, with no trailing space
+		if (token.type == SPACES_TOKEN) {
+			if (i + 1 >= tokens_size) {
+				snprintf(error_msg, sizeof(error_msg), "Expected another token after the space at token index %zu", i);
+				error_line = __LINE__;
+				longjmp(jmp_buffer, 1);
+			}
 
-		if (token.type == SPACES_TOKEN && i + 1 < tokens_size) {
-			struct token next_token = tokens[i + 1];
-
+			struct token next_token = peek_token(i + 1);
 			switch (next_token.type) {
 				case OPEN_BRACE_TOKEN:
 					depth++;
@@ -1465,9 +1377,11 @@ static void verify_and_trim_whitespace_tokens() {
 				case BREAK_TOKEN:
 				case RETURN_TOKEN:
 				case CONTINUE_TOKEN:
+				case FIELD_NAME_TOKEN:
 					assert_spaces(i, depth * SPACES_PER_INDENT);
 					break;
 				case ELSE_TOKEN:
+				case NUMBER_TOKEN:
 					assert_spaces(i, 1);
 					break;
 				case COMMENT_TOKEN:
@@ -1496,11 +1410,11 @@ static void verify_and_trim_whitespace_tokens() {
 
 					break;
 				default:
-					break;
+					snprintf(error_msg, sizeof(error_msg), "Unexpected token type %s after the space, at token index %zu", get_token_type_str[next_token.type], i + 1);
+					error_line = __LINE__;
+					longjmp(jmp_buffer, 1);
 			}
-		}
-
-		if (token.type == CLOSE_BRACE_TOKEN) {
+		} else if (token.type == CLOSE_BRACE_TOKEN) {
 			depth--;
 			if (depth < 0) {
 				snprintf(error_msg, sizeof(error_msg), "Expected a '{' to match the '}' at token index %zu", i + 1);
@@ -1509,6 +1423,41 @@ static void verify_and_trim_whitespace_tokens() {
 			}
 			if (depth > 0) {
 				assert_spaces(i - 1, depth * SPACES_PER_INDENT);
+			}
+		} else if (token.type == COMMA_TOKEN) {
+			token = peek_token(i);
+			if (token.type != NEWLINES_TOKEN && token.type != SPACES_TOKEN) {
+				snprintf(error_msg, sizeof(error_msg), "Expected a single newline or space after the comma, but got token type %s at token index %zu", get_token_type_str[token.type], i);
+				error_line = __LINE__;
+				longjmp(jmp_buffer, 1);
+			}
+
+			if (token.len != 1) {
+				snprintf(error_msg, sizeof(error_msg), "Expected one newline or space, but got several after the comma at token index %zu", i);
+				error_line = __LINE__;
+				longjmp(jmp_buffer, 1);
+			}
+
+			if (token.type == SPACES_TOKEN) {
+				if (i + 1 >= tokens_size) {
+					snprintf(error_msg, sizeof(error_msg), "Expected text after the comma and space at token index %zu", i);
+					error_line = __LINE__;
+					longjmp(jmp_buffer, 1);
+				}
+
+				token = peek_token(i + 1);
+				switch (token.type) {
+					case OPEN_PARENTHESIS_TOKEN:
+					case MINUS_TOKEN:
+					case STRING_TOKEN:
+					case WORD_TOKEN:
+					case NUMBER_TOKEN:
+						break;
+					default:
+						snprintf(error_msg, sizeof(error_msg), "Unexpected token type %s after the comma and space, at token index %zu", get_token_type_str[token.type], i + 1);
+						error_line = __LINE__;
+						longjmp(jmp_buffer, 1);
+				}
 			}
 		}
 
@@ -1593,15 +1542,16 @@ void run() {
 	printf("After tokenize():\n");
 	print_tokens();
 
-	verify_and_trim_whitespace_tokens();
-	printf("After verify_and_trim_whitespace_tokens():\n");
+	verify_and_trim_space_tokens();
+	printf("After verify_and_trim_space_tokens():\n");
 	print_tokens();
 
 	parse();
 	printf("\nfns:\n");
 	print_fns();
 
-	// char *c_text = serialize_to_c();
+	char *c_text = serialize_to_c();
+	(void)c_text;
 	// printf("c_text:\n%s\n", c_text);
 
 	free(grug_text);
@@ -1628,6 +1578,5 @@ int main() {
 	run();
 
 	// TODO: REMOVE
-	(void)exprs;
 	(void)helper_fns;
 }
