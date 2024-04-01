@@ -38,10 +38,17 @@ struct token {
 		CLOSE_BRACE_TOKEN,
 		PLUS_TOKEN,
 		MINUS_TOKEN,
+		MULTIPLICATION_TOKEN,
+		DIVISION_TOKEN,
+		REMAINDER_TOKEN,
 		COMMA_TOKEN,
 		COLON_TOKEN,
 		EQUALITY_TOKEN,
 		ASSIGNMENT_TOKEN,
+		GREATER_OR_EQUAL_TOKEN,
+		GREATER_TOKEN,
+		LESS_OR_EQUAL_TOKEN,
+		LESS_TOKEN,
 		IF_TOKEN,
 		ELSE_TOKEN,
 		LOOP_TOKEN,
@@ -66,10 +73,17 @@ static char *get_token_type_str[] = {
 	[CLOSE_BRACE_TOKEN] = "CLOSE_BRACE_TOKEN",
 	[PLUS_TOKEN] = "PLUS_TOKEN",
 	[MINUS_TOKEN] = "MINUS_TOKEN",
+	[MULTIPLICATION_TOKEN] = "MULTIPLICATION_TOKEN",
+	[DIVISION_TOKEN] = "DIVISION_TOKEN",
+	[REMAINDER_TOKEN] = "REMAINDER_TOKEN",
 	[COMMA_TOKEN] = "COMMA_TOKEN",
 	[COLON_TOKEN] = "COLON_TOKEN",
 	[EQUALITY_TOKEN] = "EQUALITY_TOKEN",
 	[ASSIGNMENT_TOKEN] = "ASSIGNMENT_TOKEN",
+	[GREATER_OR_EQUAL_TOKEN] = "GREATER_OR_EQUAL_TOKEN",
+	[GREATER_TOKEN] = "GREATER_TOKEN",
+	[LESS_OR_EQUAL_TOKEN] = "LESS_OR_EQUAL_TOKEN",
+	[LESS_TOKEN] = "LESS_TOKEN",
 	[IF_TOKEN] = "IF_TOKEN",
 	[ELSE_TOKEN] = "ELSE_TOKEN",
 	[LOOP_TOKEN] = "LOOP_TOKEN",
@@ -197,6 +211,15 @@ static void tokenize(char *grug_text) {
 		} else if (grug_text[i] == '-') {
 			push_token((token){.type=MINUS_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
+		} else if (grug_text[i] == '*') {
+			push_token((token){.type=MULTIPLICATION_TOKEN, .str=grug_text+i, .len=1});
+			i += 1;
+		} else if (grug_text[i] == '/') {
+			push_token((token){.type=DIVISION_TOKEN, .str=grug_text+i, .len=1});
+			i += 1;
+		} else if (grug_text[i] == '%') {
+			push_token((token){.type=REMAINDER_TOKEN, .str=grug_text+i, .len=1});
+			i += 1;
 		} else if (grug_text[i] == ',') {
 			push_token((token){.type=COMMA_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
@@ -208,6 +231,18 @@ static void tokenize(char *grug_text) {
 			i += 2;
 		} else if (grug_text[i] == '=') {
 			push_token((token){.type=ASSIGNMENT_TOKEN, .str=grug_text+i, .len=1});
+			i += 1;
+		} else if (grug_text[i] == '>' && grug_text[i + 1] == '=') {
+			push_token((token){.type=GREATER_OR_EQUAL_TOKEN, .str=grug_text+i, .len=2});
+			i += 2;
+		} else if (grug_text[i] == '>') {
+			push_token((token){.type=GREATER_TOKEN, .str=grug_text+i, .len=1});
+			i += 1;
+		} else if (grug_text[i] == '<' && grug_text[i + 1] == '=') {
+			push_token((token){.type=LESS_OR_EQUAL_TOKEN, .str=grug_text+i, .len=2});
+			i += 2;
+		} else if (grug_text[i] == '<') {
+			push_token((token){.type=LESS_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
 			push_token((token){.type=IF_TOKEN, .str=grug_text+i, .len=2});
@@ -897,7 +932,6 @@ static expr parse_expr(size_t *i) {
 				(*i) += 2;
 				expr.type = BINARY_EXPR;
 
-				// TODO: See https://ts-ast-viewer.com/#code/BQRgBA1GBMCUYCozAMyTAFkcgrOgbLPEsAOzoAcsQA
 				struct expr left_expr = {0};
 				left_expr.type = LITERAL_EXPR;
 				left_expr.literal_expr.str = left_token.str;
