@@ -1,9 +1,5 @@
 on_a() {
-    if 1 {
-        continue
-    } else if 2 {
-        break
-    } else {
-        return
-    }
+    a: b
+    a = 42
+    a: b = 1 + 2
 }

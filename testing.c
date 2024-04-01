@@ -421,11 +421,13 @@ static expr exprs[MAX_EXPRS_IN_FILE];
 static size_t exprs_size;
 
 struct variable_statement {
-	char *variable_name;
-	size_t variable_name_len;
+	char *name;
+	size_t name_len;
 	char *type;
 	size_t type_len;
-	size_t value_expr_index;
+	bool has_type;
+	size_t assignment_expr_index;
+	bool has_assignment;
 };
 
 struct call_statement {
@@ -594,6 +596,18 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 
 		switch (st.type) {
 			case VARIABLE_STATEMENT:
+				printf("\"variable_name\": \"%.*s\",\n", (int)st.variable_statement.name_len, st.variable_statement.name);
+
+				if (st.variable_statement.has_type) {
+					printf("\"variable_type\": \"%.*s\",\n", (int)st.variable_statement.type_len, st.variable_statement.type);
+				}
+
+				if (st.variable_statement.has_assignment) {
+					printf("\"assignment\": {\n");
+					print_expr(exprs[st.variable_statement.assignment_expr_index]);
+					printf("},\n");
+				}
+
 				break;
 			case CALL_STATEMENT:
 				print_call_expr(exprs[st.call_statement.expr_index].call_expr);
@@ -969,6 +983,52 @@ static statement parse_if_statement(size_t *i, size_t indents) {
 	return statement;
 }
 
+static variable_statement parse_variable_statement(size_t *i, token name_token) {
+	variable_statement variable_statement = {0};
+	variable_statement.name = name_token.str;
+	variable_statement.name_len = name_token.len;
+
+	token token = get_token(*i);
+	if (token.type == COLON_TOKEN) {
+		(*i)++;
+
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		struct token type_token = get_token(*i);
+		(*i)++;
+		if (type_token.type == WORD_TOKEN) {
+			variable_statement.has_type = true;
+
+			variable_statement.type = type_token.str;
+			variable_statement.type_len = type_token.len;
+		} else {
+			snprintf(error_msg, sizeof(error_msg), "Expected a word token after the colon at token index %zu", *i - 3);
+			error_line = __LINE__;
+			longjmp(jmp_buffer, 1);
+		}
+	}
+
+	token = get_token(*i);
+	if (token.type == SPACES_TOKEN && token.len == 1) {
+		(*i)++;
+
+		assert_token_type(*i, ASSIGNMENT_TOKEN);
+		(*i)++;
+
+		assert_spaces(*i, 1);
+		(*i)++;
+
+		variable_statement.has_assignment = true;
+
+		expr expr = parse_expr(i);
+		variable_statement.assignment_expr_index = exprs_size;
+		push_expr(expr);
+	}
+
+	return variable_statement;
+}
+
 static statement parse_statement(size_t *i, size_t indents) {
 	token switch_token = get_token(*i);
 	(*i)++;
@@ -978,8 +1038,9 @@ static statement parse_statement(size_t *i, size_t indents) {
 		case WORD_TOKEN:
 		{
 			token token = get_token(*i);
-			(*i)++;
 			if (token.type == OPEN_PARENTHESIS_TOKEN) {
+				(*i)++;
+
 				statement.type = CALL_STATEMENT;
 
 				expr expr = {0};
@@ -990,19 +1051,11 @@ static statement parse_statement(size_t *i, size_t indents) {
 
 				statement.call_statement.expr_index = exprs_size;
 				push_expr(expr);
-			} else if (token.type == COLON_TOKEN || token.type == ASSIGNMENT_TOKEN) {
+			} else if (token.type == COLON_TOKEN || (token.type == SPACES_TOKEN && token.len == 1 && get_token(*i + 1).type == ASSIGNMENT_TOKEN)) {
 				statement.type = VARIABLE_STATEMENT;
-
-				assert_spaces(*i, 1);
-				(*i)++;
-
-				// statement.variable_statement.variable_name = ;
-				// statement.variable_statement.variable_name_len = ;
-				// statement.variable_statement.type = ;
-				// statement.variable_statement.type_len = ;
-				// statement.variable_statement.value_expr_index = ;
+				statement.variable_statement = parse_variable_statement(i, switch_token);
 			} else {
-				snprintf(error_msg, sizeof(error_msg), "Expected ( or = or : after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i - 2);
+				snprintf(error_msg, sizeof(error_msg), "Expected '(' or ':' or ' =' after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i - 2);
 				error_line = __LINE__;
 				longjmp(jmp_buffer, 1);
 			}
@@ -1105,7 +1158,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 	(*i)++;
 
 	// If an else-statement is coming up, don't call skip_any_comment()
-	if (get_token(*i).type == SPACES_TOKEN && get_token(*i + 1).type != ELSE_TOKEN) {
+	if (*i + 1 < tokens_size && get_token(*i).type == SPACES_TOKEN && get_token(*i + 1).type != ELSE_TOKEN) {
 		skip_any_comment(i);
 	}
 }
@@ -1434,7 +1487,7 @@ void run() {
 }
 
 void error_handler(char *error_msg) {
-	fprintf(stderr, "%s at %s:%d\n", error_msg, __FILE__, error_line);
+	fprintf(stderr, "%s in %s:%d\n", error_msg, __FILE__, error_line);
 	exit(EXIT_FAILURE);
 }
 
