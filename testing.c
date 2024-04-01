@@ -43,7 +43,8 @@ struct token {
 		REMAINDER_TOKEN,
 		COMMA_TOKEN,
 		COLON_TOKEN,
-		EQUALITY_TOKEN,
+		EQUALS_TOKEN,
+		NOT_EQUALS_TOKEN,
 		ASSIGNMENT_TOKEN,
 		GREATER_OR_EQUAL_TOKEN,
 		GREATER_TOKEN,
@@ -78,7 +79,8 @@ static char *get_token_type_str[] = {
 	[REMAINDER_TOKEN] = "REMAINDER_TOKEN",
 	[COMMA_TOKEN] = "COMMA_TOKEN",
 	[COLON_TOKEN] = "COLON_TOKEN",
-	[EQUALITY_TOKEN] = "EQUALITY_TOKEN",
+	[EQUALS_TOKEN] = "EQUALS_TOKEN",
+	[NOT_EQUALS_TOKEN] = "NOT_EQUALS_TOKEN",
 	[ASSIGNMENT_TOKEN] = "ASSIGNMENT_TOKEN",
 	[GREATER_OR_EQUAL_TOKEN] = "GREATER_OR_EQUAL_TOKEN",
 	[GREATER_TOKEN] = "GREATER_TOKEN",
@@ -227,7 +229,10 @@ static void tokenize(char *grug_text) {
 			push_token((token){.type=COLON_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
 		} else if (grug_text[i] == '=' && grug_text[i + 1] == '=') {
-			push_token((token){.type=EQUALITY_TOKEN, .str=grug_text+i, .len=2});
+			push_token((token){.type=EQUALS_TOKEN, .str=grug_text+i, .len=2});
+			i += 2;
+		} else if (grug_text[i] == '!' && grug_text[i + 1] == '=') {
+			push_token((token){.type=NOT_EQUALS_TOKEN, .str=grug_text+i, .len=2});
 			i += 2;
 		} else if (grug_text[i] == '=') {
 			push_token((token){.type=ASSIGNMENT_TOKEN, .str=grug_text+i, .len=1});
@@ -1033,7 +1038,6 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 		(*i)++;
 		if (type_token.type == WORD_TOKEN) {
 			variable_statement.has_type = true;
-
 			variable_statement.type = type_token.str;
 			variable_statement.type_len = type_token.len;
 		} else {
