@@ -567,10 +567,10 @@ static size_t helper_fns_size;
 // 	return c_text;
 // }
 
-static void print_expr(expr expr);
-
 static void print_helper_fns() {
 }
+
+static void print_expr(expr expr);
 
 static void print_call_expr(call_expr call_expr) {
 	printf("\"fn_name\": \"%.*s\",\n", (int)call_expr.fn_name_len, call_expr.fn_name);
@@ -1078,6 +1078,7 @@ static statement parse_statement(size_t *i, size_t indents) {
 				statement.type = CALL_STATEMENT;
 
 				expr expr = {0};
+				expr.type = CALL_EXPR;
 				expr.call_expr.fn_name = switch_token.str;
 				expr.call_expr.fn_name_len = switch_token.len;
 
