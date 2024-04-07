@@ -36,40 +36,45 @@ grug_error_handler_fn grug_error_handler;
 
 typedef struct token token;
 
+enum token_type {
+	OPEN_PARENTHESIS_TOKEN,
+	CLOSE_PARENTHESIS_TOKEN,
+	OPEN_BRACE_TOKEN,
+	CLOSE_BRACE_TOKEN,
+	PLUS_TOKEN,
+	MINUS_TOKEN,
+	MULTIPLICATION_TOKEN,
+	DIVISION_TOKEN,
+	REMAINDER_TOKEN,
+	COMMA_TOKEN,
+	COLON_TOKEN,
+	EQUALS_TOKEN,
+	NOT_EQUALS_TOKEN,
+	ASSIGNMENT_TOKEN,
+	GREATER_OR_EQUAL_TOKEN,
+	GREATER_TOKEN,
+	LESS_OR_EQUAL_TOKEN,
+	LESS_TOKEN,
+	NOT_TOKEN,
+	TRUE_TOKEN,
+	FALSE_TOKEN,
+	IF_TOKEN,
+	ELSE_TOKEN,
+	LOOP_TOKEN,
+	BREAK_TOKEN,
+	RETURN_TOKEN,
+	CONTINUE_TOKEN,
+	SPACES_TOKEN,
+	NEWLINES_TOKEN,
+	STRING_TOKEN,
+	FIELD_NAME_TOKEN,
+	WORD_TOKEN,
+	NUMBER_TOKEN,
+	COMMENT_TOKEN,
+};
+
 struct token {
-	enum {
-		OPEN_PARENTHESIS_TOKEN,
-		CLOSE_PARENTHESIS_TOKEN,
-		OPEN_BRACE_TOKEN,
-		CLOSE_BRACE_TOKEN,
-		PLUS_TOKEN,
-		MINUS_TOKEN,
-		MULTIPLICATION_TOKEN,
-		DIVISION_TOKEN,
-		REMAINDER_TOKEN,
-		COMMA_TOKEN,
-		COLON_TOKEN,
-		EQUALS_TOKEN,
-		NOT_EQUALS_TOKEN,
-		ASSIGNMENT_TOKEN,
-		GREATER_OR_EQUAL_TOKEN,
-		GREATER_TOKEN,
-		LESS_OR_EQUAL_TOKEN,
-		LESS_TOKEN,
-		IF_TOKEN,
-		ELSE_TOKEN,
-		LOOP_TOKEN,
-		BREAK_TOKEN,
-		RETURN_TOKEN,
-		CONTINUE_TOKEN,
-		SPACES_TOKEN,
-		NEWLINES_TOKEN,
-		STRING_TOKEN,
-		FIELD_NAME_TOKEN,
-		WORD_TOKEN,
-		NUMBER_TOKEN,
-		COMMENT_TOKEN,
-	} type;
+	enum token_type type;
 	char *str;
 	size_t len;
 };
@@ -92,6 +97,9 @@ static char *get_token_type_str[] = {
 	[GREATER_TOKEN] = "GREATER_TOKEN",
 	[LESS_OR_EQUAL_TOKEN] = "LESS_OR_EQUAL_TOKEN",
 	[LESS_TOKEN] = "LESS_TOKEN",
+	[NOT_TOKEN] = "NOT_TOKEN",
+	[TRUE_TOKEN] = "TRUE_TOKEN",
+	[FALSE_TOKEN] = "FALSE_TOKEN",
 	[IF_TOKEN] = "IF_TOKEN",
 	[ELSE_TOKEN] = "ELSE_TOKEN",
 	[LOOP_TOKEN] = "LOOP_TOKEN",
@@ -257,6 +265,15 @@ static void tokenize(char *grug_text) {
 		} else if (grug_text[i] == '<') {
 			push_token((token){.type=LESS_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
+		} else if (grug_text[i + 0] == 'n' && grug_text[i + 1] == 'o' && grug_text[i + 2] == 't' && grug_text[i + 3] == ' ') {
+			push_token((token){.type=NOT_TOKEN, .str=grug_text+i, .len=3});
+			i += 3;
+		} else if (grug_text[i + 0] == 't' && grug_text[i + 1] == 'r' && grug_text[i + 2] == 'u' && grug_text[i + 3] == 'e' && grug_text[i + 4] == ' ') {
+			push_token((token){.type=TRUE_TOKEN, .str=grug_text+i, .len=4});
+			i += 4;
+		} else if (grug_text[i + 0] == 'f' && grug_text[i + 1] == 'a' && grug_text[i + 2] == 'l' && grug_text[i + 3] == 's' && grug_text[i + 4] == 'e' && grug_text[i + 5] == ' ') {
+			push_token((token){.type=FALSE_TOKEN, .str=grug_text+i, .len=5});
+			i += 5;
 		} else if (grug_text[i + 0] == 'i' && grug_text[i + 1] == 'f' && grug_text[i + 2] == ' ') {
 			push_token((token){.type=IF_TOKEN, .str=grug_text+i, .len=2});
 			i += 2;
@@ -369,6 +386,7 @@ typedef struct binary_expr binary_expr;
 typedef struct call_expr call_expr;
 typedef struct field field;
 typedef struct compound_literal compound_literal;
+typedef struct parenthesized_expr parenthesized_expr;
 typedef struct expr expr;
 typedef struct variable_statement variable_statement;
 typedef struct call_statement call_statement;
@@ -386,13 +404,13 @@ struct literal_expr {
 };
 
 struct unary_expr {
-	char operator;
+	enum token_type operator;
 	size_t expr_index;
 };
 
 struct binary_expr {
-	char operator;
 	size_t left_expr_index;
+	enum token_type operator;
 	size_t right_expr_index;
 };
 
@@ -417,26 +435,38 @@ struct compound_literal {
 	size_t field_count;
 };
 
+struct parenthesized_expr {
+	size_t expr_index;
+};
+
 struct expr {
 	enum {
-		LITERAL_EXPR,
+		TRUE_EXPR,
+		FALSE_EXPR,
+		STRING_EXPR,
+		NUMBER_EXPR,
 		UNARY_EXPR,
 		BINARY_EXPR,
 		CALL_EXPR,
+		PARENTHESIZED_EXPR,
 	} type;
 	union {
 		literal_expr literal_expr;
 		unary_expr unary_expr;
 		binary_expr binary_expr;
 		call_expr call_expr;
-		compound_literal compound_literal;
+		parenthesized_expr parenthesized_expr;
 	};
 };
 static char *get_expr_type_str[] = {
-	[LITERAL_EXPR] = "LITERAL_EXPR",
+	[TRUE_EXPR] = "TRUE_EXPR",
+	[FALSE_EXPR] = "FALSE_EXPR",
+	[STRING_EXPR] = "STRING_EXPR",
+	[NUMBER_EXPR] = "NUMBER_EXPR",
 	[UNARY_EXPR] = "UNARY_EXPR",
 	[BINARY_EXPR] = "BINARY_EXPR",
 	[CALL_EXPR] = "CALL_EXPR",
+	[PARENTHESIZED_EXPR] = "PARENTHESIZED_EXPR",
 };
 static expr exprs[MAX_EXPRS_IN_FILE];
 static size_t exprs_size;
@@ -558,6 +588,12 @@ static void print_helper_fns() {
 
 static void print_expr(expr expr);
 
+static void print_parenthesized_expr(parenthesized_expr parenthesized_expr) {
+	printf("\"parenthesized_expr\": {\n");
+	print_expr(exprs[parenthesized_expr.expr_index]);
+	printf("},\n");
+}
+
 static void print_call_expr(call_expr call_expr) {
 	printf("\"fn_name\": \"%.*s\",\n", (int)call_expr.fn_name_len, call_expr.fn_name);
 
@@ -574,35 +610,37 @@ static void print_binary_expr(binary_expr binary_expr) {
 	printf("\"left_expr\": {\n");
 	print_expr(exprs[binary_expr.left_expr_index]);
 	printf("},\n");
-	printf("\"operator\": \"%c\",\n", binary_expr.operator);
+	printf("\"operator\": \"%s\",\n", get_token_type_str[binary_expr.operator]);
 	printf("\"right_expr\": {\n");
 	print_expr(exprs[binary_expr.right_expr_index]);
 	printf("},\n");
-}
-
-static void print_unary_expr() {
-	abort();
-}
-
-static void print_literal_expr(literal_expr literal_expr) {
-	printf("\"str\": \"%.*s\",\n", (int)literal_expr.len, literal_expr.str);
 }
 
 static void print_expr(expr expr) {
 	printf("\"type\": \"%s\",\n", get_expr_type_str[expr.type]);
 
 	switch (expr.type) {
-		case LITERAL_EXPR:
-			print_literal_expr(expr.literal_expr);
+		case TRUE_EXPR:
+		case FALSE_EXPR:
+			break;
+		case STRING_EXPR:
+		case NUMBER_EXPR:
+			printf("\"str\": \"%.*s\",\n", (int)expr.literal_expr.len, expr.literal_expr.str);
 			break;
 		case UNARY_EXPR:
-			print_unary_expr();
+			printf("\"operator\": \"%s\",\n", get_token_type_str[expr.unary_expr.operator]);
+			printf("\"expr\": {\n");
+			print_expr(exprs[expr.unary_expr.expr_index]);
+			printf("},\n");
 			break;
 		case BINARY_EXPR:
 			print_binary_expr(expr.binary_expr);
 			break;
 		case CALL_EXPR:
 			print_call_expr(expr.call_expr);
+			break;
+		case PARENTHESIZED_EXPR:
+			print_parenthesized_expr(expr.parenthesized_expr);
 			break;
 	}
 }
@@ -761,20 +799,22 @@ static void push_on_fn(on_fn on_fn) {
 	on_fns[on_fns_size++] = on_fn;
 }
 
-static void push_statement(statement statement) {
+static size_t push_statement(statement statement) {
 	// Make sure there's enough room to push statement
 	if (statements_size + 1 > MAX_STATEMENTS_IN_FILE) {
 		GRUG_ERROR("There are more than %d statements in the grug file, exceeding MAX_STATEMENTS_IN_FILE", MAX_STATEMENTS_IN_FILE);
 	}
-	statements[statements_size++] = statement;
+	statements[statements_size] = statement;
+	return statements_size++;
 }
 
-static void push_expr(expr expr) {
+static size_t push_expr(expr expr) {
 	// Make sure there's enough room to push expr
 	if (exprs_size + 1 > MAX_EXPRS_IN_FILE) {
 		GRUG_ERROR("There are more than %d exprs in the grug file, exceeding MAX_EXPRS_IN_FILE", MAX_EXPRS_IN_FILE);
 	}
-	exprs[exprs_size++] = expr;
+	exprs[exprs_size] = expr;
+	return exprs_size++;
 }
 
 static void potentially_skip_comment(size_t *i) {
@@ -806,7 +846,7 @@ static void consume_1_newline(size_t *token_index_ptr) {
 	token_index_ptr++;
 }
 
-static expr parse_expr(size_t *i);
+static expr parse_expression(size_t *i);
 
 static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *argument_count) {
 	*argument_count = 0;
@@ -816,7 +856,7 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 		struct expr local_call_arguments[MAX_CALL_ARGUMENTS_PER_STACK_FRAME];
 
 		while (true) {
-			struct expr call_argument = parse_expr(i);
+			struct expr call_argument = parse_expression(i);
 
 			// Make sure there's enough room to push call_argument
 			if (*argument_count + 1 > MAX_CALL_ARGUMENTS_PER_STACK_FRAME) {
@@ -839,104 +879,130 @@ static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *arg
 	}
 }
 
-// static expr parse_primary() {
+static expr parse_primary(size_t *i) {
+	token token = peek_token(*i);
 
-// }
-
-// static expr parse_unary() {
-
-// }
-
-// static expr parse_factor() {
-
-// }
-
-// static expr parse_term() {
-
-// }
-
-// static expr parse_comparison() {
-
-// }
-
-static expr parse_equality(size_t *i) {
-	// expr expr = parse_comparison();
 	expr expr = {0};
 
-	(void)i;
+	switch (token.type) {
+		case TRUE_TOKEN:
+			(*i)++;
+			expr.type = TRUE_EXPR;
+			return expr;
+		case FALSE_TOKEN:
+			(*i)++;
+			expr.type = FALSE_EXPR;
+			return expr;
+		case STRING_TOKEN:
+			(*i)++;
+			expr.type = STRING_EXPR;
+			expr.literal_expr.str = token.str;
+			expr.literal_expr.len = token.len;
+			return expr;
+		case NUMBER_TOKEN:
+			(*i)++;
+			expr.type = NUMBER_EXPR;
+			expr.literal_expr.str = token.str;
+			expr.literal_expr.len = token.len;
+			return expr;
+		case OPEN_PARENTHESIS_TOKEN:
+			(*i)++;
+			expr.type = PARENTHESIZED_EXPR;
+			expr.parenthesized_expr.expr_index = push_expr(parse_expression(i));
+			consume_token_type(i, CLOSE_PARENTHESIS_TOKEN);
+			return expr;
+		default:
+			GRUG_ERROR("Expected a primary expression token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
+	}
+}
 
-	// while () {
+static expr parse_unary(size_t *i) {
+	token token = peek_token(*i);
+	if (token.type == NOT_TOKEN
+	 || token.type == MINUS_TOKEN) {
+		(*i)++;
+		expr expr = {0};
 
-	// }
+		expr.unary_expr.operator = token.type;
+		expr.unary_expr.expr_index = push_expr(parse_unary(i));
+		expr.type = UNARY_EXPR;
+		
+		return expr;
+	 }
+
+	return parse_primary(i);
+}
+
+static expr parse_factor(size_t *i) {
+	expr expr = parse_unary(i);
+
+	token token = peek_token(*i);
+	while (token.type == MULTIPLICATION_TOKEN
+	    || token.type == DIVISION_TOKEN) {
+		(*i)++;
+		expr.binary_expr.left_expr_index = push_expr(expr);
+		expr.binary_expr.operator = token.type;
+		expr.binary_expr.right_expr_index = push_expr(parse_unary(i));
+		expr.type = BINARY_EXPR;
+	}
+
+	return expr;
+}
+
+static expr parse_term(size_t *i) {
+	expr expr = parse_factor(i);
+
+	token token = peek_token(*i);
+	while (token.type == PLUS_TOKEN
+	    || token.type == MINUS_TOKEN) {
+		(*i)++;
+		expr.binary_expr.left_expr_index = push_expr(expr);
+		expr.binary_expr.operator = token.type;
+		expr.binary_expr.right_expr_index = push_expr(parse_factor(i));
+		expr.type = BINARY_EXPR;
+	}
+
+	return expr;
+}
+
+static expr parse_comparison(size_t *i) {
+	expr expr = parse_term(i);
+
+	token token = peek_token(*i);
+	while (token.type == GREATER_OR_EQUAL_TOKEN
+	    || token.type == GREATER_TOKEN
+		|| token.type == LESS_OR_EQUAL_TOKEN
+		|| token.type == LESS_TOKEN) {
+		(*i)++;
+		expr.binary_expr.left_expr_index = push_expr(expr);
+		expr.binary_expr.operator = token.type;
+		expr.binary_expr.right_expr_index = push_expr(parse_term(i));
+		expr.type = BINARY_EXPR;
+	}
+
+	return expr;
+}
+
+static expr parse_equality(size_t *i) {
+	expr expr = parse_comparison(i);
+
+	token token = peek_token(*i);
+	while (token.type == EQUALS_TOKEN
+	    || token.type == NOT_EQUALS_TOKEN) {
+		(*i)++;
+		expr.binary_expr.left_expr_index = push_expr(expr);
+		expr.binary_expr.operator = token.type;
+		expr.binary_expr.right_expr_index = push_expr(parse_comparison(i));
+		expr.type = BINARY_EXPR;
+	}
 
 	return expr;
 }
 
 // Recursive descent parsing inspired by the book Crafting Interpreters:
 // https://craftinginterpreters.com/parsing-expressions.html#recursive-descent-parsing
-static expr parse_expr(size_t *i) {
+static expr parse_expression(size_t *i) {
 	return parse_equality(i);
-
-	// TODO: REMOVE
-	// expr expr = {0};
-
-	// token left_token = peek_token(*i);
-	// (*i)++;
-	// switch (left_token.type) {
-	// 	case WORD_TOKEN: {
-	// 		token token = peek_token(*i);
-	// 		if (token.type == OPEN_PARENTHESIS_TOKEN) {
-	// 			(*i)++;
-	// 			expr.type = CALL_EXPR;
-	// 			expr.call_expr.fn_name = left_token.str;
-	// 			expr.call_expr.fn_name_len = left_token.len;
-	// 			parse_fn_call(i, &expr.call_expr.arguments_exprs_offset, &expr.call_expr.argument_count);
-	// 		} else {
-	// 			expr.type = LITERAL_EXPR;
-	// 			expr.literal_expr.str = left_token.str;
-	// 			expr.literal_expr.len = left_token.len;
-	// 		}
-
-	// 		break;
-	// 	}
-	// 	case NUMBER_TOKEN: {
-	// 		token token = peek_token(*i);
-	// 		struct token next_token = peek_token(*i + 1);
-	// 		if (token.type == SPACES_TOKEN && next_token.type == PLUS_TOKEN) {
-	// 			assert_spaces(*i, 1);
-	// 			(*i) += 2;
-	// 			expr.type = BINARY_EXPR;
-
-	// 			struct expr left_expr = {0};
-	// 			left_expr.type = LITERAL_EXPR;
-	// 			left_expr.literal_expr.str = left_token.str;
-	// 			left_expr.literal_expr.len = left_token.len;
-
-	// 			expr.binary_expr.left_expr_index = exprs_size;
-	// 			push_expr(left_expr);
-
-	// 			assert_spaces(*i, 1);
-	// 			(*i)++;
-
-	// 			expr.binary_expr.operator = *next_token.str;
-	// 			struct expr right_expr = parse_expr(i);
-	// 			expr.binary_expr.right_expr_index = exprs_size;
-	// 			push_expr(right_expr);
-	// 		} else if (token.type == COMMA_TOKEN || token.type == CLOSE_PARENTHESIS_TOKEN || token.type == NEWLINES_TOKEN || (token.type == SPACES_TOKEN && token.len == 1 && (next_token.type == OPEN_BRACE_TOKEN || next_token.type == COMMENT_TOKEN))) {
-	// 			expr.type = LITERAL_EXPR;
-	// 			expr.literal_expr.str = left_token.str;
-	// 			expr.literal_expr.len = left_token.len;
-	// 		} else {
-	// 			GRUG_ERROR("Expected a binary operator token, but got %s at token index %zu", get_token_type_str[next_token.type], *i + 1);
-	// 		}
-
-	// 		break;
-	// 	}
-	// 	default:
-	// 		GRUG_ERROR("Expected an expression token, but got token type %s at token index %zu", get_token_type_str[left_token.type], *i - 1);
-	// }
-
-	// return expr;
 }
 
 static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *body_statement_count);
@@ -944,7 +1010,7 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 static statement parse_if_statement(size_t *i) {
 	statement statement = {0};
 	statement.type = IF_STATEMENT;
-	statement.if_statement.condition = parse_expr(i);
+	statement.if_statement.condition = parse_expression(i);
 
 	parse_statements(i, &statement.if_statement.if_body_statements_offset, &statement.if_statement.if_body_statement_count);
 
@@ -957,8 +1023,7 @@ static statement parse_if_statement(size_t *i) {
 			statement.if_statement.else_body_statement_count = 1;
 
 			struct statement else_if_statement = parse_if_statement(i);
-			statement.if_statement.else_body_statements_offset = statements_size;
-			push_statement(else_if_statement);
+			statement.if_statement.else_body_statements_offset = push_statement(else_if_statement);
 		} else {
 			parse_statements(i, &statement.if_statement.else_body_statements_offset, &statement.if_statement.else_body_statement_count);
 		}
@@ -992,9 +1057,8 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 
 		variable_statement.has_assignment = true;
 
-		expr expr = parse_expr(i);
-		variable_statement.assignment_expr_index = exprs_size;
-		push_expr(expr);
+		expr expr = parse_expression(i);
+		variable_statement.assignment_expr_index = push_expr(expr);
 	}
 
 	return variable_statement;
@@ -1019,8 +1083,7 @@ static statement parse_statement(size_t *i) {
 
 				parse_fn_call(i, &expr.call_expr.arguments_exprs_offset, &expr.call_expr.argument_count);
 
-				statement.call_statement.expr_index = exprs_size;
-				push_expr(expr);
+				statement.call_statement.expr_index = push_expr(expr);
 			} else if (token.type == COLON_TOKEN || (*i + 1 < tokens_size && peek_token(*i + 1).type == ASSIGNMENT_TOKEN)) {
 				statement.type = VARIABLE_STATEMENT;
 				statement.variable_statement = parse_variable_statement(i, switch_token);
@@ -1041,9 +1104,8 @@ static statement parse_statement(size_t *i) {
 				statement.return_statement.has_value = false;
 			} else {
 				statement.return_statement.has_value = true;
-				expr value_expr = parse_expr(i);
-				statement.return_statement.value_expr_index = exprs_size;
-				push_expr(value_expr);
+				expr value_expr = parse_expression(i);
+				statement.return_statement.value_expr_index = push_expr(value_expr);
 			}
 
 			break;
@@ -1081,11 +1143,6 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 		}
 		(*i)++;
 
-		token = peek_token(*i);
-		if (token.type == CLOSE_BRACE_TOKEN) {
-			break;
-		}
-
 		if (token.type != COMMENT_TOKEN) {
 			statement statement = parse_statement(i);
 
@@ -1112,12 +1169,13 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 	}
 }
 
-static void push_argument(argument argument) {
+static size_t push_argument(argument argument) {
 	// Make sure there's enough room to push argument
 	if (arguments_size + 1 > MAX_ARGUMENTS_IN_FILE) {
 		GRUG_ERROR("There are more than %d arguments in the grug file, exceeding MAX_ARGUMENTS_IN_FILE", MAX_ARGUMENTS_IN_FILE);
 	}
-	arguments[arguments_size++] = argument;
+	arguments[arguments_size] = argument;
+	return arguments_size++;
 }
 
 static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argument_count) {
@@ -1131,8 +1189,7 @@ static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argumen
 
 	argument.type = token.str;
 	argument.type_len = token.len;
-	*arguments_offset = arguments_size;
-	push_argument(argument);
+	*arguments_offset = push_argument(argument);
 	(*argument_count)++;
 
 	// Every argument after the first one starts with a comma
@@ -1201,11 +1258,6 @@ static compound_literal parse_compound_literal(size_t *i) {
 			break;
 		}
 		(*i)++;
-
-		token = peek_token(*i);
-		if (token.type == CLOSE_BRACE_TOKEN) {
-			break;
-		}
 
 		assert_token_type(*i, FIELD_NAME_TOKEN);
 		field field = {.key = token.str, .key_len = token.len};
