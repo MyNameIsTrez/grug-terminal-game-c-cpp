@@ -18,6 +18,7 @@
 #define SPACES_PER_INDENT 4
 #define MAX_CALL_ARGUMENTS_PER_STACK_FRAME 69
 #define MAX_STATEMENTS_PER_STACK_FRAME 1337
+#define MAX_SERIALIZED_TO_C_CHARS 420420
 
 #define GRUG_ERROR(...) {\
 	snprintf(error_msg, sizeof(error_msg), __VA_ARGS__);\
@@ -31,6 +32,40 @@ jmp_buf jmp_buffer;
 
 typedef void (*grug_error_handler_fn)(char *error_msg);
 grug_error_handler_fn grug_error_handler;
+
+//// READING
+
+static char *read_file(char *path) {
+	FILE *f = fopen(path, "rb");
+	if (!f) {
+        GRUG_ERROR("fopen");
+	}
+
+	if (fseek(f, 0, SEEK_END)) {
+        GRUG_ERROR("fseek");
+	}
+
+	long count = ftell(f);
+	if (count == -1) {
+        GRUG_ERROR("ftell");
+	}
+
+	rewind(f);
+
+	char *text = malloc(count + 1);
+	if (!text) {
+		GRUG_ERROR("malloc");
+	}
+
+	ssize_t bytes_read = fread(text, 1, count, f);
+	if (bytes_read != count) {
+        GRUG_ERROR("fread");
+	}
+
+	text[count] = '\0';
+
+	return text;
+}
 
 //// TOKENIZATION
 
@@ -576,15 +611,8 @@ struct helper_fn {
 static helper_fn helper_fns[MAX_HELPER_FNS_IN_FILE];
 static size_t helper_fns_size;
 
-static char *serialize_to_c() {
-	char *c_text;
-
-	c_text = "";
-
-	return c_text;
-}
-
 static void print_helper_fns() {
+	// TODO: Write
 }
 
 static void print_expr(expr expr);
@@ -1569,6 +1597,52 @@ static void verify_and_trim_space_tokens() {
 	tokens_size = new_index;
 }
 
+//// SERIALIZING TO C
+
+char serialized[MAX_SERIALIZED_TO_C_CHARS + 1];
+size_t serialized_size;
+
+static void serialize_append_slice(char *str, size_t len) {
+	if (serialized_size + len > MAX_SERIALIZED_TO_C_CHARS) {
+		GRUG_ERROR("There are more than %d characters in the output C file, exceeding MAX_SERIALIZED_TO_C_CHARS", MAX_SERIALIZED_TO_C_CHARS);
+	}
+	memcpy(serialized + serialized_size, str, len);
+	serialized_size += len;
+}
+
+static void serialize_append(char *str) {
+	serialize_append_slice(str, strlen(str));
+}
+
+static void serialize_helper_fns() {
+	
+}
+
+static void serialize_on_fns() {
+	
+}
+
+static void serialize_define_fn() {
+	serialize_append_slice(define_fn.return_type, define_fn.return_type_len);
+	serialize_append(" ");
+	serialize_append_slice(define_fn.fn_name, define_fn.fn_name_len);
+	serialize_append("() {\n");
+	serialize_append("    return {\n");
+	serialize_append("    }\n");
+	serialize_append("}\n");
+}
+
+static void serialize_to_c() {
+	serialize_define_fn();
+	serialize_on_fns();
+	serialize_helper_fns();
+
+	size_t i = serialized_size > MAX_SERIALIZED_TO_C_CHARS ? MAX_SERIALIZED_TO_C_CHARS : serialized_size;
+	serialized[i] = '\0';
+}
+
+//// MISC
+
 static void reset() {
 	tokens_size = 0;
 	fields_size = 0;
@@ -1577,38 +1651,7 @@ static void reset() {
 	arguments_size = 0;
 	helper_fns_size = 0;
 	on_fns_size = 0;
-}
-
-static char *read_file(char *path) {
-	FILE *f = fopen(path, "rb");
-	if (!f) {
-        GRUG_ERROR("fopen");
-	}
-
-	if (fseek(f, 0, SEEK_END)) {
-        GRUG_ERROR("fseek");
-	}
-
-	long count = ftell(f);
-	if (count == -1) {
-        GRUG_ERROR("ftell");
-	}
-
-	rewind(f);
-
-	char *text = malloc(count + 1);
-	if (!text) {
-		GRUG_ERROR("malloc");
-	}
-
-	ssize_t bytes_read = fread(text, 1, count, f);
-	if (bytes_read != count) {
-        GRUG_ERROR("fread");
-	}
-
-	text[count] = '\0';
-
-	return text;
+	serialized_size = 0;
 }
 
 void run() {
@@ -1629,9 +1672,8 @@ void run() {
 	printf("\nfns:\n");
 	print_fns();
 
-	char *c_text = serialize_to_c();
-	(void)c_text;
-	// printf("c_text:\n%s\n", c_text);
+	serialize_to_c();
+	printf("\nserialized:\n%s\n", serialized);
 
 	free(grug_text);
 }
