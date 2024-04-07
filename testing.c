@@ -589,7 +589,7 @@ static void print_helper_fns() {
 static void print_expr(expr expr);
 
 static void print_parenthesized_expr(parenthesized_expr parenthesized_expr) {
-	printf("\"parenthesized_expr\": {\n");
+	printf("\"expr\": {\n");
 	print_expr(exprs[parenthesized_expr.expr_index]);
 	printf("},\n");
 }
