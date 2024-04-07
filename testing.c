@@ -936,9 +936,12 @@ static expr parse_unary(size_t *i) {
 static expr parse_factor(size_t *i) {
 	expr expr = parse_unary(i);
 
-	token token = peek_token(*i);
-	while (token.type == MULTIPLICATION_TOKEN
-	    || token.type == DIVISION_TOKEN) {
+	while (true) {
+		token token = peek_token(*i);
+		if (token.type != MULTIPLICATION_TOKEN
+	     && token.type != DIVISION_TOKEN) {
+			break;
+		}
 		(*i)++;
 		expr.binary_expr.left_expr_index = push_expr(expr);
 		expr.binary_expr.operator = token.type;
@@ -952,9 +955,12 @@ static expr parse_factor(size_t *i) {
 static expr parse_term(size_t *i) {
 	expr expr = parse_factor(i);
 
-	token token = peek_token(*i);
-	while (token.type == PLUS_TOKEN
-	    || token.type == MINUS_TOKEN) {
+	while (true) {
+		token token = peek_token(*i);
+		if (token.type != PLUS_TOKEN
+	     && token.type != MINUS_TOKEN) {
+			break;
+		}
 		(*i)++;
 		expr.binary_expr.left_expr_index = push_expr(expr);
 		expr.binary_expr.operator = token.type;
@@ -968,11 +974,14 @@ static expr parse_term(size_t *i) {
 static expr parse_comparison(size_t *i) {
 	expr expr = parse_term(i);
 
-	token token = peek_token(*i);
-	while (token.type == GREATER_OR_EQUAL_TOKEN
-	    || token.type == GREATER_TOKEN
-		|| token.type == LESS_OR_EQUAL_TOKEN
-		|| token.type == LESS_TOKEN) {
+	while (true) {
+		token token = peek_token(*i);
+		if (token.type != GREATER_OR_EQUAL_TOKEN
+	     && token.type != GREATER_TOKEN
+		 && token.type != LESS_OR_EQUAL_TOKEN
+		 && token.type != LESS_TOKEN) {
+			break;
+		}
 		(*i)++;
 		expr.binary_expr.left_expr_index = push_expr(expr);
 		expr.binary_expr.operator = token.type;
@@ -986,9 +995,12 @@ static expr parse_comparison(size_t *i) {
 static expr parse_equality(size_t *i) {
 	expr expr = parse_comparison(i);
 
-	token token = peek_token(*i);
-	while (token.type == EQUALS_TOKEN
-	    || token.type == NOT_EQUALS_TOKEN) {
+	while (true) {
+		token token = peek_token(*i);
+		if (token.type != EQUALS_TOKEN
+	     && token.type != NOT_EQUALS_TOKEN) {
+			break;
+		}
 		(*i)++;
 		expr.binary_expr.left_expr_index = push_expr(expr);
 		expr.binary_expr.operator = token.type;
