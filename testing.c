@@ -1368,83 +1368,163 @@ static void verify_and_trim_space_tokens() {
 	while (i < tokens_size) {
 		token token = peek_token(i);
 
-		if (token.type == SPACES_TOKEN) {
-			if (i + 1 >= tokens_size) {
-				GRUG_ERROR("Expected another token after the space at token index %zu", i);
-			}
-
-			struct token next_token = peek_token(i + 1);
-			switch (next_token.type) {
-				case OPEN_BRACE_TOKEN:
-					depth++;
-					assert_spaces(i, 1);
+		switch (token.type) {
+			case OPEN_PARENTHESIS_TOKEN:
+			case CLOSE_PARENTHESIS_TOKEN:
+			case OPEN_BRACE_TOKEN:
+				break;
+			case CLOSE_BRACE_TOKEN: {
+					depth--;
+					if (depth < 0) {
+						GRUG_ERROR("Expected a '{' to match the '}' at token index %zu", i + 1);
+					}
+					if (depth > 0) {
+						assert_spaces(i - 1, depth * SPACES_PER_INDENT);
+					}
 					break;
-				case IF_TOKEN:
-				case LOOP_TOKEN:
-				case BREAK_TOKEN:
-				case RETURN_TOKEN:
-				case CONTINUE_TOKEN:
-				case FIELD_NAME_TOKEN:
-					assert_spaces(i, depth * SPACES_PER_INDENT);
-					break;
-				case ELSE_TOKEN:
-				case NUMBER_TOKEN:
-					assert_spaces(i, 1);
-					break;
-				case COMMENT_TOKEN:
-					assert_spaces(i, 1);
-
-					if (next_token.len < 2 || next_token.str[1] != ' ') {
-						GRUG_ERROR("Expected the comment token '%.*s' to start with a space character at token index %zu", (int)next_token.len, next_token.str, i + 1);
+				}
+			case PLUS_TOKEN:
+			case MINUS_TOKEN:
+			case MULTIPLICATION_TOKEN:
+			case DIVISION_TOKEN:
+			case REMAINDER_TOKEN:
+				break;
+			case COMMA_TOKEN: {
+					token = peek_token(i);
+					if (token.type != NEWLINES_TOKEN && token.type != SPACES_TOKEN) {
+						GRUG_ERROR("Expected a single newline or space after the comma, but got token type %s at token index %zu", get_token_type_str[token.type], i);
 					}
 
-					if (next_token.len < 3 || isspace(next_token.str[2])) {
-						GRUG_ERROR("Expected the comment token '%.*s' to have a text character directly after the space at token index %zu", (int)next_token.len, next_token.str, i + 1);
+					if (token.len != 1) {
+						GRUG_ERROR("Expected one newline or space, but got several after the comma at token index %zu", i);
 					}
 
-					if (isspace(next_token.str[next_token.len - 1])) {
-						GRUG_ERROR("Unexpected trailing whitespace in the comment token '%.*s' at token index %zu", (int)next_token.len, next_token.str, i + 1);
-					}
+					if (token.type == SPACES_TOKEN) {
+						if (i + 1 >= tokens_size) {
+							GRUG_ERROR("Expected text after the comma and space at token index %zu", i);
+						}
 
+						token = peek_token(i + 1);
+						switch (token.type) {
+							case OPEN_PARENTHESIS_TOKEN:
+							case MINUS_TOKEN:
+							case STRING_TOKEN:
+							case WORD_TOKEN:
+							case NUMBER_TOKEN:
+								break;
+							default:
+								GRUG_ERROR("Unexpected token type %s after the comma and space, at token index %zu", get_token_type_str[token.type], i + 1);
+						}
+					}
 					break;
-				default:
-					GRUG_ERROR("Unexpected token type %s after the space, at token index %zu", get_token_type_str[next_token.type], i + 1);
-			}
-		} else if (token.type == CLOSE_BRACE_TOKEN) {
-			depth--;
-			if (depth < 0) {
-				GRUG_ERROR("Expected a '{' to match the '}' at token index %zu", i + 1);
-			}
-			if (depth > 0) {
-				assert_spaces(i - 1, depth * SPACES_PER_INDENT);
-			}
-		} else if (token.type == COMMA_TOKEN) {
-			token = peek_token(i);
-			if (token.type != NEWLINES_TOKEN && token.type != SPACES_TOKEN) {
-				GRUG_ERROR("Expected a single newline or space after the comma, but got token type %s at token index %zu", get_token_type_str[token.type], i);
-			}
-
-			if (token.len != 1) {
-				GRUG_ERROR("Expected one newline or space, but got several after the comma at token index %zu", i);
-			}
-
-			if (token.type == SPACES_TOKEN) {
+				}
+			case COLON_TOKEN:
+			case EQUALS_TOKEN:
+			case NOT_EQUALS_TOKEN:
+			case ASSIGNMENT_TOKEN:
+			case GREATER_OR_EQUAL_TOKEN:
+			case GREATER_TOKEN:
+			case LESS_OR_EQUAL_TOKEN:
+			case LESS_TOKEN:
+			case NOT_TOKEN:
+			case TRUE_TOKEN:
+			case FALSE_TOKEN:
+			case IF_TOKEN:
+			case ELSE_TOKEN:
+			case LOOP_TOKEN:
+			case BREAK_TOKEN:
+			case RETURN_TOKEN:
+			case CONTINUE_TOKEN:
+				break;
+			case SPACES_TOKEN: {
 				if (i + 1 >= tokens_size) {
-					GRUG_ERROR("Expected text after the comma and space at token index %zu", i);
+					GRUG_ERROR("Expected another token after the space at token index %zu", i);
 				}
 
-				token = peek_token(i + 1);
-				switch (token.type) {
+				struct token next_token = peek_token(i + 1);
+				switch (next_token.type) {
 					case OPEN_PARENTHESIS_TOKEN:
+					case CLOSE_PARENTHESIS_TOKEN:
+						break;
+					case OPEN_BRACE_TOKEN:
+						depth++;
+						assert_spaces(i, 1);
+						break;
+					case CLOSE_BRACE_TOKEN:
+					case PLUS_TOKEN:
+						assert_spaces(i, 1);
+						break;
 					case MINUS_TOKEN:
+						break;
+					case MULTIPLICATION_TOKEN:
+					case DIVISION_TOKEN:
+					case REMAINDER_TOKEN:
+					case COMMA_TOKEN:
+						assert_spaces(i, 1);
+						break;
+					case COLON_TOKEN:
+					case EQUALS_TOKEN:
+					case NOT_EQUALS_TOKEN:
+					case ASSIGNMENT_TOKEN:
+					case GREATER_OR_EQUAL_TOKEN:
+					case GREATER_TOKEN:
+					case LESS_OR_EQUAL_TOKEN:
+					case LESS_TOKEN:
+					case NOT_TOKEN:
+					case TRUE_TOKEN:
+					case FALSE_TOKEN:
+						break;
+					case IF_TOKEN:
+						assert_spaces(i, depth * SPACES_PER_INDENT);
+						break;
+					case ELSE_TOKEN:
+						assert_spaces(i, 1);
+						break;
+					case LOOP_TOKEN:
+					case BREAK_TOKEN:
+					case RETURN_TOKEN:
+					case CONTINUE_TOKEN:
+						assert_spaces(i, depth * SPACES_PER_INDENT);
+						break;
+					case SPACES_TOKEN:
+						abort();
+					case NEWLINES_TOKEN:
+						GRUG_ERROR("Unexpected trailing whitespace '%.*s' at token index %zu", (int)token.len, token.str, i);
 					case STRING_TOKEN:
+						break;
+					case FIELD_NAME_TOKEN:
+						assert_spaces(i, depth * SPACES_PER_INDENT);
+						break;
 					case WORD_TOKEN:
+						break;
 					case NUMBER_TOKEN:
 						break;
-					default:
-						GRUG_ERROR("Unexpected token type %s after the comma and space, at token index %zu", get_token_type_str[token.type], i + 1);
+					case COMMENT_TOKEN:
+						assert_spaces(i, 1);
+
+						if (next_token.len < 2 || next_token.str[1] != ' ') {
+							GRUG_ERROR("Expected the comment token '%.*s' to start with a space character at token index %zu", (int)next_token.len, next_token.str, i + 1);
+						}
+
+						if (next_token.len < 3 || isspace(next_token.str[2])) {
+							GRUG_ERROR("Expected the comment token '%.*s' to have a text character directly after the space at token index %zu", (int)next_token.len, next_token.str, i + 1);
+						}
+
+						if (isspace(next_token.str[next_token.len - 1])) {
+							GRUG_ERROR("Unexpected trailing whitespace in the comment token '%.*s' at token index %zu", (int)next_token.len, next_token.str, i + 1);
+						}
+
+						break;
 				}
+				break;
 			}
+			case NEWLINES_TOKEN:
+			case STRING_TOKEN:
+			case FIELD_NAME_TOKEN:
+			case WORD_TOKEN:
+			case NUMBER_TOKEN:
+			case COMMENT_TOKEN:
+				break;
 		}
 
 		// We're trimming all spaces in a single pass by copying every
