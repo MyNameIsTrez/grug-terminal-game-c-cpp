@@ -843,7 +843,7 @@ static void consume_1_newline(size_t *token_index_ptr) {
 		GRUG_ERROR("Expected 1 newline, but got %zu at token index %zu", token.len, *token_index_ptr);
 	}
 
-	token_index_ptr++;
+	(*token_index_ptr)++;
 }
 
 static expr parse_expression(size_t *i);
@@ -1269,7 +1269,6 @@ static compound_literal parse_compound_literal(size_t *i) {
 		if (token.type == CLOSE_BRACE_TOKEN) {
 			break;
 		}
-		(*i)++;
 
 		assert_token_type(*i, FIELD_NAME_TOKEN);
 		field field = {.key = token.str, .key_len = token.len};
@@ -1402,22 +1401,25 @@ static void verify_and_trim_space_tokens() {
 			case REMAINDER_TOKEN:
 				break;
 			case COMMA_TOKEN: {
-				token = peek_token(i);
-				if (token.type != NEWLINES_TOKEN && token.type != SPACES_TOKEN) {
-					GRUG_ERROR("Expected a single newline or space after the comma, but got token type %s at token index %zu", get_token_type_str[token.type], i);
+				if (i + 1 >= tokens_size) {
+					GRUG_ERROR("Expected something after the comma at token index %zu", i);
 				}
 
-				if (token.len != 1) {
-					GRUG_ERROR("Expected one newline or space, but got several after the comma at token index %zu", i);
+				struct token next_token = peek_token(i + 1);
+				if (next_token.type != NEWLINES_TOKEN && next_token.type != SPACES_TOKEN) {
+					GRUG_ERROR("Expected a single newline or space after the comma, but got token type %s at token index %zu", get_token_type_str[next_token.type], i + 1);
+				}
+				if (next_token.len != 1) {
+					GRUG_ERROR("Expected one newline or space, but got several after the comma at token index %zu", i + 1);
 				}
 
-				if (token.type == SPACES_TOKEN) {
-					if (i + 1 >= tokens_size) {
+				if (next_token.type == SPACES_TOKEN) {
+					if (i + 2 >= tokens_size) {
 						GRUG_ERROR("Expected text after the comma and space at token index %zu", i);
 					}
 
-					token = peek_token(i + 1);
-					switch (token.type) {
+					next_token = peek_token(i + 2);
+					switch (next_token.type) {
 						case OPEN_PARENTHESIS_TOKEN:
 						case MINUS_TOKEN:
 						case STRING_TOKEN:
@@ -1425,7 +1427,7 @@ static void verify_and_trim_space_tokens() {
 						case NUMBER_TOKEN:
 							break;
 						default:
-							GRUG_ERROR("Unexpected token type %s after the comma and space, at token index %zu", get_token_type_str[token.type], i + 1);
+							GRUG_ERROR("Unexpected token type %s after the comma and space, at token index %zu", get_token_type_str[next_token.type], i + 2);
 					}
 				}
 				break;
@@ -1463,6 +1465,7 @@ static void verify_and_trim_space_tokens() {
 						assert_spaces(i, 1);
 						break;
 					case CLOSE_BRACE_TOKEN:
+						break;
 					case PLUS_TOKEN:
 						assert_spaces(i, 1);
 						break;
@@ -1512,7 +1515,9 @@ static void verify_and_trim_space_tokens() {
 					case NUMBER_TOKEN:
 						break;
 					case COMMENT_TOKEN:
-						assert_spaces(i, 1);
+						// TODO: Ideally we'd assert there only ever being 1 space,
+						// but the problem is that a standalone comment is allowed to have indentation
+						// assert_spaces(i, 1);
 
 						if (next_token.len < 2 || next_token.str[1] != ' ') {
 							GRUG_ERROR("Expected the comment token '%.*s' to start with a space character at token index %zu", (int)next_token.len, next_token.str, i + 1);
