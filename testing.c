@@ -1429,13 +1429,19 @@ static bool starts_with(char *a, char *b) {
 }
 
 static void parse() {
+	bool seen_define_fn = false;
+
 	size_t i = 0;
 	while (i < tokens_size) {
 		token token = peek_token(i);
 		int type = token.type;
 
 		if (       type == WORD_TOKEN && starts_with(token.str, "define_")) {
+			if (seen_define_fn) {
+				GRUG_ERROR("There can't be more than one define_ function in a grug file");
+			}
 			parse_define_fn(&i);
+			seen_define_fn = true;
 		} else if (type == WORD_TOKEN && starts_with(token.str, "on_")) {
 			parse_on_fn(&i);
 		} else if (type == WORD_TOKEN) {
@@ -1447,6 +1453,10 @@ static void parse() {
 		} else {
 			GRUG_ERROR("Unexpected token '%.*s' at token index %zu in parse()", (int)token.len, token.str, i);
 		}
+	}
+
+	if (!seen_define_fn) {
+		GRUG_ERROR("Every grug file requires exactly one define_ function");
 	}
 }
 
