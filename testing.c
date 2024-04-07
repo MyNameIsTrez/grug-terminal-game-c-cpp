@@ -1386,15 +1386,15 @@ static void verify_and_trim_space_tokens() {
 			case OPEN_BRACE_TOKEN:
 				break;
 			case CLOSE_BRACE_TOKEN: {
-					depth--;
-					if (depth < 0) {
-						GRUG_ERROR("Expected a '{' to match the '}' at token index %zu", i + 1);
-					}
-					if (depth > 0) {
-						assert_spaces(i - 1, depth * SPACES_PER_INDENT);
-					}
-					break;
+				depth--;
+				if (depth < 0) {
+					GRUG_ERROR("Expected a '{' to match the '}' at token index %zu", i + 1);
 				}
+				if (depth > 0) {
+					assert_spaces(i - 1, depth * SPACES_PER_INDENT);
+				}
+				break;
+			}
 			case PLUS_TOKEN:
 			case MINUS_TOKEN:
 			case MULTIPLICATION_TOKEN:
@@ -1402,34 +1402,34 @@ static void verify_and_trim_space_tokens() {
 			case REMAINDER_TOKEN:
 				break;
 			case COMMA_TOKEN: {
-					token = peek_token(i);
-					if (token.type != NEWLINES_TOKEN && token.type != SPACES_TOKEN) {
-						GRUG_ERROR("Expected a single newline or space after the comma, but got token type %s at token index %zu", get_token_type_str[token.type], i);
-					}
-
-					if (token.len != 1) {
-						GRUG_ERROR("Expected one newline or space, but got several after the comma at token index %zu", i);
-					}
-
-					if (token.type == SPACES_TOKEN) {
-						if (i + 1 >= tokens_size) {
-							GRUG_ERROR("Expected text after the comma and space at token index %zu", i);
-						}
-
-						token = peek_token(i + 1);
-						switch (token.type) {
-							case OPEN_PARENTHESIS_TOKEN:
-							case MINUS_TOKEN:
-							case STRING_TOKEN:
-							case WORD_TOKEN:
-							case NUMBER_TOKEN:
-								break;
-							default:
-								GRUG_ERROR("Unexpected token type %s after the comma and space, at token index %zu", get_token_type_str[token.type], i + 1);
-						}
-					}
-					break;
+				token = peek_token(i);
+				if (token.type != NEWLINES_TOKEN && token.type != SPACES_TOKEN) {
+					GRUG_ERROR("Expected a single newline or space after the comma, but got token type %s at token index %zu", get_token_type_str[token.type], i);
 				}
+
+				if (token.len != 1) {
+					GRUG_ERROR("Expected one newline or space, but got several after the comma at token index %zu", i);
+				}
+
+				if (token.type == SPACES_TOKEN) {
+					if (i + 1 >= tokens_size) {
+						GRUG_ERROR("Expected text after the comma and space at token index %zu", i);
+					}
+
+					token = peek_token(i + 1);
+					switch (token.type) {
+						case OPEN_PARENTHESIS_TOKEN:
+						case MINUS_TOKEN:
+						case STRING_TOKEN:
+						case WORD_TOKEN:
+						case NUMBER_TOKEN:
+							break;
+						default:
+							GRUG_ERROR("Unexpected token type %s after the comma and space, at token index %zu", get_token_type_str[token.type], i + 1);
+					}
+				}
+				break;
+			}
 			case COLON_TOKEN:
 			case EQUALS_TOKEN:
 			case NOT_EQUALS_TOKEN:
