@@ -26,6 +26,8 @@
 	longjmp(jmp_buffer, 1);\
 }
 
+#define UNREACHABLE_STR "This line of code is supposed to be unreachable. Please report this bug to the grug developers!"
+
 static char error_msg[420];
 static int error_line;
 jmp_buf jmp_buffer;
@@ -675,47 +677,47 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 	for (size_t statement_index = 0; statement_index < statement_count; statement_index++) {
 		printf("{\n");
 
-		statement st = statements[statements_offset + statement_index];
+		statement statement = statements[statements_offset + statement_index];
 
-		printf("\"type\": \"%s\",\n", get_statement_type_str[st.type]);
+		printf("\"type\": \"%s\",\n", get_statement_type_str[statement.type]);
 
-		switch (st.type) {
+		switch (statement.type) {
 			case VARIABLE_STATEMENT:
-				printf("\"variable_name\": \"%.*s\",\n", (int)st.variable_statement.name_len, st.variable_statement.name);
+				printf("\"variable_name\": \"%.*s\",\n", (int)statement.variable_statement.name_len, statement.variable_statement.name);
 
-				if (st.variable_statement.has_type) {
-					printf("\"variable_type\": \"%.*s\",\n", (int)st.variable_statement.type_len, st.variable_statement.type);
+				if (statement.variable_statement.has_type) {
+					printf("\"variable_type\": \"%.*s\",\n", (int)statement.variable_statement.type_len, statement.variable_statement.type);
 				}
 
-				if (st.variable_statement.has_assignment) {
+				if (statement.variable_statement.has_assignment) {
 					printf("\"assignment\": {\n");
-					print_expr(exprs[st.variable_statement.assignment_expr_index]);
+					print_expr(exprs[statement.variable_statement.assignment_expr_index]);
 					printf("},\n");
 				}
 
 				break;
 			case CALL_STATEMENT:
-				print_call_expr(exprs[st.call_statement.expr_index].call_expr);
+				print_call_expr(exprs[statement.call_statement.expr_index].call_expr);
 				break;
 			case IF_STATEMENT:
 				printf("\"condition\": {\n");
-				print_expr(st.if_statement.condition);
+				print_expr(statement.if_statement.condition);
 				printf("},\n");
 
 				printf("\"if_statements\": [\n");
-				print_statements(st.if_statement.if_body_statements_offset, st.if_statement.if_body_statement_count);
+				print_statements(statement.if_statement.if_body_statements_offset, statement.if_statement.if_body_statement_count);
 				printf("],\n");
 
-				if (st.if_statement.else_body_statement_count > 0) {
+				if (statement.if_statement.else_body_statement_count > 0) {
 					printf("\"else_statements\": [\n");
-					print_statements(st.if_statement.else_body_statements_offset, st.if_statement.else_body_statement_count);
+					print_statements(statement.if_statement.else_body_statements_offset, statement.if_statement.else_body_statement_count);
 					printf("],\n");
 				}
 
 				break;
 			case RETURN_STATEMENT:
-				if (st.return_statement.has_value) {
-					expr return_expr = exprs[st.return_statement.value_expr_index];
+				if (statement.return_statement.has_value) {
+					expr return_expr = exprs[statement.return_statement.value_expr_index];
 					printf("\"expr\": {\n");
 					print_expr(return_expr);
 					printf("},\n");
@@ -723,7 +725,7 @@ static void print_statements(size_t statements_offset, size_t statement_count) {
 				break;
 			case LOOP_STATEMENT:
 				printf("\"statements\": [\n");
-				print_statements(st.loop_statement.body_statements_offset, st.loop_statement.body_statement_count);
+				print_statements(statement.loop_statement.body_statements_offset, statement.loop_statement.body_statement_count);
 				printf("],\n");
 				break;
 			case BREAK_STATEMENT:
@@ -992,8 +994,8 @@ static expr parse_call(size_t *i) {
 
 static expr parse_unary(size_t *i) {
 	token token = peek_token(*i);
-	if (token.type == NOT_TOKEN
-	 || token.type == MINUS_TOKEN) {
+	if (token.type == MINUS_TOKEN
+	 || token.type == NOT_TOKEN) {
 		(*i)++;
 		expr expr = {0};
 
@@ -1013,7 +1015,8 @@ static expr parse_factor(size_t *i) {
 	while (true) {
 		token token = peek_token(*i);
 		if (token.type != MULTIPLICATION_TOKEN
-	     && token.type != DIVISION_TOKEN) {
+	     && token.type != DIVISION_TOKEN
+		 && token.type != REMAINDER_TOKEN) {
 			break;
 		}
 		(*i)++;
@@ -1603,7 +1606,7 @@ static void verify_and_trim_space_tokens() {
 						assert_spaces(i, depth * SPACES_PER_INDENT);
 						break;
 					case SPACES_TOKEN:
-						abort();
+						GRUG_ERROR(UNREACHABLE_STR);
 					case NEWLINES_TOKEN:
 						GRUG_ERROR("Unexpected trailing whitespace '%.*s' at token index %zu", (int)token.len, token.str, i);
 					case STRING_TOKEN:
@@ -1664,8 +1667,8 @@ static void verify_and_trim_space_tokens() {
 
 //// SERIALIZING TO C
 
-char serialized[MAX_SERIALIZED_TO_C_CHARS + 1];
-size_t serialized_size;
+static char serialized[MAX_SERIALIZED_TO_C_CHARS + 1];
+static size_t serialized_size;
 
 static void serialize_append_slice(char *str, size_t len) {
 	if (serialized_size + len > MAX_SERIALIZED_TO_C_CHARS) {
@@ -1679,31 +1682,260 @@ static void serialize_append(char *str) {
 	serialize_append_slice(str, strlen(str));
 }
 
+static void serialize_append_indents(size_t depth) {
+	for (size_t i = 0; i < depth * SPACES_PER_INDENT; i++) {
+		serialize_append(" ");
+	}
+}
+
+static void serialize_parenthesized_expr(parenthesized_expr parenthesized_expr) {
+	// TODO: Base off of print_parenthesized_expr()
+	(void)parenthesized_expr;
+}
+
+static void serialize_call_expr(call_expr call_expr) {
+	// TODO: Base off of print_call_expr()
+	(void)call_expr;
+}
+
+static void serialize_binary_expr(binary_expr binary_expr) {
+	// TODO: Base off of print_binary_expr()
+	(void)binary_expr;
+}
+
+static void serialize_operator(enum token_type operator) {
+	switch (operator) {
+		case PLUS_TOKEN:
+			serialize_append("+");
+			return;
+		case MINUS_TOKEN:
+			serialize_append("-");
+			return;
+		case MULTIPLICATION_TOKEN:
+			serialize_append("*");
+			return;
+		case DIVISION_TOKEN:
+			serialize_append("/");
+			return;
+		case REMAINDER_TOKEN:
+			serialize_append("%");
+			return;
+		case EQUALS_TOKEN:
+			serialize_append("==");
+			return;
+		case NOT_EQUALS_TOKEN:
+			serialize_append("!=");
+			return;
+		case GREATER_OR_EQUAL_TOKEN:
+			serialize_append(">=");
+			return;
+		case GREATER_TOKEN:
+			serialize_append(">");
+			return;
+		case LESS_OR_EQUAL_TOKEN:
+			serialize_append("<=");
+			return;
+		case LESS_TOKEN:
+			serialize_append("<");
+			return;
+		case NOT_TOKEN:
+			serialize_append("not");
+			return;
+		default:
+			GRUG_ERROR(UNREACHABLE_STR);
+	}
+}
+
+static void serialize_expr(expr expr) {
+	switch (expr.type) {
+		case TRUE_EXPR:
+			serialize_append("true");
+		case FALSE_EXPR:
+			serialize_append("false");
+			break;
+		case STRING_EXPR:
+		case IDENTIFIER_EXPR:
+		case NUMBER_EXPR:
+			serialize_append_slice(expr.literal_expr.str, expr.literal_expr.len);
+			break;
+		case UNARY_EXPR:
+			serialize_operator(expr.unary_expr.operator);
+			serialize_expr(exprs[expr.unary_expr.expr_index]);
+			break;
+		case BINARY_EXPR:
+			serialize_binary_expr(expr.binary_expr);
+			break;
+		case CALL_EXPR:
+			serialize_call_expr(expr.call_expr);
+			break;
+		case PARENTHESIZED_EXPR:
+			serialize_parenthesized_expr(expr.parenthesized_expr);
+			break;
+	}
+}
+
+static void serialize_statements(size_t statements_offset, size_t statement_count, size_t depth) {
+	for (size_t statement_index = 0; statement_index < statement_count; statement_index++) {
+		statement statement = statements[statements_offset + statement_index];
+
+		serialize_append_indents(depth);
+
+		switch (statement.type) {
+			case VARIABLE_STATEMENT:
+				if (statement.variable_statement.has_type) {
+					serialize_append_slice(statement.variable_statement.type, statement.variable_statement.type_len);
+					serialize_append(" ");
+				}
+
+				serialize_append_slice(statement.variable_statement.name, statement.variable_statement.name_len);
+
+				if (statement.variable_statement.has_assignment) {
+					serialize_append(" = ");
+					serialize_expr(exprs[statement.variable_statement.assignment_expr_index]);
+				}
+
+				serialize_append(";");
+
+				break;
+			case CALL_STATEMENT:
+				serialize_call_expr(exprs[statement.call_statement.expr_index].call_expr);
+				serialize_append(";");
+				break;
+			case IF_STATEMENT:
+				serialize_append("if (");
+				serialize_expr(statement.if_statement.condition);
+				serialize_append(") {\n");
+				serialize_statements(statement.if_statement.if_body_statements_offset, statement.if_statement.if_body_statement_count, depth + 1);
+				
+				if (statement.if_statement.else_body_statement_count > 0) {
+					serialize_append_indents(depth);
+					serialize_append("} else {");
+					serialize_statements(statement.if_statement.else_body_statements_offset, statement.if_statement.else_body_statement_count, depth + 1);
+				}
+
+				serialize_append_indents(depth);
+				serialize_append("}");
+
+				break;
+			case RETURN_STATEMENT:
+				serialize_append("return");
+				if (statement.return_statement.has_value) {
+					serialize_append(" ");
+					expr return_expr = exprs[statement.return_statement.value_expr_index];
+					serialize_expr(return_expr);
+				}
+				serialize_append(";");
+				break;
+			case LOOP_STATEMENT:
+				serialize_append("while (true) {\n");
+				serialize_statements(statement.loop_statement.body_statements_offset, statement.loop_statement.body_statement_count, depth + 1);
+				serialize_append_indents(depth);
+				serialize_append("}");
+				break;
+			case BREAK_STATEMENT:
+				serialize_append("break;");
+				break;
+			case CONTINUE_STATEMENT:
+				serialize_append("continue;");
+				break;
+		}
+
+		serialize_append("\n");
+	}
+}
+
+static void serialize_arguments(size_t arguments_offset, size_t argument_count) {
+	if (argument_count == 0) {
+		return;
+	}
+
+	argument arg = arguments[arguments_offset];
+
+	serialize_append_slice(arg.type, arg.type_len);
+	serialize_append(" ");
+	serialize_append_slice(arg.name, arg.name_len);
+
+	for (size_t argument_index = 1; argument_index < argument_count; argument_index++) {
+		arg = arguments[arguments_offset + argument_index];
+
+		serialize_append(", ");
+		serialize_append_slice(arg.type, arg.type_len);
+		serialize_append(" ");
+		serialize_append_slice(arg.name, arg.name_len);
+	}
+}
+
 static void serialize_helper_fns() {
-	
+	for (size_t fn_index = 0; fn_index < helper_fns_size; fn_index++) {
+		helper_fn fn = helper_fns[fn_index];
+
+		serialize_append_slice(fn.return_type, fn.return_type_len);
+		serialize_append(" ");
+		serialize_append_slice(fn.fn_name, fn.fn_name_len);
+
+		serialize_append("(");
+		serialize_arguments(fn.arguments_offset, fn.argument_count);
+		serialize_append(") {\n");
+
+		serialize_statements(fn.body_statements_offset, fn.body_statement_count, 1);
+
+		serialize_append("}\n");
+	}
 }
 
 static void serialize_on_fns() {
-	
+	for (size_t fn_index = 0; fn_index < on_fns_size; fn_index++) {
+		on_fn fn = on_fns[fn_index];
+
+		serialize_append("void ");
+		serialize_append_slice(fn.fn_name, fn.fn_name_len);
+
+		serialize_append("(");
+		serialize_arguments(fn.arguments_offset, fn.argument_count);
+		serialize_append(") {\n");
+
+		serialize_statements(fn.body_statements_offset, fn.body_statement_count, 1);
+
+		serialize_append("}\n");
+	}
 }
 
 static void serialize_define_fn() {
 	serialize_append_slice(define_fn.return_type, define_fn.return_type_len);
 	serialize_append(" ");
 	serialize_append_slice(define_fn.fn_name, define_fn.fn_name_len);
+
 	serialize_append("() {\n");
 	serialize_append("    return {\n");
-	serialize_append("    }\n");
+
+	compound_literal compound_literal = define_fn.returned_compound_literal;
+
+	for (size_t field_index = 0; field_index < compound_literal.field_count; field_index++) {
+		field field = fields[compound_literal.fields_offset + field_index];
+
+		serialize_append_indents(2);
+		serialize_append_slice(field.key, field.key_len);
+		serialize_append(" = ");
+		serialize_append_slice(field.value, field.value_len);
+		serialize_append(",\n");
+	}
+
+	serialize_append("    };\n");
 	serialize_append("}\n");
 }
 
 static void serialize_to_c() {
 	serialize_define_fn();
-	serialize_on_fns();
-	serialize_helper_fns();
+	if (on_fns_size > 0) {
+		serialize_append("\n");
+		serialize_on_fns();
+	}
+	if (helper_fns_size > 0) {
+		serialize_append("\n");
+		serialize_helper_fns();
+	}
 
-	size_t i = serialized_size > MAX_SERIALIZED_TO_C_CHARS ? MAX_SERIALIZED_TO_C_CHARS : serialized_size;
-	serialized[i] = '\0';
+	serialized[serialized_size] = '\0';
 }
 
 //// MISC
@@ -1762,7 +1994,4 @@ int main() {
 	}
 
 	run();
-
-	// TODO: REMOVE
-	(void)helper_fns;
 }
