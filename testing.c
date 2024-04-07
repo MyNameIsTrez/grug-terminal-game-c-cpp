@@ -611,10 +611,6 @@ struct helper_fn {
 static helper_fn helper_fns[MAX_HELPER_FNS_IN_FILE];
 static size_t helper_fns_size;
 
-static void print_helper_fns() {
-	// TODO: Write
-}
-
 static void print_expr(expr expr);
 
 static void print_parenthesized_expr(parenthesized_expr parenthesized_expr) {
@@ -757,6 +753,32 @@ static void print_arguments(size_t arguments_offset, size_t argument_count) {
 	printf("],\n");
 }
 
+static void print_helper_fns() {
+	printf("\"helper_fns\": [\n");
+
+	for (size_t fn_index = 0; fn_index < helper_fns_size; fn_index++) {
+		printf("{\n");
+
+		helper_fn fn = helper_fns[fn_index];
+
+		printf("\"fn_name\": \"%.*s\",\n", (int)fn.fn_name_len, fn.fn_name);
+
+		print_arguments(fn.arguments_offset, fn.argument_count);
+
+		if (fn.return_type_len > 0) {
+			printf("\"return_type\": \"%.*s\",\n", (int)fn.return_type_len, fn.return_type);
+		}
+
+		printf("\"statements\": [\n");
+		print_statements(fn.body_statements_offset, fn.body_statement_count);
+		printf("],\n");
+
+		printf("},\n");
+	}
+
+	printf("],\n");
+}
+
 static void print_on_fns() {
 	printf("\"on_fns\": [\n");
 
@@ -817,8 +839,11 @@ static void print_fns() {
 	printf("}\n");
 }
 
-static void parse_helper_fn(size_t *i) {
-	(*i)++;
+static void push_helper_fn(helper_fn helper_fn) {
+	if (helper_fns_size + 1 > MAX_HELPER_FNS_IN_FILE) {
+		GRUG_ERROR("There are more than %d helper_fns in the grug file, exceeding MAX_HELPER_FNS_IN_FILE", MAX_HELPER_FNS_IN_FILE);
+	}
+	helper_fns[helper_fns_size++] = helper_fn;
 }
 
 static void push_on_fn(on_fn on_fn) {
@@ -1123,32 +1148,31 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 }
 
 static statement parse_statement(size_t *i) {
-	token switch_token = consume_token(i);
+	token switch_token = peek_token(*i);
 
 	statement statement = {0};
 	switch (switch_token.type) {
 		case WORD_TOKEN: {
-			token token = peek_token(*i);
+			token token = peek_token(*i + 1);
 			if (token.type == OPEN_PARENTHESIS_TOKEN) {
-				(*i)++;
-
 				statement.type = CALL_STATEMENT;
-
 				expr expr = parse_call(i);
 				statement.call_statement.expr_index = push_expr(expr);
 			} else if (token.type == COLON_TOKEN || token.type == ASSIGNMENT_TOKEN) {
 				statement.type = VARIABLE_STATEMENT;
-				statement.variable_statement = parse_variable_statement(i, switch_token);
+				statement.variable_statement = parse_variable_statement(i + 1, switch_token);
 			} else {
-				GRUG_ERROR("Expected '(' or ':' or ' =' after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i - 1);
+				GRUG_ERROR("Expected '(' or ':' or ' =' after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i);
 			}
 
 			break;
 		}
 		case IF_TOKEN:
+			(*i)++;
 			statement = parse_if_statement(i);
 			break;
 		case RETURN_TOKEN: {
+			(*i)++;
 			statement.type = RETURN_STATEMENT;
 
 			token token = peek_token(*i);
@@ -1162,13 +1186,16 @@ static statement parse_statement(size_t *i) {
 			break;
 		}
 		case LOOP_TOKEN:
+			(*i)++;
 			statement.type = LOOP_STATEMENT;
 			parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count);
 			break;
 		case BREAK_TOKEN:
+			(*i)++;
 			statement.type = BREAK_STATEMENT;
 			break;
 		case CONTINUE_TOKEN:
+			(*i)++;
 			statement.type = CONTINUE_STATEMENT;
 			break;
 		default:
@@ -1262,6 +1289,34 @@ static void parse_arguments(size_t *i, size_t *arguments_offset, size_t *argumen
 		push_argument(argument);
 		(*argument_count)++;
 	}
+}
+
+static void parse_helper_fn(size_t *i) {
+	helper_fn fn = {0};
+
+	token token = consume_token(i);
+	fn.fn_name = token.str;
+	fn.fn_name_len = token.len;
+
+	consume_token_type(i, OPEN_PARENTHESIS_TOKEN);
+
+	token = peek_token(*i);
+	if (token.type == WORD_TOKEN) {
+		parse_arguments(i, &fn.arguments_offset, &fn.argument_count);
+	}
+
+	consume_token_type(i, CLOSE_PARENTHESIS_TOKEN);
+
+	token = peek_token(*i);
+	if (token.type == WORD_TOKEN) {
+		(*i)++;
+		define_fn.return_type = token.str;
+		define_fn.return_type_len = token.len;
+	}
+
+	parse_statements(i, &fn.body_statements_offset, &fn.body_statement_count);
+
+	push_helper_fn(fn);
 }
 
 static void parse_on_fn(size_t *i) {
