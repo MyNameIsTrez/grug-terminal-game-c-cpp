@@ -1,3 +1,31 @@
+define_human() human {
+    return {
+        .name = "Zombie",
+        .price = 50,
+        .left_arm.health = 1,
+        .right_leg.health = 2,
+        .sprite_path = "zombie.png",
+    }
+}
+
+on_human_death(self: human, a: b) {
+    loop {
+        break
+        return 42 + a
+        ; return foo(1 + 2, 3)
+    }
+    continue
+}
+
+; printf("Graaaaahhhh...\n") ; \n moves the terminal's cursor down a line
+; printf("%s died!\n", self.name) ; %s gets replaced with "Zombie"
+
 on_a() {
-    return (1 + 2) * 3
+    a: b
+    a = 42
+    a: b = 1 + 2
+}
+
+on_a() {
+    b = c(d(1) + 2, 3)
 }

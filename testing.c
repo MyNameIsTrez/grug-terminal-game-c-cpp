@@ -201,7 +201,6 @@ static bool is_escaped_char(char c) {
 }
 
 static void push_token(token token) {
-	// Make sure there's enough room to push token
 	if (tokens_size + 1 > MAX_TOKENS_IN_FILE) {
 		GRUG_ERROR("There are more than %d tokens in the grug file, exceeding MAX_TOKENS_IN_FILE", MAX_TOKENS_IN_FILE);
 	}
@@ -444,6 +443,7 @@ struct expr {
 		TRUE_EXPR,
 		FALSE_EXPR,
 		STRING_EXPR,
+		IDENTIFIER_EXPR,
 		NUMBER_EXPR,
 		UNARY_EXPR,
 		BINARY_EXPR,
@@ -462,6 +462,7 @@ static char *get_expr_type_str[] = {
 	[TRUE_EXPR] = "TRUE_EXPR",
 	[FALSE_EXPR] = "FALSE_EXPR",
 	[STRING_EXPR] = "STRING_EXPR",
+	[IDENTIFIER_EXPR] = "IDENTIFIER_EXPR",
 	[NUMBER_EXPR] = "NUMBER_EXPR",
 	[UNARY_EXPR] = "UNARY_EXPR",
 	[BINARY_EXPR] = "BINARY_EXPR",
@@ -624,6 +625,7 @@ static void print_expr(expr expr) {
 		case FALSE_EXPR:
 			break;
 		case STRING_EXPR:
+		case IDENTIFIER_EXPR:
 		case NUMBER_EXPR:
 			printf("\"str\": \"%.*s\",\n", (int)expr.literal_expr.len, expr.literal_expr.str);
 			break;
@@ -792,7 +794,6 @@ static void parse_helper_fn(size_t *i) {
 }
 
 static void push_on_fn(on_fn on_fn) {
-	// Make sure there's enough room to push on_fn
 	if (on_fns_size + 1 > MAX_ON_FNS_IN_FILE) {
 		GRUG_ERROR("There are more than %d on_fns in the grug file, exceeding MAX_ON_FNS_IN_FILE", MAX_ON_FNS_IN_FILE);
 	}
@@ -800,7 +801,6 @@ static void push_on_fn(on_fn on_fn) {
 }
 
 static size_t push_statement(statement statement) {
-	// Make sure there's enough room to push statement
 	if (statements_size + 1 > MAX_STATEMENTS_IN_FILE) {
 		GRUG_ERROR("There are more than %d statements in the grug file, exceeding MAX_STATEMENTS_IN_FILE", MAX_STATEMENTS_IN_FILE);
 	}
@@ -809,7 +809,6 @@ static size_t push_statement(statement statement) {
 }
 
 static size_t push_expr(expr expr) {
-	// Make sure there's enough room to push expr
 	if (exprs_size + 1 > MAX_EXPRS_IN_FILE) {
 		GRUG_ERROR("There are more than %d exprs in the grug file, exceeding MAX_EXPRS_IN_FILE", MAX_EXPRS_IN_FILE);
 	}
@@ -848,43 +847,18 @@ static void consume_1_newline(size_t *token_index_ptr) {
 
 static expr parse_expression(size_t *i);
 
-static void parse_fn_call(size_t *i, size_t *arguments_exprs_offset, size_t *argument_count) {
-	*argument_count = 0;
-
-	token token = peek_token(*i);
-	if (token.type != CLOSE_PARENTHESIS_TOKEN) {
-		struct expr local_call_arguments[MAX_CALL_ARGUMENTS_PER_STACK_FRAME];
-
-		while (true) {
-			struct expr call_argument = parse_expression(i);
-
-			// Make sure there's enough room to push call_argument
-			if (*argument_count + 1 > MAX_CALL_ARGUMENTS_PER_STACK_FRAME) {
-				GRUG_ERROR("There are more than %d arguments to a function call in one of the grug file's stack frames, exceeding MAX_CALL_ARGUMENTS_PER_STACK_FRAME", MAX_CALL_ARGUMENTS_PER_STACK_FRAME);
-			}
-			local_call_arguments[(*argument_count)++] = call_argument;
-
-			token = consume_token(i);
-			if (token.type != COMMA_TOKEN) {
-				break;
-			}
-		}
-
-		*arguments_exprs_offset = exprs_size;
-		for (size_t i = 0; i < *argument_count; i++) {
-			push_expr(local_call_arguments[i]);
-		}
-	} else {
-		(*i)++;
-	}
-}
-
 static expr parse_primary(size_t *i) {
 	token token = peek_token(*i);
 
 	expr expr = {0};
 
 	switch (token.type) {
+		case OPEN_PARENTHESIS_TOKEN:
+			(*i)++;
+			expr.type = PARENTHESIZED_EXPR;
+			expr.parenthesized_expr.expr_index = push_expr(parse_expression(i));
+			consume_token_type(i, CLOSE_PARENTHESIS_TOKEN);
+			return expr;
 		case TRUE_TOKEN:
 			(*i)++;
 			expr.type = TRUE_EXPR;
@@ -899,21 +873,68 @@ static expr parse_primary(size_t *i) {
 			expr.literal_expr.str = token.str;
 			expr.literal_expr.len = token.len;
 			return expr;
+		case WORD_TOKEN:
+			(*i)++;
+			expr.type = IDENTIFIER_EXPR;
+			expr.literal_expr.str = token.str;
+			expr.literal_expr.len = token.len;
+			return expr;
 		case NUMBER_TOKEN:
 			(*i)++;
 			expr.type = NUMBER_EXPR;
 			expr.literal_expr.str = token.str;
 			expr.literal_expr.len = token.len;
 			return expr;
-		case OPEN_PARENTHESIS_TOKEN:
-			(*i)++;
-			expr.type = PARENTHESIZED_EXPR;
-			expr.parenthesized_expr.expr_index = push_expr(parse_expression(i));
-			consume_token_type(i, CLOSE_PARENTHESIS_TOKEN);
-			return expr;
 		default:
 			GRUG_ERROR("Expected a primary expression token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
 	}
+}
+
+static expr parse_call(size_t *i) {
+	expr expr = parse_primary(i);
+
+	token token = peek_token(*i);
+	if (token.type == OPEN_PARENTHESIS_TOKEN) {
+		(*i)++;
+
+		if (expr.type != IDENTIFIER_EXPR) {
+			GRUG_ERROR("Unexpected open parenthesis after non-identifier expression type %s at token index %zu", get_expr_type_str[expr.type], *i - 2);
+		}
+		expr.type = CALL_EXPR;
+
+		expr.call_expr.fn_name = expr.literal_expr.str;
+		expr.call_expr.fn_name_len = expr.literal_expr.len;
+
+		expr.call_expr.argument_count = 0;
+
+		struct token token = peek_token(*i);
+		if (token.type == CLOSE_PARENTHESIS_TOKEN) {
+			(*i)++;
+		} else {
+			struct expr local_call_arguments[MAX_CALL_ARGUMENTS_PER_STACK_FRAME];
+
+			while (true) {
+				struct expr call_argument = parse_expression(i);
+
+				if (expr.call_expr.argument_count + 1 > MAX_CALL_ARGUMENTS_PER_STACK_FRAME) {
+					GRUG_ERROR("There are more than %d arguments to a function call in one of the grug file's stack frames, exceeding MAX_CALL_ARGUMENTS_PER_STACK_FRAME", MAX_CALL_ARGUMENTS_PER_STACK_FRAME);
+				}
+				local_call_arguments[expr.call_expr.argument_count++] = call_argument;
+
+				token = consume_token(i);
+				if (token.type != COMMA_TOKEN) {
+					break;
+				}
+			}
+
+			expr.call_expr.arguments_exprs_offset = exprs_size;
+			for (size_t i = 0; i < expr.call_expr.argument_count; i++) {
+				push_expr(local_call_arguments[i]);
+			}
+		}
+	}
+
+	return expr;
 }
 
 static expr parse_unary(size_t *i) {
@@ -928,9 +949,9 @@ static expr parse_unary(size_t *i) {
 		expr.type = UNARY_EXPR;
 		
 		return expr;
-	 }
+	}
 
-	return parse_primary(i);
+	return parse_call(i);
 }
 
 static expr parse_factor(size_t *i) {
@@ -1066,11 +1087,8 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 	token = peek_token(*i);
 	if (token.type == ASSIGNMENT_TOKEN) {
 		(*i)++;
-
 		variable_statement.has_assignment = true;
-
-		expr expr = parse_expression(i);
-		variable_statement.assignment_expr_index = push_expr(expr);
+		variable_statement.assignment_expr_index = push_expr(parse_expression(i));
 	}
 
 	return variable_statement;
@@ -1088,19 +1106,13 @@ static statement parse_statement(size_t *i) {
 
 				statement.type = CALL_STATEMENT;
 
-				expr expr = {0};
-				expr.type = CALL_EXPR;
-				expr.call_expr.fn_name = switch_token.str;
-				expr.call_expr.fn_name_len = switch_token.len;
-
-				parse_fn_call(i, &expr.call_expr.arguments_exprs_offset, &expr.call_expr.argument_count);
-
+				expr expr = parse_call(i);
 				statement.call_statement.expr_index = push_expr(expr);
-			} else if (token.type == COLON_TOKEN || (*i + 1 < tokens_size && peek_token(*i + 1).type == ASSIGNMENT_TOKEN)) {
+			} else if (token.type == COLON_TOKEN || token.type == ASSIGNMENT_TOKEN) {
 				statement.type = VARIABLE_STATEMENT;
 				statement.variable_statement = parse_variable_statement(i, switch_token);
 			} else {
-				GRUG_ERROR("Expected '(' or ':' or ' =' after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i - 2);
+				GRUG_ERROR("Expected '(' or ':' or ' =' after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i - 1);
 			}
 
 			break;
@@ -1108,7 +1120,7 @@ static statement parse_statement(size_t *i) {
 		case IF_TOKEN:
 			statement = parse_if_statement(i);
 			break;
-		case RETURN_TOKEN:
+		case RETURN_TOKEN: {
 			statement.type = RETURN_STATEMENT;
 
 			token token = peek_token(*i);
@@ -1116,11 +1128,11 @@ static statement parse_statement(size_t *i) {
 				statement.return_statement.has_value = false;
 			} else {
 				statement.return_statement.has_value = true;
-				expr value_expr = parse_expression(i);
-				statement.return_statement.value_expr_index = push_expr(value_expr);
+				statement.return_statement.value_expr_index = push_expr(parse_expression(i));
 			}
 
 			break;
+		}
 		case LOOP_TOKEN:
 			statement.type = LOOP_STATEMENT;
 			parse_statements(i, &statement.loop_statement.body_statements_offset, &statement.loop_statement.body_statement_count);
@@ -1132,7 +1144,7 @@ static statement parse_statement(size_t *i) {
 			statement.type = CONTINUE_STATEMENT;
 			break;
 		default:
-			GRUG_ERROR("Expected a statement token, but got token type %s at token index %zu", get_token_type_str[token.type], *i);
+			GRUG_ERROR("Expected a statement token, but got token type %s at token index %zu", get_token_type_str[switch_token.type], *i - 1);
 	}
 
 	return statement;
@@ -1153,12 +1165,10 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 		if (token.type == CLOSE_BRACE_TOKEN) {
 			break;
 		}
-		(*i)++;
 
 		if (token.type != COMMENT_TOKEN) {
 			statement statement = parse_statement(i);
 
-			// Make sure there's enough room to push statement
 			if (*body_statement_count + 1 > MAX_STATEMENTS_PER_STACK_FRAME) {
 				GRUG_ERROR("There are more than %d statements in one of the grug file's stack frames, exceeding MAX_STATEMENTS_PER_STACK_FRAME", MAX_STATEMENTS_PER_STACK_FRAME);
 			}
@@ -1182,7 +1192,6 @@ static void parse_statements(size_t *i, size_t *body_statements_offset, size_t *
 }
 
 static size_t push_argument(argument argument) {
-	// Make sure there's enough room to push argument
 	if (arguments_size + 1 > MAX_ARGUMENTS_IN_FILE) {
 		GRUG_ERROR("There are more than %d arguments in the grug file, exceeding MAX_ARGUMENTS_IN_FILE", MAX_ARGUMENTS_IN_FILE);
 	}
@@ -1249,7 +1258,6 @@ static void parse_on_fn(size_t *i) {
 }
 
 static void push_field(field field) {
-	// Make sure there's enough room to push field
 	if (fields_size + 1 > MAX_FIELDS_IN_FILE) {
 		GRUG_ERROR("There are more than %d fields in the grug file, exceeding MAX_FIELDS_IN_FILE", MAX_FIELDS_IN_FILE);
 	}
