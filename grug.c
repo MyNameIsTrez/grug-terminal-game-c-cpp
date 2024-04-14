@@ -980,10 +980,13 @@ static expr parse_call(size_t *i) {
 				}
 				local_call_arguments[expr.call_expr.argument_count++] = call_argument;
 
-				token = consume_token(i);
+				token = peek_token(*i);
 				if (token.type != COMMA_TOKEN) {
+					assert_token_type(*i, CLOSE_PARENTHESIS_TOKEN);
+					(*i)++;
 					break;
 				}
+				(*i)++;
 			}
 
 			expr.call_expr.arguments_exprs_offset = exprs_size;
@@ -991,6 +994,24 @@ static expr parse_call(size_t *i) {
 				push_expr(local_call_arguments[i]);
 			}
 		}
+	}
+
+	return expr;
+}
+
+static expr parse_member(size_t *i) {
+	expr expr = parse_call(i);
+
+	while (true) {
+		token token = peek_token(*i);
+		if (token.type != PERIOD_TOKEN) {
+			break;
+		}
+		(*i)++;
+		expr.binary_expr.left_expr_index = push_expr(expr);
+		expr.binary_expr.operator = PERIOD_TOKEN;
+		expr.binary_expr.right_expr_index = push_expr(parse_call(i));
+		expr.type = BINARY_EXPR;
 	}
 
 	return expr;
@@ -1010,7 +1031,7 @@ static expr parse_unary(size_t *i) {
 		return expr;
 	}
 
-	return parse_call(i);
+	return parse_member(i);
 }
 
 static expr parse_factor(size_t *i) {
@@ -1020,8 +1041,7 @@ static expr parse_factor(size_t *i) {
 		token token = peek_token(*i);
 		if (token.type != MULTIPLICATION_TOKEN
 	     && token.type != DIVISION_TOKEN
-		 && token.type != REMAINDER_TOKEN
-		 && token.type != PERIOD_TOKEN) {
+		 && token.type != REMAINDER_TOKEN) {
 			break;
 		}
 		(*i)++;
