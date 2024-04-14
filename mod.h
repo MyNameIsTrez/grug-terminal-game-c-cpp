@@ -5,6 +5,12 @@
 #include "game/human.h"
 #include "game/tool.h"
 
+struct about {
+	char *name;
+    char *version;
+	char *author;
+};
+
 tool define_tool();
 human define_human();
 

@@ -6,6 +6,9 @@
 typedef void (*grug_error_handler_fn)(char *error_msg, char *filename, int line_number);
 extern grug_error_handler_fn grug_error_handler;
 
+typedef struct grug_file grug_file;
+typedef struct mod_directory mod_directory;
+
 struct grug_file {
 	char *name;
 	void *dll;

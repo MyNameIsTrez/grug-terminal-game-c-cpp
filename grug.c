@@ -1962,7 +1962,9 @@ static void serialize_define_fn() {
 	serialize_append_slice(define_fn.fn_name, define_fn.fn_name_len);
 
 	serialize_append("() {\n");
-	serialize_append("    return {\n");
+	serialize_append("    return (");
+	serialize_append_slice(define_fn.return_type, define_fn.return_type_len);
+	serialize_append("){\n");
 
 	compound_literal compound_literal = define_fn.returned_compound_literal;
 
@@ -1970,6 +1972,7 @@ static void serialize_define_fn() {
 		field field = fields[compound_literal.fields_offset + field_index];
 
 		serialize_append_indents(2);
+		serialize_append(".");
 		serialize_append_slice(field.key, field.key_len);
 		serialize_append(" = ");
 		serialize_append_slice(field.value, field.value_len);
@@ -1981,6 +1984,8 @@ static void serialize_define_fn() {
 }
 
 static void serialize_to_c() {
+	serialize_append("#include \"mod.h\"\n\n");
+
 	serialize_define_fn();
 
 	if (on_fns_size > 0) {
@@ -2023,11 +2028,24 @@ static void serialize_to_c() {
 
 static void handle_error(void *opaque, const char *msg) {
 	(void)opaque;
-	GRUG_ERROR("tcc: %s\n", msg);
+	GRUG_ERROR("tcc: %s", msg);
+}
+
+static void reset() {
+	tokens_size = 0;
+	fields_size = 0;
+	exprs_size = 0;
+	statements_size = 0;
+	arguments_size = 0;
+	helper_fns_size = 0;
+	on_fns_size = 0;
+	serialized_size = 0;
 }
 
 static void regenerate_dll(char *grug_file_path, char *dll_path) {
 	printf("Regenerating %s\n", dll_path);
+
+	reset();
 
 	char *grug_text = read_file(grug_file_path);
 	printf("grug_text:\n%s\n", grug_text);
@@ -2149,17 +2167,6 @@ void grug_free_mods(mod_directory dir) {
 	free(dir.files);
 }
 
-static void reset() {
-	tokens_size = 0;
-	fields_size = 0;
-	exprs_size = 0;
-	statements_size = 0;
-	arguments_size = 0;
-	helper_fns_size = 0;
-	on_fns_size = 0;
-	serialized_size = 0;
-}
-
 mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
 	if (setjmp(jmp_buffer)) {
 		if (grug_error_handler == NULL) {
@@ -2169,8 +2176,6 @@ mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name
 
 		grug_error_handler(error_msg, __FILE__, error_line_number);
 	}
-
-	reset();
 
 	mod_directory mod_dir = {0};
 
