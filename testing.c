@@ -1475,7 +1475,7 @@ static void assert_spaces(size_t token_index, size_t expected_spaces) {
 // Trims whitespace tokens after verifying that the formatting is correct.
 // 1. The whitespace indentation follows the block scope nesting, like in Python.
 // 2. There aren't any leading/trailing/missing/extra spaces.
-static void verify_and_trim_space_tokens() {
+static void verify_and_trim_spaces() {
 	size_t i = 0;
 	size_t new_index = 0;
 	int depth = 0;
@@ -1980,8 +1980,8 @@ void run() {
 	printf("After tokenize():\n");
 	print_tokens();
 
-	verify_and_trim_space_tokens();
-	printf("After verify_and_trim_space_tokens():\n");
+	verify_and_trim_spaces();
+	printf("After verify_and_trim_spaces():\n");
 	print_tokens();
 
 	parse();
