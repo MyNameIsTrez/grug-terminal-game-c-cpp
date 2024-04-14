@@ -1688,19 +1688,36 @@ static void serialize_append_indents(size_t depth) {
 	}
 }
 
+static void serialize_expr(expr expr);
+
 static void serialize_parenthesized_expr(parenthesized_expr parenthesized_expr) {
-	// TODO: Base off of print_parenthesized_expr()
-	(void)parenthesized_expr;
+	serialize_append("(");
+	serialize_expr(exprs[parenthesized_expr.expr_index]);
+	serialize_append(")");
 }
 
 static void serialize_call_expr(call_expr call_expr) {
-	// TODO: Base off of print_call_expr()
-	(void)call_expr;
+	serialize_append_slice(call_expr.fn_name, call_expr.fn_name_len);
+
+	serialize_append("(");
+	for (size_t argument_index = 0; argument_index < call_expr.argument_count; argument_index++) {
+		if (argument_index > 0) {
+			serialize_append(", ");
+		}
+
+		serialize_expr(exprs[call_expr.arguments_exprs_offset + argument_index]);
+	}
+	serialize_append(")");
 }
 
+static void serialize_operator(enum token_type operator);
+
 static void serialize_binary_expr(binary_expr binary_expr) {
-	// TODO: Base off of print_binary_expr()
-	(void)binary_expr;
+	serialize_expr(exprs[binary_expr.left_expr_index]);
+	serialize_append(" ");
+	serialize_operator(binary_expr.operator);
+	serialize_append(" ");
+	serialize_expr(exprs[binary_expr.right_expr_index]);
 }
 
 static void serialize_operator(enum token_type operator) {
@@ -1926,10 +1943,12 @@ static void serialize_define_fn() {
 
 static void serialize_to_c() {
 	serialize_define_fn();
+
 	if (on_fns_size > 0) {
 		serialize_append("\n");
 		serialize_on_fns();
 	}
+
 	if (helper_fns_size > 0) {
 		serialize_append("\n");
 		serialize_helper_fns();
