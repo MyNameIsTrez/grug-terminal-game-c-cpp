@@ -1722,9 +1722,17 @@ static void serialize_operator(enum token_type operator);
 
 static void serialize_binary_expr(binary_expr binary_expr) {
 	serialize_expr(exprs[binary_expr.left_expr_index]);
-	serialize_append(" ");
+
+	if (binary_expr.operator != PERIOD_TOKEN) {
+		serialize_append(" ");
+	}
+
 	serialize_operator(binary_expr.operator);
-	serialize_append(" ");
+
+	if (binary_expr.operator != PERIOD_TOKEN) {
+		serialize_append(" ");
+	}
+
 	serialize_expr(exprs[binary_expr.right_expr_index]);
 }
 
@@ -1744,6 +1752,9 @@ static void serialize_operator(enum token_type operator) {
 			return;
 		case REMAINDER_TOKEN:
 			serialize_append("%");
+			return;
+		case PERIOD_TOKEN:
+			serialize_append(".");
 			return;
 		case EQUALS_TOKEN:
 			serialize_append("==");
