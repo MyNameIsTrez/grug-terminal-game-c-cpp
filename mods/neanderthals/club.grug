@@ -1,0 +1,10 @@
+define_tool() tool {
+    return {
+        .name = "Club",
+        .buy_gold_value = 1,
+    }
+}
+
+on_tool_use(self: tool) {
+    change_human_health(get_human(self.human_parent_id).opponent_id, -8)
+}

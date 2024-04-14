@@ -303,8 +303,15 @@ static void update() {
 	}
 }
 
+static void error_handler(char *error_msg, char *filename, int line_number) {
+	fprintf(stderr, "%s in %s:%d\n", error_msg, filename, line_number);
+	exit(EXIT_FAILURE);
+}
+
 int main() {
 	srand(time(NULL)); // Seed the random number generator with the number of seconds since 1970
+
+	grug_error_handler = error_handler;
 
 	init_data();
 

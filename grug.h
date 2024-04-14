@@ -3,6 +3,9 @@
 #include <stddef.h>
 #include <typedefs.h>
 
+typedef void (*grug_error_handler_fn)(char *error_msg, char *filename, int line_number);
+extern grug_error_handler_fn grug_error_handler;
+
 struct grug_file {
 	char *name;
 	void *dll;

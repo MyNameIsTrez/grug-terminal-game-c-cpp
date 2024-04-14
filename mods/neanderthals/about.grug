@@ -1,7 +1,7 @@
 define_about() about {
-	return {
-		.name = "neanderthals",
-		.version = "1.0.0",
-		.author = "MyNameIsTrez",
-	}
+    return {
+        .name = "neanderthals",
+        .version = "1.0.0",
+        .author = "MyNameIsTrez",
+    }
 }
