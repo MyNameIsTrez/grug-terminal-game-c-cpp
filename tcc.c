@@ -1797,8 +1797,122 @@ ST_FUNC void asm_clobber(uint8_t *clobber_regs, const char *str)
 #include "c67-link.c"
 #include "tcccoff.c"
 #elif defined(TCC_TARGET_X86_64)
-/* start of x86-64 code generator */
+/*
+ *  x86-64 code generator for TCC
+ *
+ *  Copyright (c) 2008 Shinichiro Hamaji
+ *
+ *  Based on i386-gen.c by Fabrice Bellard
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
+#ifdef TARGET_DEFS_ONLY
+
+/* number of available registers */
+#define NB_REGS         25
+#define NB_ASM_REGS     16
+#define CONFIG_TCC_ASM
+
+/* a register can belong to several classes. The classes must be
+   sorted from more general to more precise (see gv2() code which does
+   assumptions on it). */
+#define RC_INT     0x0001 /* generic integer register */
+#define RC_FLOAT   0x0002 /* generic float register */
+#define RC_RAX     0x0004
+#define RC_RDX     0x0008
+#define RC_RCX     0x0010
+#define RC_RSI     0x0020
+#define RC_RDI     0x0040
+#define RC_ST0     0x0080 /* only for long double */
+#define RC_R8      0x0100
+#define RC_R9      0x0200
+#define RC_R10     0x0400
+#define RC_R11     0x0800
+#define RC_XMM0    0x1000
+#define RC_XMM1    0x2000
+#define RC_XMM2    0x4000
+#define RC_XMM3    0x8000
+#define RC_XMM4    0x10000
+#define RC_XMM5    0x20000
+#define RC_XMM6    0x40000
+#define RC_XMM7    0x80000
+#define RC_IRET    RC_RAX /* function return: integer register */
+#define RC_IRE2    RC_RDX /* function return: second integer register */
+#define RC_FRET    RC_XMM0 /* function return: float register */
+#define RC_FRE2    RC_XMM1 /* function return: second float register */
+
+/* pretty names for the registers */
+enum {
+    TREG_RAX = 0,
+    TREG_RCX = 1,
+    TREG_RDX = 2,
+    TREG_RSP = 4,
+    TREG_RSI = 6,
+    TREG_RDI = 7,
+
+    TREG_R8  = 8,
+    TREG_R9  = 9,
+    TREG_R10 = 10,
+    TREG_R11 = 11,
+
+    TREG_XMM0 = 16,
+    TREG_XMM1 = 17,
+    TREG_XMM2 = 18,
+    TREG_XMM3 = 19,
+    TREG_XMM4 = 20,
+    TREG_XMM5 = 21,
+    TREG_XMM6 = 22,
+    TREG_XMM7 = 23,
+
+    TREG_ST0 = 24,
+
+    TREG_MEM = 0x20
+};
+
+#define REX_BASE(reg) (((reg) >> 3) & 1)
+#define REG_VALUE(reg) ((reg) & 7)
+
+/* return registers for function */
+#define REG_IRET TREG_RAX /* single word int return register */
+#define REG_IRE2 TREG_RDX /* second word return register (for long long) */
+#define REG_FRET TREG_XMM0 /* float return register */
+#define REG_FRE2 TREG_XMM1 /* second float return register */
+
+/* defined if function parameters must be evaluated in reverse order */
+#define INVERT_FUNC_PARAMS
+
+/* pointer size, in bytes */
+#define PTR_SIZE 8
+
+/* long double size and alignment, in bytes */
+#define LDOUBLE_SIZE  16
+#define LDOUBLE_ALIGN 16
+/* maximum alignment (for aligned attribute support) */
+#define MAX_ALIGN     16
+
+/* define if return values need to be extended explicitely
+   at caller side (for interfacing with non-TCC compilers) */
+#define PROMOTE_RET
+
+#define TCC_TARGET_NATIVE_STRUCT_COPY
+ST_FUNC void gen_struct_copy(int size);
+
+/******************************************************/
+#else /* ! TARGET_DEFS_ONLY */
+/******************************************************/
 #define USING_GLOBALS
 #include "tcc.h"
 #include <assert.h>
@@ -4006,6 +4120,9 @@ ST_FUNC void gen_struct_copy(int size)
 }
 
 /* end of x86-64 code generator */
+/*************************************************************/
+#endif /* ! TARGET_DEFS_ONLY */
+/******************************************************/
 
 #include "x86_64-link.c"
 #include "i386-asm.c"
