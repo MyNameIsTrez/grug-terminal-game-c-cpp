@@ -92,6 +92,7 @@ enum token_type {
 	REMAINDER_TOKEN,
 	COMMA_TOKEN,
 	COLON_TOKEN,
+	PERIOD_TOKEN,
 	EQUALS_TOKEN,
 	NOT_EQUALS_TOKEN,
 	ASSIGNMENT_TOKEN,
@@ -111,7 +112,6 @@ enum token_type {
 	SPACES_TOKEN,
 	NEWLINES_TOKEN,
 	STRING_TOKEN,
-	FIELD_NAME_TOKEN,
 	WORD_TOKEN,
 	NUMBER_TOKEN,
 	COMMENT_TOKEN,
@@ -134,6 +134,7 @@ static char *get_token_type_str[] = {
 	[REMAINDER_TOKEN] = "REMAINDER_TOKEN",
 	[COMMA_TOKEN] = "COMMA_TOKEN",
 	[COLON_TOKEN] = "COLON_TOKEN",
+	[PERIOD_TOKEN] = "PERIOD_TOKEN",
 	[EQUALS_TOKEN] = "EQUALS_TOKEN",
 	[NOT_EQUALS_TOKEN] = "NOT_EQUALS_TOKEN",
 	[ASSIGNMENT_TOKEN] = "ASSIGNMENT_TOKEN",
@@ -153,7 +154,6 @@ static char *get_token_type_str[] = {
 	[SPACES_TOKEN] = "SPACES_TOKEN",
 	[NEWLINES_TOKEN] = "NEWLINES_TOKEN",
 	[STRING_TOKEN] = "STRING_TOKEN",
-	[FIELD_NAME_TOKEN] = "FIELD_NAME_TOKEN",
 	[WORD_TOKEN] = "WORD_TOKEN",
 	[NUMBER_TOKEN] = "NUMBER_TOKEN",
 	[COMMENT_TOKEN] = "COMMENT_TOKEN",
@@ -287,6 +287,9 @@ static void tokenize(char *grug_text) {
 		} else if (grug_text[i] == ':') {
 			push_token((token){.type=COLON_TOKEN, .str=grug_text+i, .len=1});
 			i += 1;
+		} else if (grug_text[i] == '.') {
+			push_token((token){.type=PERIOD_TOKEN, .str=grug_text+i, .len=1});
+			i += 1;
 		} else if (grug_text[i] == '=' && grug_text[i + 1] == '=') {
 			push_token((token){.type=EQUALS_TOKEN, .str=grug_text+i, .len=2});
 			i += 2;
@@ -366,36 +369,30 @@ static void tokenize(char *grug_text) {
 
 			token.len = i - (token.str - grug_text);
 			push_token(token);
-		} else if (grug_text[i] == '.') {
-			token token = {.type=FIELD_NAME_TOKEN, .str=grug_text+i};
-
-			i++;
-
-			// TODO: Decide if this should return an error value if the first char was a digit,
-			// or anything else was wrong, like the input being ".."
-			while (isalnum(grug_text[i]) || grug_text[i] == '_' || grug_text[i] == '.') {
-				i++;
-			}
-
-			token.len = i - (token.str - grug_text);
-			push_token(token);
 		} else if (isalpha(grug_text[i]) || grug_text[i] == '_') {
 			token token = {.type=WORD_TOKEN, .str=grug_text+i};
 
-			// TODO: Decide if this should return an error value when the input is ".."
 			do {
 				i++;
-			} while (isalnum(grug_text[i]) || grug_text[i] == '_' || grug_text[i] == '.');
+			} while (isalnum(grug_text[i]) || grug_text[i] == '_');
 
 			token.len = i - (token.str - grug_text);
 			push_token(token);
 		} else if (isdigit(grug_text[i])) {
 			token token = {.type=NUMBER_TOKEN, .str=grug_text+i};
 
-			// TODO: Decide if this should return an error value when the input is ".."
+			bool seen_period = false;
+
 			do {
 				i++;
-			} while (isdigit(grug_text[i]) || grug_text[i] == '.');
+
+				if (grug_text[i] == '.') {
+					if (seen_period) {
+						GRUG_ERROR("Encountered two '.' periods in a number at character %zu of the grug text file", i);
+					}
+					seen_period = true;
+				}
+			} while (isdigit(grug_text[i]));
 
 			token.len = i - (token.str - grug_text);
 			push_token(token);
@@ -1023,7 +1020,8 @@ static expr parse_factor(size_t *i) {
 		token token = peek_token(*i);
 		if (token.type != MULTIPLICATION_TOKEN
 	     && token.type != DIVISION_TOKEN
-		 && token.type != REMAINDER_TOKEN) {
+		 && token.type != REMAINDER_TOKEN
+		 && token.type != PERIOD_TOKEN) {
 			break;
 		}
 		(*i)++;
@@ -1371,7 +1369,10 @@ static compound_literal parse_compound_literal(size_t *i) {
 			break;
 		}
 
-		assert_token_type(*i, FIELD_NAME_TOKEN);
+		consume_token_type(i, PERIOD_TOKEN);
+
+		assert_token_type(*i, WORD_TOKEN);
+		token = peek_token(*i);
 		field field = {.key = token.str, .key_len = token.len};
 		(*i)++;
 
@@ -1618,7 +1619,7 @@ static void verify_and_trim_spaces() {
 						GRUG_ERROR("Unexpected trailing whitespace '%.*s' at token index %zu", (int)token.len, token.str, i);
 					case STRING_TOKEN:
 						break;
-					case FIELD_NAME_TOKEN:
+					case PERIOD_TOKEN:
 						assert_spaces(i, depth * SPACES_PER_INDENT);
 						break;
 					case WORD_TOKEN:
@@ -1648,7 +1649,7 @@ static void verify_and_trim_spaces() {
 			}
 			case NEWLINES_TOKEN:
 			case STRING_TOKEN:
-			case FIELD_NAME_TOKEN:
+			case PERIOD_TOKEN:
 			case WORD_TOKEN:
 			case NUMBER_TOKEN:
 			case COMMENT_TOKEN:
