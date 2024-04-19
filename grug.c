@@ -37962,14 +37962,27 @@ static void serialize_helper_fns() {
 	for (size_t fn_index = 0; fn_index < helper_fns_size; fn_index++) {
 		helper_fn fn = helper_fns[fn_index];
 
-		serialize_append_slice(fn.return_type, fn.return_type_len);
-		serialize_append(" ");
+        if (fn.return_type_len > 0) {
+		    serialize_append_slice(fn.return_type, fn.return_type_len);
+        } else {
+            serialize_append("void");
+        }
+		
+        serialize_append(" ");
 		serialize_append_slice(fn.fn_name, fn.fn_name_len);
 
 		serialize_append("(");
+        serialize_append("void *globals_void");
+        if (fn.argument_count > 0) {
+		    serialize_append(", ");
+        }
 		serialize_arguments(fn.arguments_offset, fn.argument_count);
 		serialize_append(") {\n");
 
+        serialize_append_indents(1);
+        serialize_append("struct globals *globals = globals_void;\n");
+
+		serialize_append("\n");
 		serialize_statements(fn.body_statements_offset, fn.body_statement_count, 1);
 
 		serialize_append("}\n");
@@ -37984,14 +37997,11 @@ static void serialize_on_fns() {
 		serialize_append_slice(fn.fn_name, fn.fn_name_len);
 
 		serialize_append("(");
-
         serialize_append("void *globals_void");
         if (fn.argument_count > 0) {
 		    serialize_append(", ");
         }
-
 		serialize_arguments(fn.arguments_offset, fn.argument_count);
-		
         serialize_append(") {\n");
 
         serialize_append_indents(1);
@@ -38001,6 +38011,29 @@ static void serialize_on_fns() {
 		serialize_statements(fn.body_statements_offset, fn.body_statement_count, 1);
 
 		serialize_append("}\n");
+	}
+}
+
+static void serialize_forward_declare_helper_fns() {
+	for (size_t fn_index = 0; fn_index < helper_fns_size; fn_index++) {
+		helper_fn fn = helper_fns[fn_index];
+
+        if (fn.return_type_len > 0) {
+		    serialize_append_slice(fn.return_type, fn.return_type_len);
+        } else {
+            serialize_append("void");
+        }
+
+		serialize_append(" ");
+		serialize_append_slice(fn.fn_name, fn.fn_name_len);
+
+		serialize_append("(");
+        serialize_append("void *globals_void");
+        if (fn.argument_count > 0) {
+		    serialize_append(", ");
+        }
+		serialize_arguments(fn.arguments_offset, fn.argument_count);
+		serialize_append(");\n");
 	}
 }
 
@@ -38096,6 +38129,11 @@ static void serialize_to_c() {
 		serialize_append("\n");
         serialize_init_globals_struct();
     }
+
+	if (helper_fns_size > 0) {
+		serialize_append("\n");
+        serialize_forward_declare_helper_fns();
+	}
 
 	if (on_fns_size > 0) {
 		serialize_append("\n");
