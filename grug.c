@@ -37741,10 +37741,26 @@ static void serialize_parenthesized_expr(parenthesized_expr parenthesized_expr) 
 	serialize_append(")");
 }
 
+static bool is_helper_function(char *name, size_t len) {
+    for (size_t i = 0; i < helper_fns_size; i++) {
+        helper_fn fn = helper_fns[i];
+        if (fn.fn_name_len == len && memcmp(fn.fn_name, name, len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void serialize_call_expr(call_expr call_expr) {
 	serialize_append_slice(call_expr.fn_name, call_expr.fn_name_len);
 
 	serialize_append("(");
+    if (is_helper_function(call_expr.fn_name, call_expr.fn_name_len)) {
+        serialize_append("globals_void");
+        if (call_expr.argument_count > 0) {
+		    serialize_append(", ");
+        }
+    }
 	for (size_t argument_index = 0; argument_index < call_expr.argument_count; argument_index++) {
 		if (argument_index > 0) {
 			serialize_append(", ");
