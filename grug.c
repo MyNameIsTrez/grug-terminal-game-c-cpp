@@ -38137,14 +38137,12 @@ static void serialize_to_c() {
 
 	serialize_define_fn();
 
-	if (global_variables_size > 0) {
-		serialize_append("\n");
-	    serialize_global_variables();
-		serialize_append("\n");
-        serialize_get_globals_struct_size();
-		serialize_append("\n");
-        serialize_init_globals_struct();
-    }
+    serialize_append("\n");
+    serialize_global_variables();
+    serialize_append("\n");
+    serialize_get_globals_struct_size();
+    serialize_append("\n");
+    serialize_init_globals_struct();
 
 	if (helper_fns_size > 0) {
 		serialize_append("\n");
@@ -38231,8 +38229,7 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
 
     TCCState *s = tcc_new();
     if (!s) {
-        fprintf(stderr, "tcc_new() error\n");
-        exit(EXIT_FAILURE);
+        GRUG_ERROR("tcc_new() error");
     }
 
     tcc_set_error_func(s, NULL, handle_error);
@@ -38240,18 +38237,15 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
     tcc_add_include_path(s, ".");
 
     if (tcc_set_output_type(s, TCC_OUTPUT_DLL)) {
-        fprintf(stderr, "tcc_set_output_type() error\n");
-        exit(EXIT_FAILURE);
+        GRUG_ERROR("tcc_set_output_type() error");
     }
 
     if (tcc_compile_string(s, serialized) == -1) {
-        fprintf(stderr, "tcc_compile_string() error\n");
-        exit(EXIT_FAILURE);
+        GRUG_ERROR("tcc_compile_string() error");
     }
 
     if (tcc_output_file(s, dll_path)) {
-        fprintf(stderr, "tcc_output_file() error\n");
-        exit(EXIT_FAILURE);
+        GRUG_ERROR("tcc_output_file() error");
     }
 
     tcc_delete(s);
@@ -38274,8 +38268,7 @@ static void try_create_parent_dirs(char *file_path) {
 
 		if (*file_path == '/' || *file_path == '\\') {
 			if (mkdir(parent_dir_path, 0777) && errno != EEXIST) {
-				perror("mkdir");
-				exit(EXIT_FAILURE);
+				GRUG_ERROR("%s: %s", "mkdir", strerror(errno));
 			}
 		}
 
@@ -38304,11 +38297,9 @@ static void use_dll_extension(char *dll_path, char *grug_file_path) {
 static void print_dlerror(char *function_name) {
 	char *err = dlerror();
 	if (!err) {
-		fprintf(stderr, "dlerror was asked to find an error string, but it couldn't find one\n");
-		exit(EXIT_FAILURE);
+		GRUG_ERROR("dlerror was asked to find an error string, but it couldn't find one");
 	}
-	fprintf(stderr, "%s: %s\n", function_name, err);
-	exit(EXIT_FAILURE);
+    GRUG_ERROR("%s: %s", function_name, err);
 }
 
 // TODO: Don't free and realloc everything every time our function gets called
@@ -38331,6 +38322,8 @@ void grug_free_mods(mod_directory dir) {
 	free(dir.files);
 }
 
+typedef size_t (*get_globals_struct_size_fn)(void);
+
 static jmp_buf reload_jmp_buffer;
 
 void *old_dll;
@@ -38352,15 +38345,13 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 
 	mod_dir.name = strdup(mods_dir_name);
 	if (!mod_dir.name) {
-		perror("strdup");
-		exit(EXIT_FAILURE);
+		GRUG_ERROR("%s: %s", "strdup", strerror(errno));
 	}
 
 	// printf("opendir(\"%s\")\n", mods_dir_path);
 	DIR *dirp = opendir(mods_dir_path);
 	if (!dirp) {
-		perror("opendir");
-		exit(EXIT_FAILURE);
+		GRUG_ERROR("%s: %s", "opendir", strerror(errno));
 	}
 
 	errno = 0;
@@ -38376,8 +38367,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 
 		struct stat entry_stat;
 		if (stat(entry_path, &entry_stat) == -1) {
-			perror("stat");
-			exit(EXIT_FAILURE);
+		    GRUG_ERROR("%s: %s", "stat", strerror(errno));
 		}
 
 		char dll_entry_path[STUPID_MAX_PATH];
@@ -38391,8 +38381,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				mod_dir.dirs_capacity = mod_dir.dirs_capacity == 0 ? 1 : mod_dir.dirs_capacity * 2;
 				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(*mod_dir.dirs));
 				if (!mod_dir.dirs) {
-					perror("realloc");
-					exit(EXIT_FAILURE);
+		            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
 				}
 			}
 
@@ -38401,9 +38390,10 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 			char dll_path[STUPID_MAX_PATH];
 			use_dll_extension(dll_path, dll_entry_path);
 
-			// Regenerate the dll if it doesn't exist/is outdated
 			struct stat dll_stat;
-			if (stat(dll_path, &dll_stat) == -1 || entry_stat.st_mtime > dll_stat.st_mtime) {
+            bool dll_exists = stat(dll_path, &dll_stat) == 0;
+
+            if (!dll_exists) {
 				// If the dll doesn't exist, try to create the parent directories
 				errno = 0;
 				if (access(dll_path, F_OK) && errno == ENOENT) {
@@ -38411,12 +38401,24 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 					errno = 0;
 				}
 				if (errno != 0 && errno != ENOENT) {
-					fprintf(stderr, "errno was not 0 after access()\n");
-					exit(EXIT_FAILURE);
+					GRUG_ERROR("errno was not 0 after access()");
 				}
+            }
+
+			// Regenerate the dll if it doesn't exist or is outdated
+			if (!dll_exists || entry_stat.st_mtime > dll_stat.st_mtime) {
+                if (dll_exists) {
+                    old_dll = dlopen(dll_path, RTLD_NOW);
+                    if (!old_dll) {
+                        print_dlerror("dlopen");
+                    };
+                } else {
+                    old_dll = NULL;
+                }
 
 				regenerate_dll(entry_path, dll_path);
 
+                // See `setjmp(reload_jmp_buffer);` for comments on why we jump there
                 longjmp(reload_jmp_buffer, 1);
 			}
 
@@ -38424,8 +38426,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 
 			file.name = strdup(dp->d_name);
 			if (!file.name) {
-				perror("strdup");
-				exit(EXIT_FAILURE);
+                GRUG_ERROR("%s: %s", "strdup", strerror(errno));
 			}
 
 			file.dll = dlopen(dll_path, RTLD_NOW);
@@ -38433,13 +38434,33 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				print_dlerror("dlopen");
 			}
 
+            new_dll = file.dll;
+
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wpedantic"
+            get_globals_struct_size_fn get_globals_struct_size_fn = dlsym(new_dll, "get_globals_struct_size");;
+            #pragma GCC diagnostic pop
+
+            if (!get_globals_struct_size_fn) {
+                GRUG_ERROR("Retrieving the get_globals_struct_size() function with dlsym() failed for %s", dll_path);
+            }
+            globals_struct_size = get_globals_struct_size_fn();
+
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wpedantic"
+            init_globals_struct_fn = dlsym(new_dll, "init_globals_struct");
+            #pragma GCC diagnostic pop
+
+            if (!init_globals_struct_fn) {
+                GRUG_ERROR("Retrieving the init_globals_struct() function with dlsym() failed for %s", dll_path);
+            }
+
 			// Make sure there's enough room to push file
 			if (mod_dir.files_size + 1 > mod_dir.files_capacity) {
 				mod_dir.files_capacity = mod_dir.files_capacity == 0 ? 1 : mod_dir.files_capacity * 2;
 				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(*mod_dir.files));
 				if (!mod_dir.files) {
-					perror("realloc");
-					exit(EXIT_FAILURE);
+                    GRUG_ERROR("%s: %s", "realloc", strerror(errno));
 				}
 			}
 
@@ -38447,8 +38468,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 		}
 	}
 	if (errno != 0) {
-		perror("readdir");
-		exit(EXIT_FAILURE);
+        GRUG_ERROR("%s: %s", "readdir", strerror(errno));
 	}
 
 	closedir(dirp);
