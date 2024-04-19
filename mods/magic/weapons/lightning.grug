@@ -5,6 +5,19 @@ define_tool() tool {
     }
 }
 
+uses: int = 0
+xd: int = 0
+
 on_tool_use(self: tool) {
-    change_human_health(get_human(self.human_parent_id).opponent_id, -30)
+    uses = uses + 1
+
+    damage: int
+    if uses == 2 {
+        damage = 50
+        uses = uses - 2
+    } else {
+        damage = 30
+    }
+
+    change_human_health(get_human(self.human_parent_id).opponent_id, -damage)
 }

@@ -35972,6 +35972,7 @@ LIBTCCAPI void tcc_set_backtrace_func(TCCState *s1, void* userdata, TCCBtFunc*);
 #define MAX_ARGUMENTS_IN_FILE 420420
 #define MAX_HELPER_FNS_IN_FILE 420420
 #define MAX_ON_FNS_IN_FILE 420420
+#define MAX_GLOBAL_VARIABLES_IN_FILE 420420
 #define SPACES_PER_INDENT 4
 #define MAX_CALL_ARGUMENTS_PER_STACK_FRAME 69
 #define MAX_STATEMENTS_PER_STACK_FRAME 1337
@@ -36385,6 +36386,7 @@ typedef struct statement statement;
 typedef struct argument argument;
 typedef struct on_fn on_fn;
 typedef struct helper_fn helper_fn;
+typedef struct global_variable global_variable;
 
 struct literal_expr {
 	char *str;
@@ -36564,6 +36566,16 @@ struct helper_fn {
 };
 static helper_fn helper_fns[MAX_HELPER_FNS_IN_FILE];
 static size_t helper_fns_size;
+
+struct global_variable {
+	char *name;
+	size_t name_len;
+	char *type;
+	size_t type_len;
+	expr assignment_expr;
+};
+static global_variable global_variables[MAX_GLOBAL_VARIABLES_IN_FILE];
+static size_t global_variables_size;
 
 static void print_expr(expr expr);
 
@@ -36755,6 +36767,28 @@ static void print_on_fns() {
 	printf("],\n");
 }
 
+static void print_global_variables() {
+	printf("\"global_variables\": [\n");
+
+	for (size_t global_variable_index = 0; global_variable_index < global_variables_size; global_variable_index++) {
+		printf("{\n");
+
+		global_variable global_variable = global_variables[global_variable_index];
+
+        printf("\"variable_name\": \"%.*s\",\n", (int)global_variable.name_len, global_variable.name);
+
+        printf("\"variable_type\": \"%.*s\",\n", (int)global_variable.type_len, global_variable.type);
+
+        printf("\"assignment\": {\n");
+        print_expr(global_variable.assignment_expr);
+        printf("},\n");
+
+		printf("},\n");
+	}
+
+	printf("],\n");
+}
+
 static void print_compound_literal(compound_literal compound_literal) {
 	printf("\"returned_compound_literal\": [\n");
 
@@ -36787,6 +36821,7 @@ static void print_fns() {
 	printf("{\n");
 
 	print_define_fn();
+	print_global_variables();
 	print_on_fns();
 	print_helper_fns();
 
@@ -37094,8 +37129,10 @@ static statement parse_if_statement(size_t *i) {
 	return statement;
 }
 
-static variable_statement parse_variable_statement(size_t *i, token name_token) {
+static variable_statement parse_variable_statement(size_t *i) {
 	variable_statement variable_statement = {0};
+
+    token name_token = consume_token(i);
 	variable_statement.name = name_token.str;
 	variable_statement.name_len = name_token.len;
 
@@ -37123,6 +37160,36 @@ static variable_statement parse_variable_statement(size_t *i, token name_token) 
 	return variable_statement;
 }
 
+static void push_global_variable(global_variable global_variable) {
+	if (global_variables_size + 1 > MAX_GLOBAL_VARIABLES_IN_FILE) {
+		GRUG_ERROR("There are more than %d global variables in the grug file, exceeding MAX_GLOBAL_VARIABLES_IN_FILE", MAX_GLOBAL_VARIABLES_IN_FILE);
+	}
+	global_variables[global_variables_size++] = global_variable;
+}
+
+static void parse_global_variable(size_t *i) {
+	global_variable global_variable = {0};
+
+    token name_token = consume_token(i);
+	global_variable.name = name_token.str;
+	global_variable.name_len = name_token.len;
+
+	assert_token_type(*i, COLON_TOKEN);
+	consume_token(i);
+
+	assert_token_type(*i, WORD_TOKEN);
+    token type_token = consume_token(i);
+	global_variable.type = type_token.str;
+	global_variable.type_len = type_token.len;
+
+	assert_token_type(*i, ASSIGNMENT_TOKEN);
+	consume_token(i);
+
+    global_variable.assignment_expr = parse_expression(i);
+
+    push_global_variable(global_variable);
+}
+
 static statement parse_statement(size_t *i) {
 	token switch_token = peek_token(*i);
 
@@ -37136,7 +37203,7 @@ static statement parse_statement(size_t *i) {
 				statement.call_statement.expr_index = push_expr(expr);
 			} else if (token.type == COLON_TOKEN || token.type == ASSIGNMENT_TOKEN) {
 				statement.type = VARIABLE_STATEMENT;
-				statement.variable_statement = parse_variable_statement(i + 1, switch_token);
+				statement.variable_statement = parse_variable_statement(i);
 			} else {
 				GRUG_ERROR("Expected '(' or ':' or ' =' after the word '%.*s' at token index %zu", (int)switch_token.len, switch_token.str, *i);
 			}
@@ -37415,16 +37482,18 @@ static void parse() {
 		token token = peek_token(i);
 		int type = token.type;
 
-		if (       type == WORD_TOKEN && starts_with(token.str, "define_")) {
+		if (       type == WORD_TOKEN && starts_with(token.str, "define_") && peek_token(i + 1).type == OPEN_PARENTHESIS_TOKEN) {
 			if (seen_define_fn) {
 				GRUG_ERROR("There can't be more than one define_ function in a grug file");
 			}
 			parse_define_fn(&i);
 			seen_define_fn = true;
-		} else if (type == WORD_TOKEN && starts_with(token.str, "on_")) {
+		} else if (type == WORD_TOKEN && starts_with(token.str, "on_") && peek_token(i + 1).type == OPEN_PARENTHESIS_TOKEN) {
 			parse_on_fn(&i);
-		} else if (type == WORD_TOKEN) {
+		} else if (type == WORD_TOKEN && peek_token(i + 1).type == OPEN_PARENTHESIS_TOKEN) {
 			parse_helper_fn(&i);
+		} else if (type == WORD_TOKEN && peek_token(i + 1).type == COLON_TOKEN) {
+			parse_global_variable(&i);
 		} else if (type == COMMENT_TOKEN) {
 			i++;
 		} else if (type == NEWLINES_TOKEN) {
@@ -37813,7 +37882,7 @@ static void serialize_statements(size_t statements_offset, size_t statement_coun
 				
 				if (statement.if_statement.else_body_statement_count > 0) {
 					serialize_append_indents(depth);
-					serialize_append("} else {");
+					serialize_append("} else {\n");
 					serialize_statements(statement.if_statement.else_body_statements_offset, statement.if_statement.else_body_statement_count, depth + 1);
 				}
 
@@ -37904,6 +37973,24 @@ static void serialize_on_fns() {
 	}
 }
 
+static void serialize_global_variables() {
+	for (size_t global_variable_index = 0; global_variable_index < global_variables_size; global_variable_index++) {
+		global_variable global_variable = global_variables[global_variable_index];
+
+        serialize_append("static ");
+
+        serialize_append_slice(global_variable.type, global_variable.type_len);
+        serialize_append(" ");
+
+        serialize_append_slice(global_variable.name, global_variable.name_len);
+
+        serialize_append(" = ");
+        serialize_expr(global_variable.assignment_expr);
+
+        serialize_append(";\n");
+	}
+}
+
 static void serialize_define_fn() {
 	serialize_append_slice(define_fn.return_type, define_fn.return_type_len);
 	serialize_append(" ");
@@ -37935,6 +38022,11 @@ static void serialize_to_c() {
 	serialize_append("#include \"mod.h\"\n\n");
 
 	serialize_define_fn();
+
+	if (global_variables_size > 0) {
+		serialize_append("\n");
+	    serialize_global_variables();
+    }
 
 	if (on_fns_size > 0) {
 		serialize_append("\n");
@@ -37987,6 +38079,7 @@ static void reset() {
 	arguments_size = 0;
 	helper_fns_size = 0;
 	on_fns_size = 0;
+    global_variables_size = 0;
 	serialized_size = 0;
 }
 
