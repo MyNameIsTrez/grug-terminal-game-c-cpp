@@ -318,7 +318,7 @@ int main() {
 	while (true) {
 		grug_free_mods(data.mods);
 
-		data.mods = grug_reload_modified_mods("mods", "mods", "dlls");
+		data.mods = grug_reload_modified_mods("mods", "dlls");
 
 		// grug_print_mods(data.mods);
 

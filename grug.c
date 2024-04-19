@@ -38208,7 +38208,7 @@ void grug_free_mods(mod_directory dir) {
 	free(dir.files);
 }
 
-mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
+static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
 	if (setjmp(jmp_buffer)) {
 		if (grug_error_handler == NULL) {
 			fprintf(stderr, "An error occurred, but the game forgot to do `grug_error_handler = your_error_handler_function;`, so grug wasn't able to execute `grug_error_handler(error_msg);`\n");
@@ -38254,7 +38254,7 @@ mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name
 		snprintf(dll_entry_path, sizeof(dll_entry_path), "%s/%s", dll_dir_path, dp->d_name);
 
 		if (S_ISDIR(entry_stat.st_mode)) {
-			mod_directory mod_subdir = grug_reload_modified_mods(entry_path, dp->d_name, dll_entry_path);
+			mod_directory mod_subdir = grug_reload_modified_mods_recursively(entry_path, dp->d_name, dll_entry_path);
 			
 			// Make sure there's enough room to push mod_subdir
 			if (mod_dir.dirs_size + 1 > mod_dir.dirs_capacity) {
@@ -38323,6 +38323,24 @@ mod_directory grug_reload_modified_mods(char *mods_dir_path, char *mods_dir_name
 	closedir(dirp);
 
 	return mod_dir;
+}
+
+// Cases:
+// 1. "" => ""
+// 2. "/" => ""
+// 3. "/a" => "a"
+// 4. "/a/" => ""
+// 5. "/a/b" => "b"
+static char *get_basename(char *path) {
+    char *base = strrchr(path, '/');
+    return base ? base + 1 : path;
+}
+
+mod_directory grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
+    assert(!strchr(mods_dir_path, '\\') && "mods_dir_path can't contain backslashes, so replace them with '/'");
+    assert(mods_dir_path[strlen(mods_dir_path) - 1] != '/' && "mods_dir_path can't have a trailing '/'");
+
+    return grug_reload_modified_mods_recursively(mods_dir_path, get_basename(mods_dir_path), dll_dir_path);
 }
 
 void grug_print_mods(mod_directory dir) {
