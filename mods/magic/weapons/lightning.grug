@@ -18,5 +18,9 @@ on_tool_use(self: tool) {
         damage = 30
     }
 
-    change_human_health(get_human(self.human_parent_id).opponent_id, -damage)
+    apply_damage(self, damage)
+}
+
+apply_damage(self: tool, damage: int) {
+    change_human_health(get_human(self.human_parent_id).opponent_id, -damage + uses)
 }

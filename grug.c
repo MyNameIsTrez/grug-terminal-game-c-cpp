@@ -37819,6 +37819,16 @@ static void serialize_operator(enum token_type operator) {
 	}
 }
 
+static bool is_identifier_global(char *name, size_t len) {
+    for (size_t i = 0; i < global_variables_size; i++) {
+        global_variable global = global_variables[i];
+        if (global.name_len == len && memcmp(global.name, name, len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void serialize_expr(expr expr) {
 	switch (expr.type) {
 		case TRUE_EXPR:
@@ -37827,7 +37837,14 @@ static void serialize_expr(expr expr) {
 			serialize_append("false");
 			break;
 		case STRING_EXPR:
+			serialize_append_slice(expr.literal_expr.str, expr.literal_expr.len);
+			break;
 		case IDENTIFIER_EXPR:
+            if (is_identifier_global(expr.literal_expr.str, expr.literal_expr.len)) {
+                serialize_append("globals->");
+            }
+			serialize_append_slice(expr.literal_expr.str, expr.literal_expr.len);
+			break;
 		case NUMBER_EXPR:
 			serialize_append_slice(expr.literal_expr.str, expr.literal_expr.len);
 			break;
@@ -37860,6 +37877,9 @@ static void serialize_statements(size_t statements_offset, size_t statement_coun
 					serialize_append(" ");
 				}
 
+                if (is_identifier_global(statement.variable_statement.name, statement.variable_statement.name_len)) {
+                    serialize_append("globals->");
+                }
 				serialize_append_slice(statement.variable_statement.name, statement.variable_statement.name_len);
 
 				if (statement.variable_statement.has_assignment) {
@@ -37964,9 +37984,20 @@ static void serialize_on_fns() {
 		serialize_append_slice(fn.fn_name, fn.fn_name_len);
 
 		serialize_append("(");
-		serialize_arguments(fn.arguments_offset, fn.argument_count);
-		serialize_append(") {\n");
 
+        serialize_append("void *globals_void");
+        if (fn.argument_count > 0) {
+		    serialize_append(", ");
+        }
+
+		serialize_arguments(fn.arguments_offset, fn.argument_count);
+		
+        serialize_append(") {\n");
+
+        serialize_append_indents(1);
+        serialize_append("struct globals *globals = globals_void;\n");
+
+		serialize_append("\n");
 		serialize_statements(fn.body_statements_offset, fn.body_statement_count, 1);
 
 		serialize_append("}\n");
@@ -38153,7 +38184,7 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
     tcc_set_error_func(s, NULL, handle_error);
 
     tcc_add_include_path(s, ".");
-	
+
     if (tcc_set_output_type(s, TCC_OUTPUT_DLL)) {
         fprintf(stderr, "tcc_set_output_type() error\n");
         exit(EXIT_FAILURE);
