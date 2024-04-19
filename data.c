@@ -10,6 +10,6 @@ void init_data() {
 }
 
 void free_data() {
-	grug_free_mods(data.mods);
+	grug_free_mods(mods);
 	free(data.fns);
 }

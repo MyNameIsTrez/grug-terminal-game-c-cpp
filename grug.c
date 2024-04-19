@@ -35981,14 +35981,14 @@ LIBTCCAPI void tcc_set_backtrace_func(TCCState *s1, void* userdata, TCCBtFunc*);
 #define GRUG_ERROR(...) {\
 	snprintf(error_msg, sizeof(error_msg), __VA_ARGS__);\
 	error_line_number = __LINE__;\
-	longjmp(jmp_buffer, 1);\
+	longjmp(error_jmp_buffer, 1);\
 }
 
 #define UNREACHABLE_STR "This line of code is supposed to be unreachable. Please report this bug to the grug developers!"
 
 static char error_msg[420];
 static int error_line_number;
-jmp_buf jmp_buffer;
+static jmp_buf error_jmp_buffer;
 grug_error_handler_fn grug_error_handler;
 
 //// READING
@@ -38331,8 +38331,15 @@ void grug_free_mods(mod_directory dir) {
 	free(dir.files);
 }
 
+static jmp_buf reload_jmp_buffer;
+
+void *old_dll;
+void *new_dll;
+size_t globals_struct_size;
+init_globals_struct_fn_type init_globals_struct_fn;
+
 static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
-	if (setjmp(jmp_buffer)) {
+	if (setjmp(error_jmp_buffer)) {
 		if (grug_error_handler == NULL) {
 			fprintf(stderr, "An error occurred, but the game forgot to do `grug_error_handler = your_error_handler_function;`, so grug wasn't able to execute `grug_error_handler(error_msg);`\n");
 			exit(EXIT_FAILURE);
@@ -38393,7 +38400,6 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 		} else if (S_ISREG(entry_stat.st_mode) && strcmp(get_file_extension(dp->d_name), ".grug") == 0) {
 			char dll_path[STUPID_MAX_PATH];
 			use_dll_extension(dll_path, dll_entry_path);
-			// printf("dll path: %s\n", dll_path);
 
 			// Regenerate the dll if it doesn't exist/is outdated
 			struct stat dll_stat;
@@ -38410,6 +38416,8 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				}
 
 				regenerate_dll(entry_path, dll_path);
+
+                longjmp(reload_jmp_buffer, 1);
 			}
 
 			grug_file file = {0};
@@ -38459,11 +38467,21 @@ static char *get_basename(char *path) {
     return base ? base + 1 : path;
 }
 
-mod_directory grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
+mod_directory mods;
+
+bool grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
     assert(!strchr(mods_dir_path, '\\') && "mods_dir_path can't contain backslashes, so replace them with '/'");
     assert(mods_dir_path[strlen(mods_dir_path) - 1] != '/' && "mods_dir_path can't have a trailing '/'");
 
-    return grug_reload_modified_mods_recursively(mods_dir_path, get_basename(mods_dir_path), dll_dir_path);
+    // If one of the grug files was reloaded,
+    // return true so that the game developer can update the grug file's entities
+    if (setjmp(reload_jmp_buffer)) {
+        return true;
+    }
+
+    mods = grug_reload_modified_mods_recursively(mods_dir_path, get_basename(mods_dir_path), dll_dir_path);
+
+    return false;
 }
 
 void grug_print_mods(mod_directory dir) {

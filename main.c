@@ -35,7 +35,7 @@ static void get_fns_impl(mod_directory dir, char *fn_name) {
 
 static void *get_fns(char *fn_name) {
 	data.fn_count = 0;
-	get_fns_impl(data.mods, fn_name);
+	get_fns_impl(mods, fn_name);
 	return data.fns;
 }
 
@@ -316,9 +316,11 @@ int main() {
 	init_data();
 
 	while (true) {
-		grug_free_mods(data.mods);
+		grug_free_mods(mods);
 
-		data.mods = grug_reload_modified_mods("mods", "dlls");
+		while (grug_reload_modified_mods("mods", "dlls")) {
+			// TODO:
+		}
 
 		// grug_print_mods(data.mods);
 
