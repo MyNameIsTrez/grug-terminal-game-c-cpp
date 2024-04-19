@@ -6,7 +6,6 @@ define_tool() tool {
 }
 
 uses: int = 0
-xd: int = 0
 
 on_tool_use(self: tool) {
     uses = uses + 1

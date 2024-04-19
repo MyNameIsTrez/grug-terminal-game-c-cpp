@@ -37973,22 +37973,56 @@ static void serialize_on_fns() {
 	}
 }
 
-static void serialize_global_variables() {
+static void serialize_init_globals_struct() {
+    serialize_append("void init_globals_struct(void *globals_struct) {\n");
+
+    serialize_append_indents(1);
+    serialize_append("memcpy(globals_struct, &(struct globals){\n");
+
 	for (size_t global_variable_index = 0; global_variable_index < global_variables_size; global_variable_index++) {
 		global_variable global_variable = global_variables[global_variable_index];
 
-        serialize_append("static ");
+        serialize_append_indents(2);
 
-        serialize_append_slice(global_variable.type, global_variable.type_len);
-        serialize_append(" ");
-
+        serialize_append(".");
         serialize_append_slice(global_variable.name, global_variable.name_len);
 
         serialize_append(" = ");
+
         serialize_expr(global_variable.assignment_expr);
+
+        serialize_append(",\n");
+	}
+
+    serialize_append_indents(1);
+    serialize_append("}, sizeof(struct globals));\n");
+
+    serialize_append("}\n");
+}
+
+static void serialize_get_globals_struct_size() {
+    serialize_append("size_t get_globals_struct_size() {\n");
+    serialize_append_indents(1);
+    serialize_append("return sizeof(struct globals);\n");
+    serialize_append("}\n");
+}
+
+static void serialize_global_variables() {
+    serialize_append("struct globals {\n");
+
+	for (size_t global_variable_index = 0; global_variable_index < global_variables_size; global_variable_index++) {
+		global_variable global_variable = global_variables[global_variable_index];
+
+        serialize_append_indents(1);
+
+        serialize_append_slice(global_variable.type, global_variable.type_len);
+        serialize_append(" ");
+        serialize_append_slice(global_variable.name, global_variable.name_len);
 
         serialize_append(";\n");
 	}
+
+    serialize_append("};\n");
 }
 
 static void serialize_define_fn() {
@@ -38026,6 +38060,10 @@ static void serialize_to_c() {
 	if (global_variables_size > 0) {
 		serialize_append("\n");
 	    serialize_global_variables();
+		serialize_append("\n");
+        serialize_get_globals_struct_size();
+		serialize_append("\n");
+        serialize_init_globals_struct();
     }
 
 	if (on_fns_size > 0) {

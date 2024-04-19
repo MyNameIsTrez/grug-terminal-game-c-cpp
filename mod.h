@@ -1,5 +1,8 @@
 #pragma once
 
+// grug mods always require these
+#include <string.h> // size_t, memcpy()
+
 #include "typedefs.h"
 
 #include "game/human.h"
