@@ -35941,12 +35941,14 @@ LIBTCCAPI void tcc_set_backtrace_func(TCCState *s1, void* userdata, TCCBtFunc*);
 
 #endif
 
-//// GRUG
+//// tcc: cleanup
 
 #undef malloc
 #undef free
 #undef realloc
 #undef strdup
+
+//// GRUG
 
 #include "grug.h"
 
@@ -35977,6 +35979,8 @@ LIBTCCAPI void tcc_set_backtrace_func(TCCState *s1, void* userdata, TCCBtFunc*);
 #define MAX_CALL_ARGUMENTS_PER_STACK_FRAME 69
 #define MAX_STATEMENTS_PER_STACK_FRAME 1337
 #define MAX_SERIALIZED_TO_C_CHARS 420420
+#define MODS_DIR_PATH "mods"
+#define DLL_DIR_PATH "dlls"
 
 #define GRUG_ERROR(...) {\
 	snprintf(error_msg, sizeof(error_msg), __VA_ARGS__);\
@@ -38489,9 +38493,9 @@ static char *get_basename(char *path) {
 
 mod_directory mods;
 
-bool grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
-    assert(!strchr(mods_dir_path, '\\') && "mods_dir_path can't contain backslashes, so replace them with '/'");
-    assert(mods_dir_path[strlen(mods_dir_path) - 1] != '/' && "mods_dir_path can't have a trailing '/'");
+bool grug_reload_modified_mods() {
+    assert(!strchr(MODS_DIR_PATH, '\\') && "MODS_DIR_PATH can't contain backslashes, so replace them with '/'");
+    assert(MODS_DIR_PATH[strlen(MODS_DIR_PATH) - 1] != '/' && "MODS_DIR_PATH can't have a trailing '/'");
 
     // If one of the grug files was reloaded,
     // return true so that the game developer can update the grug file's entities
@@ -38499,7 +38503,7 @@ bool grug_reload_modified_mods(char *mods_dir_path, char *dll_dir_path) {
         return true;
     }
 
-    mods = grug_reload_modified_mods_recursively(mods_dir_path, get_basename(mods_dir_path), dll_dir_path);
+    mods = grug_reload_modified_mods_recursively(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH);
 
     return false;
 }
