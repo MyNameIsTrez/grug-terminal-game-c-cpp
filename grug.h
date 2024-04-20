@@ -15,6 +15,8 @@ typedef struct mod_directory mod_directory;
 struct grug_file {
 	char *name;
 	void *dll;
+	size_t globals_struct_size;
+	init_globals_struct_fn_type init_globals_struct_fn;
 };
 
 struct mod_directory {
@@ -38,5 +40,5 @@ extern init_globals_struct_fn_type init_globals_struct_fn;
 
 void grug_free_mods(mod_directory dir);
 bool grug_reload_modified_mods();
+void *grug_get_fn(void *dll, char *fn_name);
 void grug_print_mods(mod_directory mods);
-void *grug_get_fn_address(void *dll, char *fn_name);

@@ -16,6 +16,6 @@ struct human {
 
 	// These should not be initialized by mods
 	id id;
-	i32 max_health;
 	id opponent_id;
+	i32 max_health;
 };

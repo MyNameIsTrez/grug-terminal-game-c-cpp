@@ -38326,6 +38326,10 @@ void grug_free_mods(mod_directory dir) {
 	free(dir.files);
 }
 
+void *grug_get_fn(void *dll, char *fn_name) {
+    return dlsym(dll, fn_name);
+}
+
 typedef size_t (*get_globals_struct_size_fn)(void);
 
 static jmp_buf reload_jmp_buffer;
@@ -38442,22 +38446,24 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wpedantic"
-            get_globals_struct_size_fn get_globals_struct_size_fn = dlsym(new_dll, "get_globals_struct_size");;
-            #pragma GCC diagnostic pop
+            get_globals_struct_size_fn get_globals_struct_size_fn = grug_get_fn(new_dll, "get_globals_struct_size");
+    	    #pragma GCC diagnostic pop
 
             if (!get_globals_struct_size_fn) {
-                GRUG_ERROR("Retrieving the get_globals_struct_size() function with dlsym() failed for %s", dll_path);
+                GRUG_ERROR("Retrieving the get_globals_struct_size() function with grug_get_fn() failed for %s", dll_path);
             }
             globals_struct_size = get_globals_struct_size_fn();
+            file.globals_struct_size = globals_struct_size;
 
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wpedantic"
-            init_globals_struct_fn = dlsym(new_dll, "init_globals_struct");
-            #pragma GCC diagnostic pop
+            init_globals_struct_fn = grug_get_fn(new_dll, "init_globals_struct");
+    	    #pragma GCC diagnostic pop
 
             if (!init_globals_struct_fn) {
-                GRUG_ERROR("Retrieving the init_globals_struct() function with dlsym() failed for %s", dll_path);
+                GRUG_ERROR("Retrieving the init_globals_struct() function with grug_get_fn() failed for %s", dll_path);
             }
+            file.init_globals_struct_fn = init_globals_struct_fn;
 
 			// Make sure there's enough room to push file
 			if (mod_dir.files_size + 1 > mod_dir.files_capacity) {
