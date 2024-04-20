@@ -36000,16 +36000,16 @@ grug_error_handler_fn grug_error_handler;
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
-        GRUG_ERROR("fopen");
+		GRUG_ERROR("fopen");
 	}
 
 	if (fseek(f, 0, SEEK_END)) {
-        GRUG_ERROR("fseek");
+		GRUG_ERROR("fseek");
 	}
 
 	long count = ftell(f);
 	if (count == -1) {
-        GRUG_ERROR("ftell");
+		GRUG_ERROR("ftell");
 	}
 
 	rewind(f);
@@ -36021,7 +36021,7 @@ static char *read_file(char *path) {
 
 	ssize_t bytes_read = fread(text, 1, count, f);
 	if (bytes_read != count) {
-        GRUG_ERROR("fread");
+		GRUG_ERROR("fread");
 	}
 
 	text[count] = '\0';
@@ -36779,13 +36779,13 @@ static void print_global_variables() {
 
 		global_variable global_variable = global_variables[global_variable_index];
 
-        printf("\"variable_name\": \"%.*s\",\n", (int)global_variable.name_len, global_variable.name);
+		printf("\"variable_name\": \"%.*s\",\n", (int)global_variable.name_len, global_variable.name);
 
-        printf("\"variable_type\": \"%.*s\",\n", (int)global_variable.type_len, global_variable.type);
+		printf("\"variable_type\": \"%.*s\",\n", (int)global_variable.type_len, global_variable.type);
 
-        printf("\"assignment\": {\n");
-        print_expr(global_variable.assignment_expr);
-        printf("},\n");
+		printf("\"assignment\": {\n");
+		print_expr(global_variable.assignment_expr);
+		printf("},\n");
 
 		printf("},\n");
 	}
@@ -37027,7 +37027,7 @@ static expr parse_factor(size_t *i) {
 	while (true) {
 		token token = peek_token(*i);
 		if (token.type != MULTIPLICATION_TOKEN
-	     && token.type != DIVISION_TOKEN
+		 && token.type != DIVISION_TOKEN
 		 && token.type != REMAINDER_TOKEN) {
 			break;
 		}
@@ -37047,7 +37047,7 @@ static expr parse_term(size_t *i) {
 	while (true) {
 		token token = peek_token(*i);
 		if (token.type != PLUS_TOKEN
-	     && token.type != MINUS_TOKEN) {
+		 && token.type != MINUS_TOKEN) {
 			break;
 		}
 		(*i)++;
@@ -37066,7 +37066,7 @@ static expr parse_comparison(size_t *i) {
 	while (true) {
 		token token = peek_token(*i);
 		if (token.type != GREATER_OR_EQUAL_TOKEN
-	     && token.type != GREATER_TOKEN
+		 && token.type != GREATER_TOKEN
 		 && token.type != LESS_OR_EQUAL_TOKEN
 		 && token.type != LESS_TOKEN) {
 			break;
@@ -37087,7 +37087,7 @@ static expr parse_equality(size_t *i) {
 	while (true) {
 		token token = peek_token(*i);
 		if (token.type != EQUALS_TOKEN
-	     && token.type != NOT_EQUALS_TOKEN) {
+		 && token.type != NOT_EQUALS_TOKEN) {
 			break;
 		}
 		(*i)++;
@@ -37136,7 +37136,7 @@ static statement parse_if_statement(size_t *i) {
 static variable_statement parse_variable_statement(size_t *i) {
 	variable_statement variable_statement = {0};
 
-    token name_token = consume_token(i);
+	token name_token = consume_token(i);
 	variable_statement.name = name_token.str;
 	variable_statement.name_len = name_token.len;
 
@@ -37174,7 +37174,7 @@ static void push_global_variable(global_variable global_variable) {
 static void parse_global_variable(size_t *i) {
 	global_variable global_variable = {0};
 
-    token name_token = consume_token(i);
+	token name_token = consume_token(i);
 	global_variable.name = name_token.str;
 	global_variable.name_len = name_token.len;
 
@@ -37182,16 +37182,16 @@ static void parse_global_variable(size_t *i) {
 	consume_token(i);
 
 	assert_token_type(*i, WORD_TOKEN);
-    token type_token = consume_token(i);
+	token type_token = consume_token(i);
 	global_variable.type = type_token.str;
 	global_variable.type_len = type_token.len;
 
 	assert_token_type(*i, ASSIGNMENT_TOKEN);
 	consume_token(i);
 
-    global_variable.assignment_expr = parse_expression(i);
+	global_variable.assignment_expr = parse_expression(i);
 
-    push_global_variable(global_variable);
+	push_global_variable(global_variable);
 }
 
 static statement parse_statement(size_t *i) {
@@ -37746,25 +37746,25 @@ static void serialize_parenthesized_expr(parenthesized_expr parenthesized_expr) 
 }
 
 static bool is_helper_function(char *name, size_t len) {
-    for (size_t i = 0; i < helper_fns_size; i++) {
-        helper_fn fn = helper_fns[i];
-        if (fn.fn_name_len == len && memcmp(fn.fn_name, name, len) == 0) {
-            return true;
-        }
-    }
-    return false;
+	for (size_t i = 0; i < helper_fns_size; i++) {
+		helper_fn fn = helper_fns[i];
+		if (fn.fn_name_len == len && memcmp(fn.fn_name, name, len) == 0) {
+			return true;
+		}
+	}
+	return false;
 }
 
 static void serialize_call_expr(call_expr call_expr) {
 	serialize_append_slice(call_expr.fn_name, call_expr.fn_name_len);
 
 	serialize_append("(");
-    if (is_helper_function(call_expr.fn_name, call_expr.fn_name_len)) {
-        serialize_append("globals_void");
-        if (call_expr.argument_count > 0) {
-		    serialize_append(", ");
-        }
-    }
+	if (is_helper_function(call_expr.fn_name, call_expr.fn_name_len)) {
+		serialize_append("globals_void");
+		if (call_expr.argument_count > 0) {
+			serialize_append(", ");
+		}
+	}
 	for (size_t argument_index = 0; argument_index < call_expr.argument_count; argument_index++) {
 		if (argument_index > 0) {
 			serialize_append(", ");
@@ -37840,13 +37840,13 @@ static void serialize_operator(enum token_type operator) {
 }
 
 static bool is_identifier_global(char *name, size_t len) {
-    for (size_t i = 0; i < global_variables_size; i++) {
-        global_variable global = global_variables[i];
-        if (global.name_len == len && memcmp(global.name, name, len) == 0) {
-            return true;
-        }
-    }
-    return false;
+	for (size_t i = 0; i < global_variables_size; i++) {
+		global_variable global = global_variables[i];
+		if (global.name_len == len && memcmp(global.name, name, len) == 0) {
+			return true;
+		}
+	}
+	return false;
 }
 
 static void serialize_expr(expr expr) {
@@ -37860,9 +37860,9 @@ static void serialize_expr(expr expr) {
 			serialize_append_slice(expr.literal_expr.str, expr.literal_expr.len);
 			break;
 		case IDENTIFIER_EXPR:
-            if (is_identifier_global(expr.literal_expr.str, expr.literal_expr.len)) {
-                serialize_append("globals->");
-            }
+			if (is_identifier_global(expr.literal_expr.str, expr.literal_expr.len)) {
+				serialize_append("globals->");
+			}
 			serialize_append_slice(expr.literal_expr.str, expr.literal_expr.len);
 			break;
 		case NUMBER_EXPR:
@@ -37897,9 +37897,9 @@ static void serialize_statements(size_t statements_offset, size_t statement_coun
 					serialize_append(" ");
 				}
 
-                if (is_identifier_global(statement.variable_statement.name, statement.variable_statement.name_len)) {
-                    serialize_append("globals->");
-                }
+				if (is_identifier_global(statement.variable_statement.name, statement.variable_statement.name_len)) {
+					serialize_append("globals->");
+				}
 				serialize_append_slice(statement.variable_statement.name, statement.variable_statement.name_len);
 
 				if (statement.variable_statement.has_assignment) {
@@ -37982,25 +37982,25 @@ static void serialize_helper_fns() {
 	for (size_t fn_index = 0; fn_index < helper_fns_size; fn_index++) {
 		helper_fn fn = helper_fns[fn_index];
 
-        if (fn.return_type_len > 0) {
-		    serialize_append_slice(fn.return_type, fn.return_type_len);
-        } else {
-            serialize_append("void");
-        }
+		if (fn.return_type_len > 0) {
+			serialize_append_slice(fn.return_type, fn.return_type_len);
+		} else {
+			serialize_append("void");
+		}
 		
-        serialize_append(" ");
+		serialize_append(" ");
 		serialize_append_slice(fn.fn_name, fn.fn_name_len);
 
 		serialize_append("(");
-        serialize_append("void *globals_void");
-        if (fn.argument_count > 0) {
-		    serialize_append(", ");
-        }
+		serialize_append("void *globals_void");
+		if (fn.argument_count > 0) {
+			serialize_append(", ");
+		}
 		serialize_arguments(fn.arguments_offset, fn.argument_count);
 		serialize_append(") {\n");
 
-        serialize_append_indents(1);
-        serialize_append("struct globals *globals = globals_void;\n");
+		serialize_append_indents(1);
+		serialize_append("struct globals *globals = globals_void;\n");
 
 		serialize_append("\n");
 		serialize_statements(fn.body_statements_offset, fn.body_statement_count, 1);
@@ -38017,15 +38017,15 @@ static void serialize_on_fns() {
 		serialize_append_slice(fn.fn_name, fn.fn_name_len);
 
 		serialize_append("(");
-        serialize_append("void *globals_void");
-        if (fn.argument_count > 0) {
-		    serialize_append(", ");
-        }
+		serialize_append("void *globals_void");
+		if (fn.argument_count > 0) {
+			serialize_append(", ");
+		}
 		serialize_arguments(fn.arguments_offset, fn.argument_count);
-        serialize_append(") {\n");
+		serialize_append(") {\n");
 
-        serialize_append_indents(1);
-        serialize_append("struct globals *globals = globals_void;\n");
+		serialize_append_indents(1);
+		serialize_append("struct globals *globals = globals_void;\n");
 
 		serialize_append("\n");
 		serialize_statements(fn.body_statements_offset, fn.body_statement_count, 1);
@@ -38038,75 +38038,75 @@ static void serialize_forward_declare_helper_fns() {
 	for (size_t fn_index = 0; fn_index < helper_fns_size; fn_index++) {
 		helper_fn fn = helper_fns[fn_index];
 
-        if (fn.return_type_len > 0) {
-		    serialize_append_slice(fn.return_type, fn.return_type_len);
-        } else {
-            serialize_append("void");
-        }
+		if (fn.return_type_len > 0) {
+			serialize_append_slice(fn.return_type, fn.return_type_len);
+		} else {
+			serialize_append("void");
+		}
 
 		serialize_append(" ");
 		serialize_append_slice(fn.fn_name, fn.fn_name_len);
 
 		serialize_append("(");
-        serialize_append("void *globals_void");
-        if (fn.argument_count > 0) {
-		    serialize_append(", ");
-        }
+		serialize_append("void *globals_void");
+		if (fn.argument_count > 0) {
+			serialize_append(", ");
+		}
 		serialize_arguments(fn.arguments_offset, fn.argument_count);
 		serialize_append(");\n");
 	}
 }
 
 static void serialize_init_globals_struct() {
-    serialize_append("void init_globals_struct(void *globals_struct) {\n");
+	serialize_append("void init_globals_struct(void *globals_struct) {\n");
 
-    serialize_append_indents(1);
-    serialize_append("memcpy(globals_struct, &(struct globals){\n");
+	serialize_append_indents(1);
+	serialize_append("memcpy(globals_struct, &(struct globals){\n");
 
 	for (size_t global_variable_index = 0; global_variable_index < global_variables_size; global_variable_index++) {
 		global_variable global_variable = global_variables[global_variable_index];
 
-        serialize_append_indents(2);
+		serialize_append_indents(2);
 
-        serialize_append(".");
-        serialize_append_slice(global_variable.name, global_variable.name_len);
+		serialize_append(".");
+		serialize_append_slice(global_variable.name, global_variable.name_len);
 
-        serialize_append(" = ");
+		serialize_append(" = ");
 
-        serialize_expr(global_variable.assignment_expr);
+		serialize_expr(global_variable.assignment_expr);
 
-        serialize_append(",\n");
+		serialize_append(",\n");
 	}
 
-    serialize_append_indents(1);
-    serialize_append("}, sizeof(struct globals));\n");
+	serialize_append_indents(1);
+	serialize_append("}, sizeof(struct globals));\n");
 
-    serialize_append("}\n");
+	serialize_append("}\n");
 }
 
 static void serialize_get_globals_struct_size() {
-    serialize_append("size_t get_globals_struct_size() {\n");
-    serialize_append_indents(1);
-    serialize_append("return sizeof(struct globals);\n");
-    serialize_append("}\n");
+	serialize_append("size_t get_globals_struct_size() {\n");
+	serialize_append_indents(1);
+	serialize_append("return sizeof(struct globals);\n");
+	serialize_append("}\n");
 }
 
 static void serialize_global_variables() {
-    serialize_append("struct globals {\n");
+	serialize_append("struct globals {\n");
 
 	for (size_t global_variable_index = 0; global_variable_index < global_variables_size; global_variable_index++) {
 		global_variable global_variable = global_variables[global_variable_index];
 
-        serialize_append_indents(1);
+		serialize_append_indents(1);
 
-        serialize_append_slice(global_variable.type, global_variable.type_len);
-        serialize_append(" ");
-        serialize_append_slice(global_variable.name, global_variable.name_len);
+		serialize_append_slice(global_variable.type, global_variable.type_len);
+		serialize_append(" ");
+		serialize_append_slice(global_variable.name, global_variable.name_len);
 
-        serialize_append(";\n");
+		serialize_append(";\n");
 	}
 
-    serialize_append("};\n");
+	serialize_append("};\n");
 }
 
 static void serialize_define_fn() {
@@ -38141,16 +38141,16 @@ static void serialize_to_c() {
 
 	serialize_define_fn();
 
-    serialize_append("\n");
-    serialize_global_variables();
-    serialize_append("\n");
-    serialize_get_globals_struct_size();
-    serialize_append("\n");
-    serialize_init_globals_struct();
+	serialize_append("\n");
+	serialize_global_variables();
+	serialize_append("\n");
+	serialize_get_globals_struct_size();
+	serialize_append("\n");
+	serialize_init_globals_struct();
 
 	if (helper_fns_size > 0) {
 		serialize_append("\n");
-        serialize_forward_declare_helper_fns();
+		serialize_forward_declare_helper_fns();
 	}
 
 	if (on_fns_size > 0) {
@@ -38204,7 +38204,7 @@ static void reset() {
 	arguments_size = 0;
 	helper_fns_size = 0;
 	on_fns_size = 0;
-    global_variables_size = 0;
+	global_variables_size = 0;
 	serialized_size = 0;
 }
 
@@ -38231,28 +38231,28 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
 	serialize_to_c();
 	printf("\nserialized:\n%s\n", serialized);
 
-    TCCState *s = tcc_new();
-    if (!s) {
-        GRUG_ERROR("tcc_new() error");
-    }
+	TCCState *s = tcc_new();
+	if (!s) {
+		GRUG_ERROR("tcc_new() error");
+	}
 
-    tcc_set_error_func(s, NULL, handle_error);
+	tcc_set_error_func(s, NULL, handle_error);
 
-    tcc_add_include_path(s, ".");
+	tcc_add_include_path(s, ".");
 
-    if (tcc_set_output_type(s, TCC_OUTPUT_DLL)) {
-        GRUG_ERROR("tcc_set_output_type() error");
-    }
+	if (tcc_set_output_type(s, TCC_OUTPUT_DLL)) {
+		GRUG_ERROR("tcc_set_output_type() error");
+	}
 
-    if (tcc_compile_string(s, serialized) == -1) {
-        GRUG_ERROR("tcc_compile_string() error");
-    }
+	if (tcc_compile_string(s, serialized) == -1) {
+		GRUG_ERROR("tcc_compile_string() error");
+	}
 
-    if (tcc_output_file(s, dll_path)) {
-        GRUG_ERROR("tcc_output_file() error");
-    }
+	if (tcc_output_file(s, dll_path)) {
+		GRUG_ERROR("tcc_output_file() error");
+	}
 
-    tcc_delete(s);
+	tcc_delete(s);
 	free(grug_text); // TODO: Try doing this earlier
 	errno = 0;
 }
@@ -38303,7 +38303,7 @@ static void print_dlerror(char *function_name) {
 	if (!err) {
 		GRUG_ERROR("dlerror was asked to find an error string, but it couldn't find one");
 	}
-    GRUG_ERROR("%s: %s", function_name, err);
+	GRUG_ERROR("%s: %s", function_name, err);
 }
 
 // TODO: Don't free and realloc everything every time our function gets called
@@ -38327,7 +38327,7 @@ void grug_free_mods(mod_directory dir) {
 }
 
 void *grug_get_fn(void *dll, char *fn_name) {
-    return dlsym(dll, fn_name);
+	return dlsym(dll, fn_name);
 }
 
 typedef size_t (*get_globals_struct_size_fn)(void);
@@ -38375,7 +38375,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 
 		struct stat entry_stat;
 		if (stat(entry_path, &entry_stat) == -1) {
-		    GRUG_ERROR("%s: %s", "stat", strerror(errno));
+			GRUG_ERROR("%s: %s", "stat", strerror(errno));
 		}
 
 		char dll_entry_path[STUPID_MAX_PATH];
@@ -38389,7 +38389,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				mod_dir.dirs_capacity = mod_dir.dirs_capacity == 0 ? 1 : mod_dir.dirs_capacity * 2;
 				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(*mod_dir.dirs));
 				if (!mod_dir.dirs) {
-		            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+					GRUG_ERROR("%s: %s", "realloc", strerror(errno));
 				}
 			}
 
@@ -38399,9 +38399,9 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 			use_dll_extension(dll_path, dll_entry_path);
 
 			struct stat dll_stat;
-            bool dll_exists = stat(dll_path, &dll_stat) == 0;
+			bool dll_exists = stat(dll_path, &dll_stat) == 0;
 
-            if (!dll_exists) {
+			if (!dll_exists) {
 				// If the dll doesn't exist, try to create the parent directories
 				errno = 0;
 				if (access(dll_path, F_OK) && errno == ENOENT) {
@@ -38411,30 +38411,30 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				if (errno != 0 && errno != ENOENT) {
 					GRUG_ERROR("errno was not 0 after access()");
 				}
-            }
+			}
 
 			// Regenerate the dll if it doesn't exist or is outdated
 			if (!dll_exists || entry_stat.st_mtime > dll_stat.st_mtime) {
-                if (dll_exists) {
-                    old_dll = dlopen(dll_path, RTLD_NOW);
-                    if (!old_dll) {
-                        print_dlerror("dlopen");
-                    };
-                } else {
-                    old_dll = NULL;
-                }
+				if (dll_exists) {
+					old_dll = dlopen(dll_path, RTLD_NOW);
+					if (!old_dll) {
+						print_dlerror("dlopen");
+					};
+				} else {
+					old_dll = NULL;
+				}
 
 				regenerate_dll(entry_path, dll_path);
 
-                // See `setjmp(reload_jmp_buffer);` for comments on why we jump there
-                longjmp(reload_jmp_buffer, 1);
+				// See `setjmp(reload_jmp_buffer);` for comments on why we jump there
+				longjmp(reload_jmp_buffer, 1);
 			}
 
 			grug_file file = {0};
 
 			file.name = strdup(dp->d_name);
 			if (!file.name) {
-                GRUG_ERROR("%s: %s", "strdup", strerror(errno));
+				GRUG_ERROR("%s: %s", "strdup", strerror(errno));
 			}
 
 			file.dll = dlopen(dll_path, RTLD_NOW);
@@ -38442,35 +38442,35 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				print_dlerror("dlopen");
 			}
 
-            new_dll = file.dll;
+			new_dll = file.dll;
 
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wpedantic"
-            get_globals_struct_size_fn get_globals_struct_size_fn = grug_get_fn(new_dll, "get_globals_struct_size");
-    	    #pragma GCC diagnostic pop
+			#pragma GCC diagnostic push
+			#pragma GCC diagnostic ignored "-Wpedantic"
+			get_globals_struct_size_fn get_globals_struct_size_fn = grug_get_fn(new_dll, "get_globals_struct_size");
+			#pragma GCC diagnostic pop
 
-            if (!get_globals_struct_size_fn) {
-                GRUG_ERROR("Retrieving the get_globals_struct_size() function with grug_get_fn() failed for %s", dll_path);
-            }
-            globals_struct_size = get_globals_struct_size_fn();
-            file.globals_struct_size = globals_struct_size;
+			if (!get_globals_struct_size_fn) {
+				GRUG_ERROR("Retrieving the get_globals_struct_size() function with grug_get_fn() failed for %s", dll_path);
+			}
+			globals_struct_size = get_globals_struct_size_fn();
+			file.globals_struct_size = globals_struct_size;
 
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wpedantic"
-            init_globals_struct_fn = grug_get_fn(new_dll, "init_globals_struct");
-    	    #pragma GCC diagnostic pop
+			#pragma GCC diagnostic push
+			#pragma GCC diagnostic ignored "-Wpedantic"
+			init_globals_struct_fn = grug_get_fn(new_dll, "init_globals_struct");
+			#pragma GCC diagnostic pop
 
-            if (!init_globals_struct_fn) {
-                GRUG_ERROR("Retrieving the init_globals_struct() function with grug_get_fn() failed for %s", dll_path);
-            }
-            file.init_globals_struct_fn = init_globals_struct_fn;
+			if (!init_globals_struct_fn) {
+				GRUG_ERROR("Retrieving the init_globals_struct() function with grug_get_fn() failed for %s", dll_path);
+			}
+			file.init_globals_struct_fn = init_globals_struct_fn;
 
 			// Make sure there's enough room to push file
 			if (mod_dir.files_size + 1 > mod_dir.files_capacity) {
 				mod_dir.files_capacity = mod_dir.files_capacity == 0 ? 1 : mod_dir.files_capacity * 2;
 				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(*mod_dir.files));
 				if (!mod_dir.files) {
-                    GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+					GRUG_ERROR("%s: %s", "realloc", strerror(errno));
 				}
 			}
 
@@ -38478,7 +38478,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 		}
 	}
 	if (errno != 0) {
-        GRUG_ERROR("%s: %s", "readdir", strerror(errno));
+		GRUG_ERROR("%s: %s", "readdir", strerror(errno));
 	}
 
 	closedir(dirp);
@@ -38493,25 +38493,25 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 // 4. "/a/" => ""
 // 5. "/a/b" => "b"
 static char *get_basename(char *path) {
-    char *base = strrchr(path, '/');
-    return base ? base + 1 : path;
+	char *base = strrchr(path, '/');
+	return base ? base + 1 : path;
 }
 
 mod_directory mods;
 
 bool grug_reload_modified_mods() {
-    assert(!strchr(MODS_DIR_PATH, '\\') && "MODS_DIR_PATH can't contain backslashes, so replace them with '/'");
-    assert(MODS_DIR_PATH[strlen(MODS_DIR_PATH) - 1] != '/' && "MODS_DIR_PATH can't have a trailing '/'");
+	assert(!strchr(MODS_DIR_PATH, '\\') && "MODS_DIR_PATH can't contain backslashes, so replace them with '/'");
+	assert(MODS_DIR_PATH[strlen(MODS_DIR_PATH) - 1] != '/' && "MODS_DIR_PATH can't have a trailing '/'");
 
-    // If one of the grug files was reloaded,
-    // return true so that the game developer can update the grug file's entities
-    if (setjmp(reload_jmp_buffer)) {
-        return true;
-    }
+	// If one of the grug files was reloaded,
+	// return true so that the game developer can update the grug file's entities
+	if (setjmp(reload_jmp_buffer)) {
+		return true;
+	}
 
-    mods = grug_reload_modified_mods_recursively(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH);
+	mods = grug_reload_modified_mods_recursively(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH);
 
-    return false;
+	return false;
 }
 
 void grug_print_mods(mod_directory dir) {
