@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
-typedef void (*on_tool_use_fn)(tool tool);
+typedef void (*on_tool_use_fn)(void *globals, tool tool);
 typedef human (*define_human_fn)();
 typedef tool (*define_tool_fn)();
 
@@ -72,19 +72,18 @@ static void fight() {
 	human *opponent = &data.humans[OPPONENT_INDEX];
 
 	tool *player_tool = &data.tools[PLAYER_INDEX];
+	void *player_tool_globals = &data.tool_globals[PLAYER_INDEX];
 	tool *opponent_tool = &data.tools[OPPONENT_INDEX];
+	void *opponent_tool_globals = &data.tool_globals[OPPONENT_INDEX];
 
 	printf("You have %d health\n", player->health);
 	printf("The opponent has %d health\n\n", opponent->health);
-
-	player->opponent_id = OPPONENT_INDEX;
-	opponent->opponent_id = PLAYER_INDEX;
 
 	on_tool_use_fn fn = get_on_tool_use_fn(data.tool_dlls[PLAYER_INDEX]);
 	if (fn) {
 		printf("You use your %s\n", player_tool->name);
 		sleep(1);
-		fn(*player_tool);
+		fn(player_tool_globals, *player_tool);
 		sleep(1);
 	} else {
 		printf("You don't know what to do with your %s\n", player_tool->name);
@@ -104,7 +103,7 @@ static void fight() {
 	if (fn) {
 		printf("The opponent uses their %s\n", opponent_tool->name);
 		sleep(1);
-		fn(*opponent_tool);
+		fn(opponent_tool_globals, *opponent_tool);
 		sleep(1);
 	} else {
 		printf("The opponent doesn't know what to do with their %s\n", opponent_tool->name);
@@ -167,6 +166,12 @@ static void print_opponent_humans(grug_file *files_defining_human) {
 	printf("\n");
 }
 
+static void *allocate_globals(grug_file file) {
+	void *globals = malloc(file.globals_struct_size);
+	file.init_globals_struct_fn(globals);
+	return globals;
+}
+
 static void pick_opponent() {
 	printf("You have %d gold\n\n", data.gold);
 
@@ -192,21 +197,32 @@ static void pick_opponent() {
 
 	size_t opponent_index = opponent_number - 1;
 
-	human human = get_define_human_fn(files_defining_human[opponent_index].dll)();
+	grug_file file = files_defining_human[opponent_index];
+
+	human human = get_define_human_fn(file.dll)();
 
 	human.id = OPPONENT_INDEX;
+	human.opponent_id = PLAYER_INDEX;
+
 	human.max_health = human.health;
 
 	data.humans[OPPONENT_INDEX] = human;
+	data.human_dlls[OPPONENT_INDEX] = file.dll;
+	data.human_globals[OPPONENT_INDEX] = allocate_globals(file);
 
 	// Give the opponent a random tool
 	grug_file *files_defining_tool = get_files_containing_fn("define_tool");
 	size_t tool_index = rand() % data.files_containing_fn_size;
-	tool tool = get_define_tool_fn(files_defining_tool[tool_index].dll)();
 
-	tool.human_parent_id = 1;
+	file = files_defining_tool[tool_index];
+
+	tool tool = get_define_tool_fn(file.dll)();
+
+	tool.human_parent_id = OPPONENT_INDEX;
 
 	data.tools[OPPONENT_INDEX] = tool;
+	data.tool_dlls[OPPONENT_INDEX] = file.dll;
+	data.tool_globals[OPPONENT_INDEX] = allocate_globals(file);
 
 	data.state = STATE_FIGHTING;
 }
@@ -248,7 +264,9 @@ static void pick_tools() {
 
 	size_t tool_index = tool_number - 1;
 
-	tool tool = get_define_tool_fn(files_defining_tool[tool_index].dll)();
+	grug_file file = files_defining_tool[tool_index];
+
+	tool tool = get_define_tool_fn(file.dll)();
 
 	if (tool.buy_gold_value > data.gold) {
 		fprintf(stderr, "You don't have enough gold to buy that tool\n");
@@ -257,9 +275,11 @@ static void pick_tools() {
 
 	data.gold -= tool.buy_gold_value;
 
-	tool.human_parent_id = 0;
+	tool.human_parent_id = PLAYER_INDEX;
 
 	data.tools[PLAYER_INDEX] = tool;
+	data.tool_dlls[PLAYER_INDEX] = file.dll;
+	data.tool_globals[PLAYER_INDEX] = allocate_globals(file);
 
 	data.player_has_tool = true;
 }
@@ -301,7 +321,9 @@ static void pick_player() {
 
 	size_t player_index = player_number - 1;
 
-	human human = get_define_human_fn(files_defining_human[player_index].dll)();
+	grug_file file = files_defining_human[player_index];
+
+	human human = get_define_human_fn(file.dll)();
 
 	if (human.buy_gold_value > data.gold) {
 		fprintf(stderr, "You don't have enough gold to pick that human\n");
@@ -311,9 +333,13 @@ static void pick_player() {
 	data.gold -= human.buy_gold_value;
 
 	human.id = PLAYER_INDEX;
+	human.opponent_id = OPPONENT_INDEX;
+
 	human.max_health = human.health;
 
 	data.humans[PLAYER_INDEX] = human;
+	data.human_dlls[PLAYER_INDEX] = file.dll;
+	data.human_globals[PLAYER_INDEX] = allocate_globals(file);
 
 	data.player_has_human = true;
 

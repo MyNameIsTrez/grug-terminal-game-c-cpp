@@ -22,15 +22,16 @@ struct data {
 	grug_file files_containing_fn[MAX_FILES_CONTAINING_FN];
 	size_t files_containing_fn_size;
 	i32 gold;
+
 	human humans[2];
-	size_t humans_size;
 	void *human_dlls[2];
 	void *human_globals[2];
-	bool player_has_human;
+
 	tool tools[2];
-	size_t tools_size;
 	void *tool_dlls[2];
 	void *tool_globals[2];
+
+	bool player_has_human;
 	bool player_has_tool;
 };
 
