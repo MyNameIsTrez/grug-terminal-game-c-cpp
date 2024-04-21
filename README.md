@@ -2,7 +2,9 @@
 
 ## Running the game
 
-Clone or download this repository, and `cd` into it with a terminal.
+Clone this repository, open it in VS Code, and hit F5 to run the program.
+
+You can also manually compile it with the commands listed below.
 
 ### Windows
 
@@ -26,8 +28,3 @@ TODO: Modify this command to use the DLL approach
 #### valgrind
 
 `valgrind --leak-check=full ./a.out`
-
-### TODO
-
-- Figure out whether some files like `tccrun.c` are optional, and can be left out
-- Get rid of all the `#pragma GCC` I temporarily added, which are all in `tccrun.c`
