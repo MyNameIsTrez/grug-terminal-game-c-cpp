@@ -38382,19 +38382,9 @@ static mod_directory *get_subdir(mod_directory *dir, char *name) {
 }
 
 // Profiling may indicate that rewriting this to use an O(1) technique like a hashmap is worth it
-static bool dir_has_been_seen(char *name, char **seen_dir_names, size_t seen_dir_names_size) {
-    for (size_t i = 0; i < seen_dir_names_size; i++) {
-        if (strcmp(seen_dir_names[i], name) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Profiling may indicate that rewriting this to use an O(1) technique like a hashmap is worth it
-static bool file_has_been_seen(char *name, char **seen_file_names, size_t seen_file_names_size) {
-    for (size_t i = 0; i < seen_file_names_size; i++) {
-        if (strcmp(seen_file_names[i], name) == 0) {
+static bool has_been_seen(char *name, char **seen_names, size_t seen_names_size) {
+    for (size_t i = 0; i < seen_names_size; i++) {
+        if (strcmp(seen_names[i], name) == 0) {
             return true;
         }
     }
@@ -38549,13 +38539,13 @@ static void grug_reload_modified_mods_recursively(char *mods_dir_path, char *mod
     // If the directory used to contain a subdirectory or file
     // that doesn't exist anymore, free it
     for (size_t i = 0; i < dir->dirs_size; i++) {
-        if (dir_has_been_seen(dir->dirs[i].name, seen_dir_names, seen_dir_names_size)) {
+        if (has_been_seen(dir->dirs[i].name, seen_dir_names, seen_dir_names_size)) {
             free_dir(dir->dirs[i]);
             dir->dirs[i] = dir->dirs[--dir->dirs_size]; // Swap-remove
         }
     }
     for (size_t i = 0; i < dir->files_size; i++) {
-        if (file_has_been_seen(dir->files[i].name, seen_file_names, seen_file_names_size)) {
+        if (has_been_seen(dir->files[i].name, seen_file_names, seen_file_names_size)) {
             free_file(dir->files[i]);
             dir->files[i] = dir->files[--dir->files_size]; // Swap-remove
         }
