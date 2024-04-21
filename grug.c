@@ -38306,8 +38306,6 @@ static void print_dlerror(char *function_name) {
 	GRUG_ERROR("%s: %s", function_name, err);
 }
 
-// TODO: Don't free and realloc everything every time our function gets called
-// TODO: Also, stop presuming the game developer will always call this before grug_reload_modified_mods()
 void grug_free_mods(mod_directory dir) {
 	free(dir.name);
 
@@ -38367,9 +38365,27 @@ static void push_subdir(mod_directory *mod_dir, mod_directory mod_subdir) {
     mod_dir->dirs[mod_dir->dirs_size++] = mod_subdir;
 }
 
+static grug_file *find_old_mod_file(mod_directory *dir, char *filename) {
+    for (size_t i = 0; i < dir->files_size; i++) {
+        if (strcmp(dir->files[i].name, filename) == 0) {
+            return dir->files + i;
+        }
+    }
+    return NULL;
+}
+
+static mod_directory *find_old_mod_subdir(mod_directory *dir, char *dir_name) {
+    for (size_t i = 0; i < dir->dirs_size; i++) {
+        if (strcmp(dir->dirs[i].name, dir_name) == 0) {
+            return dir->dirs + i;
+        }
+    }
+    return NULL;
+}
+
 typedef size_t (*get_globals_struct_size_fn)(void);
 
-static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
+static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path, mod_directory *old_mod_dir) {
 	if (setjmp(error_jmp_buffer)) {
 		if (grug_error_handler == NULL) {
 			fprintf(stderr, "An error occurred, but the game forgot to do `grug_error_handler = your_error_handler_function;`, so grug wasn't able to execute `grug_error_handler(error_msg);`\n");
@@ -38386,7 +38402,6 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 		GRUG_ERROR("%s: %s", "strdup", strerror(errno));
 	}
 
-	// printf("opendir(\"%s\")\n", mods_dir_path);
 	DIR *dirp = opendir(mods_dir_path);
 	if (!dirp) {
 		GRUG_ERROR("%s: %s", "opendir", strerror(errno));
@@ -38401,7 +38416,6 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 
 		char entry_path[STUPID_MAX_PATH];
 		snprintf(entry_path, sizeof(entry_path), "%s/%s", mods_dir_path, dp->d_name);
-		// printf("entry_path is %s\n", entry_path);
 
 		struct stat entry_stat;
 		if (stat(entry_path, &entry_stat) == -1) {
@@ -38412,7 +38426,8 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 		snprintf(dll_entry_path, sizeof(dll_entry_path), "%s/%s", dll_dir_path, dp->d_name);
 
 		if (S_ISDIR(entry_stat.st_mode)) {
-			mod_directory mod_subdir = grug_reload_modified_mods_recursively(entry_path, dp->d_name, dll_entry_path);
+            mod_directory *old_mod_subdir = old_mod_dir ? find_old_mod_subdir(old_mod_dir, dp->d_name) : NULL;
+			mod_directory mod_subdir = grug_reload_modified_mods_recursively(entry_path, dp->d_name, dll_entry_path, old_mod_subdir);
 			push_subdir(&mod_dir, mod_subdir);
 		} else if (S_ISREG(entry_stat.st_mode) && strcmp(get_file_extension(dp->d_name), ".grug") == 0) {
 			char dll_path[STUPID_MAX_PATH];
@@ -38433,26 +38448,6 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				}
 			}
 
-            reload reload = {0};
-
-            // TODO: This is probably nonsense, as the grug_free_mods() call
-            // maybe have probably caused any future dlopen() on the file
-            // to return a new address, meaning the tool struct's dll won't match?
-            if (dll_exists) {
-                reload.old_dll = dlopen(dll_path, RTLD_NOW);
-                if (!reload.old_dll) {
-                    print_dlerror("dlopen");
-                }
-                if (dlclose(reload.old_dll)) {
-                    print_dlerror("dlclose");
-                }
-            }
-
-			// Regenerate the dll if it doesn't exist or is outdated
-			if (!dll_exists || entry_stat.st_mtime > dll_stat.st_mtime) {
-				regenerate_dll(entry_path, dll_path);
-			}
-
 			grug_file file = {0};
 
 			file.name = strdup(dp->d_name);
@@ -38460,12 +38455,24 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				GRUG_ERROR("%s: %s", "strdup", strerror(errno));
 			}
 
+            reload reload = {0};
+
+			// If the dll doesn't exist or is outdated
+            bool needs_regeneration = !dll_exists || entry_stat.st_mtime > dll_stat.st_mtime;
+
+			if (needs_regeneration) {
+                grug_file *old_file = old_mod_dir ? find_old_mod_file(old_mod_dir, dp->d_name) : NULL;
+                if (old_file) {
+                    reload.old_dll = old_file->dll;
+                }
+
+				regenerate_dll(entry_path, dll_path);
+			}
+
 			file.dll = dlopen(dll_path, RTLD_NOW);
 			if (!file.dll) {
 				print_dlerror("dlopen");
 			}
-
-			reload.new_dll = file.dll;
 
 			#pragma GCC diagnostic push
 			#pragma GCC diagnostic ignored "-Wpedantic"
@@ -38476,7 +38483,6 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				GRUG_ERROR("Retrieving the get_globals_struct_size() function with grug_get_fn() failed for %s", dll_path);
 			}
 			file.globals_struct_size = get_globals_struct_size_fn();
-			reload.globals_struct_size = file.globals_struct_size;
 
 			#pragma GCC diagnostic push
 			#pragma GCC diagnostic ignored "-Wpedantic"
@@ -38486,10 +38492,15 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 			if (!file.init_globals_struct_fn) {
 				GRUG_ERROR("Retrieving the init_globals_struct() function with grug_get_fn() failed for %s", dll_path);
 			}
-			reload.init_globals_struct_fn = file.init_globals_struct_fn;
 
 			push_file(&mod_dir, file);
-            push_reload(reload);
+
+            if (needs_regeneration) {
+                reload.new_dll = file.dll;
+                reload.globals_struct_size = file.globals_struct_size;
+                reload.init_globals_struct_fn = file.init_globals_struct_fn;
+                push_reload(reload);
+            }
 		}
 	}
 	if (errno != 0) {
@@ -38497,6 +38508,9 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 	}
 
 	closedir(dirp);
+
+    // TODO: Loop over all dirs and files in old_mod_dir:
+    // If it contains a dir or file that isn't in mod_dir, then call free_mod_dir() or free_mod_file()
 
 	return mod_dir;
 }
@@ -38520,7 +38534,7 @@ void grug_reload_modified_mods(void) {
 
     reloads_size = 0;
 
-	mods = grug_reload_modified_mods_recursively(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH);
+	mods = grug_reload_modified_mods_recursively(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH, &mods);
 }
 
 void grug_print_mods(mod_directory dir) {

@@ -12,8 +12,6 @@ void init_data() {
 }
 
 void free_data() {
-	grug_free_mods(mods);
-
 	free(data.human_globals[0]);
 	free(data.human_globals[1]);
 

@@ -378,8 +378,6 @@ int main() {
 	init_data();
 
 	while (true) {
-		grug_free_mods(mods);
-
 		grug_reload_modified_mods();
 
 		for (size_t reload_index = 0; reload_index < reloads_size; reload_index++) {
@@ -411,6 +409,7 @@ int main() {
 
 		sleep(1);
 	}
-	
+
+	grug_free_mods(mods);
 	free_data();
 }

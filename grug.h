@@ -45,7 +45,7 @@ extern mod_directory mods;
 extern reload *reloads;
 extern size_t reloads_size;
 
-void grug_free_mods(mod_directory dir);
 void grug_reload_modified_mods(void);
 void *grug_get_fn(void *dll, char *fn_name);
 void grug_print_mods(mod_directory mods);
+void grug_free_mods(mod_directory dir);
