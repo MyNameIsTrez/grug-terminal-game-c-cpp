@@ -199,6 +199,7 @@ static void pick_opponent() {
 	data.humans[OPPONENT_INDEX] = human;
 	data.human_dlls[OPPONENT_INDEX] = file.dll;
 
+	free(data.human_globals[OPPONENT_INDEX]);
 	data.human_globals[OPPONENT_INDEX] = malloc(file.globals_struct_size);
 	file.init_globals_struct_fn(data.human_globals[OPPONENT_INDEX]);
 
@@ -215,6 +216,7 @@ static void pick_opponent() {
 	data.tools[OPPONENT_INDEX] = tool;
 	data.tool_dlls[OPPONENT_INDEX] = file.dll;
 
+	free(data.tool_globals[OPPONENT_INDEX]);
 	data.tool_globals[OPPONENT_INDEX] = malloc(file.globals_struct_size);
 	file.init_globals_struct_fn(data.tool_globals[OPPONENT_INDEX]);
 
@@ -274,10 +276,9 @@ static void pick_tools() {
 	data.tools[PLAYER_INDEX] = tool;
 	data.tool_dlls[PLAYER_INDEX] = file.dll;
 
+	free(data.tool_globals[PLAYER_INDEX]);
 	data.tool_globals[PLAYER_INDEX] = malloc(file.globals_struct_size);
 	file.init_globals_struct_fn(data.tool_globals[PLAYER_INDEX]);
-
-	data.tools_size++;
 
 	data.player_has_tool = true;
 }
@@ -338,10 +339,9 @@ static void pick_player() {
 	data.humans[PLAYER_INDEX] = human;
 	data.human_dlls[PLAYER_INDEX] = file.dll;
 
+	free(data.human_globals[PLAYER_INDEX]);
 	data.human_globals[PLAYER_INDEX] = malloc(file.globals_struct_size);
 	file.init_globals_struct_fn(data.human_globals[PLAYER_INDEX]);
-
-	data.humans_size++;
 
 	data.player_has_human = true;
 
@@ -382,17 +382,19 @@ int main() {
 		for (size_t reload_index = 0; reload_index < reloads_size; reload_index++) {
 			reload reload = reloads[reload_index];
 
-			for (size_t i = 0; i < data.humans_size; i++) {
+			for (size_t i = 0; i < 2; i++) {
 				if (reload.old_dll == data.human_dlls[i]) {
 					data.human_dlls[i] = reload.new_dll;
+
 					free(data.human_globals[i]);
 					data.human_globals[i] = malloc(reload.globals_struct_size);
 					reload.init_globals_struct_fn(data.human_globals[i]);
 				}
 			}
-			for (size_t i = 0; i < data.tools_size; i++) {
+			for (size_t i = 0; i < 2; i++) {
 				if (reload.old_dll == data.tool_dlls[i]) {
 					data.tool_dlls[i] = reload.new_dll;
+
 					free(data.tool_globals[i]);
 					data.tool_globals[i] = malloc(reload.globals_struct_size);
 					reload.init_globals_struct_fn(data.tool_globals[i]);

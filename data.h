@@ -24,12 +24,10 @@ struct data {
 	i32 gold;
 
 	human humans[2];
-	size_t humans_size;
 	void *human_dlls[2];
 	void *human_globals[2];
 
 	tool tools[2];
-	size_t tools_size;
 	void *tool_dlls[2];
 	void *tool_globals[2];
 

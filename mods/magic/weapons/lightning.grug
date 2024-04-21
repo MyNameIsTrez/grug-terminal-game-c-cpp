@@ -12,15 +12,16 @@ on_tool_use(self: tool) {
 
     damage: int
     if uses == 2 {
-        damage = 50
+        damage = 15
         uses = uses - 2
     } else {
-        damage = 30
+        damage = 10
     }
 
     apply_damage(self, damage)
 }
 
 apply_damage(self: tool, damage: int) {
-    change_human_health(get_human(self.human_parent_id).opponent_id, -damage + uses)
+    printf("damage: %d\n", damage)
+    change_human_health(get_human(self.human_parent_id).opponent_id, -damage)
 }

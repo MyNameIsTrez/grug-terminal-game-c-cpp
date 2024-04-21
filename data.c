@@ -8,7 +8,7 @@ struct data data;
 void init_data() {
 	memset(&data, 0, sizeof(data));
 
-	data.gold = 40;
+	data.gold = 400;
 }
 
 void free_data() {
