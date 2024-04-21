@@ -10,7 +10,6 @@
 #include <time.h>
 #include <unistd.h>
 
-typedef void (*on_tool_use_fn)(void *globals, tool tool);
 typedef human (*define_human_fn)();
 typedef tool (*define_tool_fn)();
 
@@ -60,7 +59,7 @@ static define_tool_fn get_define_tool_fn(void *dll) {
 	#pragma GCC diagnostic pop
 }
 
-static on_tool_use_fn get_on_tool_use_fn(void *dll) {
+static typeof(on_tool_use) *get_on_tool_use_fn(void *dll) {
 	#pragma GCC diagnostic push
 	#pragma GCC diagnostic ignored "-Wpedantic"
 	return grug_get_fn(dll, "on_tool_use");
@@ -79,7 +78,7 @@ static void fight() {
 	printf("You have %d health\n", player->health);
 	printf("The opponent has %d health\n\n", opponent->health);
 
-	on_tool_use_fn fn = get_on_tool_use_fn(data.tool_dlls[PLAYER_INDEX]);
+	typeof(on_tool_use) *fn = get_on_tool_use_fn(data.tool_dlls[PLAYER_INDEX]);
 	if (fn) {
 		printf("You use your %s\n", player_tool->name);
 		sleep(1);
