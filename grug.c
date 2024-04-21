@@ -38391,7 +38391,7 @@ static bool has_been_seen(char *name, char **seen_names, size_t seen_names_size)
     return false;
 }
 
-static void reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path, mod_directory *dir) {
+static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_directory *dir) {
 	DIR *dirp = opendir(mods_dir_path);
 	if (!dirp) {
 		GRUG_ERROR("%s: %s", "opendir", strerror(errno));
@@ -38435,14 +38435,14 @@ static void reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char 
 
             mod_directory *subdir = get_subdir(dir, dp->d_name);
             if (!subdir) {
-                mod_directory inserted_subdir = {.name = strdup(mods_dir_name)};
+                mod_directory inserted_subdir = {.name = strdup(dp->d_name)};
                 if (!inserted_subdir.name) {
                     GRUG_ERROR("%s: %s", "strdup", strerror(errno));
                 }
                 push_subdir(dir, inserted_subdir);
                 subdir = dir->dirs + dir->dirs_size - 1;
             }
-			reload_modified_mods(entry_path, dp->d_name, dll_entry_path, subdir);
+			reload_modified_mods(entry_path, dll_entry_path, subdir);
 		} else if (S_ISREG(entry_stat.st_mode) && strcmp(get_file_extension(dp->d_name), ".grug") == 0) {
             if (seen_file_names_size + 1 > seen_file_names_capacity) {
                 seen_file_names_capacity = seen_file_names_capacity == 0 ? 1 : seen_file_names_capacity * 2;
@@ -38471,14 +38471,14 @@ static void reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char 
 				}
 			}
 
-            // TODO: THE DIR AND FILE NEEDS TO BE PUSHED
-            //       INTO `dir` WHEN IT ISN'T IN THERE YET!!!
+            // If the dll doesn't exist or is outdated
+            bool needs_regeneration = !dll_exists || entry_stat.st_mtime > dll_stat.st_mtime;
 
-			// If the dll doesn't exist or is outdated
-			if (!dll_exists || entry_stat.st_mtime > dll_stat.st_mtime) {
+            grug_file *old_file = get_file(dir, dp->d_name);
+
+			if (needs_regeneration || !old_file) {
                 reload reload = {0};
 
-                grug_file *old_file = get_file(dir, dp->d_name);
                 if (old_file) {
                     reload.old_dll = old_file->dll;
                     if (dlclose(old_file->dll)) {
@@ -38486,7 +38486,9 @@ static void reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char 
                     }
                 }
 
-				regenerate_dll(entry_path, dll_path);
+                if (needs_regeneration) {
+				    regenerate_dll(entry_path, dll_path);
+                }
 
                 grug_file file = {0};
                 if (old_file) {
@@ -38522,14 +38524,20 @@ static void reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char 
                     GRUG_ERROR("Retrieving the init_globals_struct() function with grug_get_fn() failed for %s", dll_path);
                 }
 
-                if (!old_file) {
+                if (old_file) {
+                    old_file->dll = file.dll;
+                    old_file->globals_struct_size = file.globals_struct_size;
+                    old_file->init_globals_struct_fn = file.init_globals_struct_fn;
+                } else {
                     push_file(dir, file);
                 }
 
-                reload.new_dll = file.dll;
-                reload.globals_struct_size = file.globals_struct_size;
-                reload.init_globals_struct_fn = file.init_globals_struct_fn;
-                push_reload(reload);
+                if (needs_regeneration) {
+                    reload.new_dll = file.dll;
+                    reload.globals_struct_size = file.globals_struct_size;
+                    reload.init_globals_struct_fn = file.init_globals_struct_fn;
+                    push_reload(reload);
+                }
 			}
 		}
 	}
@@ -38591,7 +38599,7 @@ void grug_reload_modified_mods(void) {
         }
     }
 
-	reload_modified_mods(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH, &mods);
+	reload_modified_mods(MODS_DIR_PATH, DLL_DIR_PATH, &mods);
 }
 
 static void print_dir(mod_directory dir) {
