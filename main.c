@@ -169,7 +169,7 @@ static void pick_opponent() {
 
 	print_opponent_humans(files_defining_human);
 
-	printf("Type the number of the human you want to fight:\n");
+	printf("Type the number next to the human you want to fight:\n");
 
 	size_t opponent_number;
 	if (!read_size(&opponent_number)) {
@@ -236,7 +236,7 @@ static void pick_tools() {
 
 	print_tools(files_defining_tool);
 
-	printf("Type the number of any tools you want to buy%s:\n", data.player_has_tool ? " (type 0 to skip)" : "");
+	printf("Type the number next to the tool you want to buy%s:\n", data.player_has_tool ? " (type 0 to skip)" : "");
 
 	size_t tool_number;
 	if (!read_size(&tool_number)) {
@@ -297,7 +297,7 @@ static void pick_player() {
 
 	print_playable_humans(files_defining_human);
 
-	printf("Type the number of the human you want to play as%s:\n", data.player_has_human ? " (type 0 to skip)" : "");
+	printf("Type the number next to the human you want to play as%s:\n", data.player_has_human ? " (type 0 to skip)" : "");
 
 	size_t player_number;
 	if (!read_size(&player_number)) {
