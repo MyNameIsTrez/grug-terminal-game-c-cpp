@@ -162,12 +162,6 @@ static void print_opponent_humans(grug_file *files_defining_human) {
 	printf("\n");
 }
 
-static void *allocate_globals(grug_file file) {
-	void *globals = malloc(file.globals_struct_size);
-	file.init_globals_struct_fn(globals);
-	return globals;
-}
-
 static void pick_opponent() {
 	printf("You have %d gold\n\n", data.gold);
 
@@ -204,7 +198,9 @@ static void pick_opponent() {
 
 	data.humans[OPPONENT_INDEX] = human;
 	data.human_dlls[OPPONENT_INDEX] = file.dll;
-	data.human_globals[OPPONENT_INDEX] = allocate_globals(file);
+
+	data.human_globals[OPPONENT_INDEX] = malloc(file.globals_struct_size);
+	file.init_globals_struct_fn(data.human_globals[OPPONENT_INDEX]);
 
 	// Give the opponent a random tool
 	grug_file *files_defining_tool = get_files_containing_fn("define_tool");
@@ -218,7 +214,9 @@ static void pick_opponent() {
 
 	data.tools[OPPONENT_INDEX] = tool;
 	data.tool_dlls[OPPONENT_INDEX] = file.dll;
-	data.tool_globals[OPPONENT_INDEX] = allocate_globals(file);
+
+	data.tool_globals[OPPONENT_INDEX] = malloc(file.globals_struct_size);
+	file.init_globals_struct_fn(data.tool_globals[OPPONENT_INDEX]);
 
 	data.state = STATE_FIGHTING;
 }
@@ -275,7 +273,11 @@ static void pick_tools() {
 
 	data.tools[PLAYER_INDEX] = tool;
 	data.tool_dlls[PLAYER_INDEX] = file.dll;
-	data.tool_globals[PLAYER_INDEX] = allocate_globals(file);
+
+	data.tool_globals[PLAYER_INDEX] = malloc(file.globals_struct_size);
+	file.init_globals_struct_fn(data.tool_globals[PLAYER_INDEX]);
+
+	data.tools_size++;
 
 	data.player_has_tool = true;
 }
@@ -335,7 +337,11 @@ static void pick_player() {
 
 	data.humans[PLAYER_INDEX] = human;
 	data.human_dlls[PLAYER_INDEX] = file.dll;
-	data.human_globals[PLAYER_INDEX] = allocate_globals(file);
+
+	data.human_globals[PLAYER_INDEX] = malloc(file.globals_struct_size);
+	file.init_globals_struct_fn(data.human_globals[PLAYER_INDEX]);
+
+	data.humans_size++;
 
 	data.player_has_human = true;
 
@@ -375,7 +381,22 @@ int main() {
 		grug_free_mods(mods);
 
 		while (grug_reload_modified_mods()) {
-			// TODO:
+			for (size_t i = 0; i < data.humans_size; i++) {
+				if (old_dll == data.human_dlls[i]) {
+					data.human_dlls[i] = new_dll;
+					free(data.human_globals[i]);
+					data.human_globals[i] = malloc(globals_struct_size);
+					init_globals_struct_fn(data.human_globals[i]);
+				}
+			}
+			for (size_t i = 0; i < data.tools_size; i++) {
+				if (old_dll == data.tool_dlls[i]) {
+					data.tool_dlls[i] = new_dll;
+					free(data.tool_dlls[i]);
+					data.tool_dlls[i] = malloc(globals_struct_size);
+					init_globals_struct_fn(data.tool_dlls[i]);
+				}
+			}
 		}
 
 		// grug_print_mods(data.mods);
