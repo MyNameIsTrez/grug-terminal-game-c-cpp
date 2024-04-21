@@ -38539,13 +38539,13 @@ static void grug_reload_modified_mods_recursively(char *mods_dir_path, char *mod
     // If the directory used to contain a subdirectory or file
     // that doesn't exist anymore, free it
     for (size_t i = 0; i < dir->dirs_size; i++) {
-        if (has_been_seen(dir->dirs[i].name, seen_dir_names, seen_dir_names_size)) {
+        if (!has_been_seen(dir->dirs[i].name, seen_dir_names, seen_dir_names_size)) {
             free_dir(dir->dirs[i]);
             dir->dirs[i] = dir->dirs[--dir->dirs_size]; // Swap-remove
         }
     }
     for (size_t i = 0; i < dir->files_size; i++) {
-        if (has_been_seen(dir->files[i].name, seen_file_names, seen_file_names_size)) {
+        if (!has_been_seen(dir->files[i].name, seen_file_names, seen_file_names_size)) {
             free_file(dir->files[i]);
             dir->files[i] = dir->files[--dir->files_size]; // Swap-remove
         }
