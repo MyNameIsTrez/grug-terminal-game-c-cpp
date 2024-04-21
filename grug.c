@@ -38330,6 +38330,21 @@ void *grug_get_fn(void *dll, char *fn_name) {
 	return dlsym(dll, fn_name);
 }
 
+reload *reloads;
+size_t reloads_size;
+static size_t reloads_capacity;
+
+static void push_reload(reload reload) {
+    if (reloads_size + 1 > reloads_capacity) {
+        reloads_capacity = reloads_capacity == 0 ? 1 : reloads_capacity * 2;
+        reloads = realloc(reloads, reloads_capacity * sizeof(*reloads));
+        if (!reloads) {
+            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+        }
+    }
+    reloads[reloads_size++] = reload;
+}
+
 static void push_file(mod_directory *mod_dir, grug_file file) {
     if (mod_dir->files_size + 1 > mod_dir->files_capacity) {
         mod_dir->files_capacity = mod_dir->files_capacity == 0 ? 1 : mod_dir->files_capacity * 2;
@@ -38353,13 +38368,6 @@ static void push_subdir(mod_directory *mod_dir, mod_directory mod_subdir) {
 }
 
 typedef size_t (*get_globals_struct_size_fn)(void);
-
-static jmp_buf reload_jmp_buffer;
-
-void *old_dll;
-void *new_dll;
-size_t globals_struct_size;
-init_globals_struct_fn_type init_globals_struct_fn;
 
 static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path) {
 	if (setjmp(error_jmp_buffer)) {
@@ -38425,21 +38433,24 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				}
 			}
 
+            reload reload = {0};
+
+            // TODO: This is probably nonsense, as the grug_free_mods() call
+            // maybe have probably caused any future dlopen() on the file
+            // to return a new address, meaning the tool struct's dll won't match?
+            if (dll_exists) {
+                reload.old_dll = dlopen(dll_path, RTLD_NOW);
+                if (!reload.old_dll) {
+                    print_dlerror("dlopen");
+                }
+                if (dlclose(reload.old_dll)) {
+                    print_dlerror("dlclose");
+                }
+            }
+
 			// Regenerate the dll if it doesn't exist or is outdated
 			if (!dll_exists || entry_stat.st_mtime > dll_stat.st_mtime) {
-				if (dll_exists) {
-					old_dll = dlopen(dll_path, RTLD_NOW);
-					if (!old_dll) {
-						print_dlerror("dlopen");
-					};
-				} else {
-					old_dll = NULL;
-				}
-
 				regenerate_dll(entry_path, dll_path);
-
-				// See `setjmp(reload_jmp_buffer);` for comments on why we jump there
-				longjmp(reload_jmp_buffer, 1);
 			}
 
 			grug_file file = {0};
@@ -38454,30 +38465,31 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 				print_dlerror("dlopen");
 			}
 
-			new_dll = file.dll;
+			reload.new_dll = file.dll;
 
 			#pragma GCC diagnostic push
 			#pragma GCC diagnostic ignored "-Wpedantic"
-			get_globals_struct_size_fn get_globals_struct_size_fn = grug_get_fn(new_dll, "get_globals_struct_size");
+			get_globals_struct_size_fn get_globals_struct_size_fn = grug_get_fn(file.dll, "get_globals_struct_size");
 			#pragma GCC diagnostic pop
 
 			if (!get_globals_struct_size_fn) {
 				GRUG_ERROR("Retrieving the get_globals_struct_size() function with grug_get_fn() failed for %s", dll_path);
 			}
-			globals_struct_size = get_globals_struct_size_fn();
-			file.globals_struct_size = globals_struct_size;
+			file.globals_struct_size = get_globals_struct_size_fn();
+			reload.globals_struct_size = file.globals_struct_size;
 
 			#pragma GCC diagnostic push
 			#pragma GCC diagnostic ignored "-Wpedantic"
-			init_globals_struct_fn = grug_get_fn(new_dll, "init_globals_struct");
+			file.init_globals_struct_fn = grug_get_fn(file.dll, "init_globals_struct");
 			#pragma GCC diagnostic pop
 
-			if (!init_globals_struct_fn) {
+			if (!file.init_globals_struct_fn) {
 				GRUG_ERROR("Retrieving the init_globals_struct() function with grug_get_fn() failed for %s", dll_path);
 			}
-			file.init_globals_struct_fn = init_globals_struct_fn;
+			reload.init_globals_struct_fn = file.init_globals_struct_fn;
 
 			push_file(&mod_dir, file);
+            push_reload(reload);
 		}
 	}
 	if (errno != 0) {
@@ -38502,19 +38514,13 @@ static char *get_basename(char *path) {
 
 mod_directory mods;
 
-bool grug_reload_modified_mods() {
+void grug_reload_modified_mods(void) {
 	assert(!strchr(MODS_DIR_PATH, '\\') && "MODS_DIR_PATH can't contain backslashes, so replace them with '/'");
 	assert(MODS_DIR_PATH[strlen(MODS_DIR_PATH) - 1] != '/' && "MODS_DIR_PATH can't have a trailing '/'");
 
-	// If one of the grug files was reloaded,
-	// return true so that the game developer can update the grug file's entities
-	if (setjmp(reload_jmp_buffer)) {
-		return true;
-	}
+    reloads_size = 0;
 
 	mods = grug_reload_modified_mods_recursively(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH);
-
-	return false;
 }
 
 void grug_print_mods(mod_directory dir) {

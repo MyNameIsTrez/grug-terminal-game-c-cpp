@@ -380,21 +380,25 @@ int main() {
 	while (true) {
 		grug_free_mods(mods);
 
-		while (grug_reload_modified_mods()) {
+		grug_reload_modified_mods();
+
+		for (size_t reload_index = 0; reload_index < reloads_size; reload_index++) {
+			reload reload = reloads[reload_index];
+
 			for (size_t i = 0; i < data.humans_size; i++) {
-				if (old_dll == data.human_dlls[i]) {
-					data.human_dlls[i] = new_dll;
+				if (reload.old_dll == data.human_dlls[i]) {
+					data.human_dlls[i] = reload.new_dll;
 					free(data.human_globals[i]);
-					data.human_globals[i] = malloc(globals_struct_size);
-					init_globals_struct_fn(data.human_globals[i]);
+					data.human_globals[i] = malloc(reload.globals_struct_size);
+					reload.init_globals_struct_fn(data.human_globals[i]);
 				}
 			}
 			for (size_t i = 0; i < data.tools_size; i++) {
-				if (old_dll == data.tool_dlls[i]) {
-					data.tool_dlls[i] = new_dll;
-					free(data.tool_dlls[i]);
-					data.tool_dlls[i] = malloc(globals_struct_size);
-					init_globals_struct_fn(data.tool_dlls[i]);
+				if (reload.old_dll == data.tool_dlls[i]) {
+					data.tool_dlls[i] = reload.new_dll;
+					free(data.tool_globals[i]);
+					data.tool_globals[i] = malloc(reload.globals_struct_size);
+					reload.init_globals_struct_fn(data.tool_globals[i]);
 				}
 			}
 		}

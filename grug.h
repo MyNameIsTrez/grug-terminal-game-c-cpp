@@ -12,6 +12,8 @@ typedef void (*init_globals_struct_fn_type)(void *globals_struct);
 typedef struct grug_file grug_file;
 typedef struct mod_directory mod_directory;
 
+typedef struct reload reload;
+
 struct grug_file {
 	char *name;
 	void *dll;
@@ -31,14 +33,19 @@ struct mod_directory {
 	size_t files_capacity;
 };
 
+struct reload {
+	void *old_dll;
+	void *new_dll;
+	size_t globals_struct_size;
+	init_globals_struct_fn_type init_globals_struct_fn;
+};
+
 extern mod_directory mods;
 
-extern void *old_dll;
-extern void *new_dll;
-extern size_t globals_struct_size;
-extern init_globals_struct_fn_type init_globals_struct_fn;
+extern reload *reloads;
+extern size_t reloads_size;
 
 void grug_free_mods(mod_directory dir);
-bool grug_reload_modified_mods();
+void grug_reload_modified_mods(void);
 void *grug_get_fn(void *dll, char *fn_name);
 void grug_print_mods(mod_directory mods);
