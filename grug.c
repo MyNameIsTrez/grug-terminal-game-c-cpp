@@ -38391,7 +38391,7 @@ static bool has_been_seen(char *name, char **seen_names, size_t seen_names_size)
     return false;
 }
 
-static void grug_reload_modified_mods_recursively(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path, mod_directory *dir) {
+static void reload_modified_mods(char *mods_dir_path, char *mods_dir_name, char *dll_dir_path, mod_directory *dir) {
 	DIR *dirp = opendir(mods_dir_path);
 	if (!dirp) {
 		GRUG_ERROR("%s: %s", "opendir", strerror(errno));
@@ -38442,7 +38442,7 @@ static void grug_reload_modified_mods_recursively(char *mods_dir_path, char *mod
                 push_subdir(dir, inserted_subdir);
                 subdir = dir->dirs + dir->dirs_size - 1;
             }
-			grug_reload_modified_mods_recursively(entry_path, dp->d_name, dll_entry_path, subdir);
+			reload_modified_mods(entry_path, dp->d_name, dll_entry_path, subdir);
 		} else if (S_ISREG(entry_stat.st_mode) && strcmp(get_file_extension(dp->d_name), ".grug") == 0) {
             if (seen_file_names_size + 1 > seen_file_names_capacity) {
                 seen_file_names_capacity = seen_file_names_capacity == 0 ? 1 : seen_file_names_capacity * 2;
@@ -38470,6 +38470,9 @@ static void grug_reload_modified_mods_recursively(char *mods_dir_path, char *mod
 					GRUG_ERROR("errno was not 0 after access()");
 				}
 			}
+
+            // TODO: THE DIR AND FILE NEEDS TO BE PUSHED
+            //       INTO `dir` WHEN IT ISN'T IN THERE YET!!!
 
 			// If the dll doesn't exist or is outdated
 			if (!dll_exists || entry_stat.st_mtime > dll_stat.st_mtime) {
@@ -38538,6 +38541,9 @@ static void grug_reload_modified_mods_recursively(char *mods_dir_path, char *mod
 
     // If the directory used to contain a subdirectory or file
     // that doesn't exist anymore, free it
+    //
+    // TODO: This can be made O(n) rather than O(n*m) by letting every directory contain a "seen" boolean,
+    // so that we can iterate over all directories and files once here
     for (size_t i = 0; i < dir->dirs_size; i++) {
         if (!has_been_seen(dir->dirs[i].name, seen_dir_names, seen_dir_names_size)) {
             free_dir(dir->dirs[i]);
@@ -38585,7 +38591,7 @@ void grug_reload_modified_mods(void) {
         }
     }
 
-	grug_reload_modified_mods_recursively(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH, &mods);
+	reload_modified_mods(MODS_DIR_PATH, get_basename(MODS_DIR_PATH), DLL_DIR_PATH, &mods);
 }
 
 static void print_dir(mod_directory dir) {
