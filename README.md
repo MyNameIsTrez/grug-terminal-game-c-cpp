@@ -21,7 +21,7 @@ TODO: Modify this command to use the DLL approach
 
 ##### clang
 
-`clear && clang main.c grug.c data.c game/human.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -g -I. -rdynamic -fsanitize=address,undefined -no-pie -DCONFIG_TRIPLET="\"x86_64-linux-gnu\"" -DTCC_TARGET_X86_64 -DONE_SOURCE=0 -DTCC_GITHASH="\"2024-03-03 mob@9d2068c6*\"" -fno-strict-aliasing -Wno-pointer-sign -Wno-sign-compare -Wno-unused-result -Wno-overlength-strings -Wno-implicit-fallthrough -Wno-missing-field-initializers && ./a.out`
+`clear && clang main.c grug.c data.c game/human.c -Wall -Wextra -Werror -Wpedantic -Wfatal-errors -g -I. -rdynamic -fsanitize=address,undefined -no-pie -DCONFIG_TRIPLET="\"x86_64-linux-gnu\"" -DTCC_TARGET_X86_64 -DONE_SOURCE=0 -DTCC_GITHASH="\"2024-03-03 mob@9d2068c6*\"" -fno-strict-aliasing -Wno-pointer-sign -Wno-sign-compare -Wno-unused-result -Wno-overlength-strings -Wno-implicit-fallthrough -Wno-missing-field-initializers -Wno-language-extension-token && ./a.out`
 
 #### valgrind
 
