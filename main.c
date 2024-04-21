@@ -373,9 +373,8 @@ static void error_handler(char *error_msg, char *filename, int line_number) {
 int main() {
 	srand(time(NULL)); // Seed the random number generator with the number of seconds since 1970
 
-	grug_error_handler = error_handler;
-
 	init_data();
+	grug_init(error_handler);
 
 	while (true) {
 		grug_reload_modified_mods();
@@ -401,7 +400,7 @@ int main() {
 			}
 		}
 
-		// grug_print_mods(data.mods);
+		// grug_print_mods();
 
 		update();
 
@@ -410,6 +409,6 @@ int main() {
 		sleep(1);
 	}
 
-	grug_free_mods(mods);
+	grug_free_mods();
 	free_data();
 }
