@@ -10,9 +10,6 @@
 #include <time.h>
 #include <unistd.h>
 
-typedef human (*define_human_fn)();
-typedef tool (*define_tool_fn)();
-
 static void handle_poison(human *human) {
 	if (human->poison.ticks_left > 0) {
 		change_human_health(human->id, -human->poison.damage_per_tick);
@@ -45,14 +42,14 @@ static grug_file *get_files_containing_fn(char *fn_name) {
 	return data.files_containing_fn;
 }
 
-static define_human_fn get_define_human_fn(void *dll) {
+static typeof(define_human) *get_define_human_fn(void *dll) {
 	#pragma GCC diagnostic push
 	#pragma GCC diagnostic ignored "-Wpedantic"
 	return grug_get_fn(dll, "define_human");
 	#pragma GCC diagnostic pop
 }
 
-static define_tool_fn get_define_tool_fn(void *dll) {
+static typeof(define_tool) *get_define_tool_fn(void *dll) {
 	#pragma GCC diagnostic push
 	#pragma GCC diagnostic ignored "-Wpedantic"
 	return grug_get_fn(dll, "define_tool");
