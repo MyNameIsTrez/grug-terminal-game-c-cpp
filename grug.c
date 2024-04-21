@@ -38330,6 +38330,28 @@ void *grug_get_fn(void *dll, char *fn_name) {
 	return dlsym(dll, fn_name);
 }
 
+static void push_file(mod_directory *mod_dir, grug_file file) {
+    if (mod_dir->files_size + 1 > mod_dir->files_capacity) {
+        mod_dir->files_capacity = mod_dir->files_capacity == 0 ? 1 : mod_dir->files_capacity * 2;
+        mod_dir->files = realloc(mod_dir->files, mod_dir->files_capacity * sizeof(*mod_dir->files));
+        if (!mod_dir->files) {
+            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+        }
+    }
+    mod_dir->files[mod_dir->files_size++] = file;
+}
+
+static void push_subdir(mod_directory *mod_dir, mod_directory mod_subdir) {
+    if (mod_dir->dirs_size + 1 > mod_dir->dirs_capacity) {
+        mod_dir->dirs_capacity = mod_dir->dirs_capacity == 0 ? 1 : mod_dir->dirs_capacity * 2;
+        mod_dir->dirs = realloc(mod_dir->dirs, mod_dir->dirs_capacity * sizeof(*mod_dir->dirs));
+        if (!mod_dir->dirs) {
+            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+        }
+    }
+    mod_dir->dirs[mod_dir->dirs_size++] = mod_subdir;
+}
+
 typedef size_t (*get_globals_struct_size_fn)(void);
 
 static jmp_buf reload_jmp_buffer;
@@ -38383,17 +38405,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 
 		if (S_ISDIR(entry_stat.st_mode)) {
 			mod_directory mod_subdir = grug_reload_modified_mods_recursively(entry_path, dp->d_name, dll_entry_path);
-			
-			// Make sure there's enough room to push mod_subdir
-			if (mod_dir.dirs_size + 1 > mod_dir.dirs_capacity) {
-				mod_dir.dirs_capacity = mod_dir.dirs_capacity == 0 ? 1 : mod_dir.dirs_capacity * 2;
-				mod_dir.dirs = realloc(mod_dir.dirs, mod_dir.dirs_capacity * sizeof(*mod_dir.dirs));
-				if (!mod_dir.dirs) {
-					GRUG_ERROR("%s: %s", "realloc", strerror(errno));
-				}
-			}
-
-			mod_dir.dirs[mod_dir.dirs_size++] = mod_subdir;
+			push_subdir(&mod_dir, mod_subdir);
 		} else if (S_ISREG(entry_stat.st_mode) && strcmp(get_file_extension(dp->d_name), ".grug") == 0) {
 			char dll_path[STUPID_MAX_PATH];
 			use_dll_extension(dll_path, dll_entry_path);
@@ -38465,16 +38477,7 @@ static mod_directory grug_reload_modified_mods_recursively(char *mods_dir_path, 
 			}
 			file.init_globals_struct_fn = init_globals_struct_fn;
 
-			// Make sure there's enough room to push file
-			if (mod_dir.files_size + 1 > mod_dir.files_capacity) {
-				mod_dir.files_capacity = mod_dir.files_capacity == 0 ? 1 : mod_dir.files_capacity * 2;
-				mod_dir.files = realloc(mod_dir.files, mod_dir.files_capacity * sizeof(*mod_dir.files));
-				if (!mod_dir.files) {
-					GRUG_ERROR("%s: %s", "realloc", strerror(errno));
-				}
-			}
-
-			mod_dir.files[mod_dir.files_size++] = file;
+			push_file(&mod_dir, file);
 		}
 	}
 	if (errno != 0) {
