@@ -35980,7 +35980,7 @@ LIBTCCAPI void tcc_set_backtrace_func(TCCState *s1, void* userdata, TCCBtFunc*);
 #define MAX_STATEMENTS_PER_STACK_FRAME 1337
 #define MAX_SERIALIZED_TO_C_CHARS 420420
 #define MODS_DIR_PATH "mods"
-#define DLL_DIR_PATH "dlls"
+#define DLL_DIR_PATH "mod_dlls"
 #define UNREACHABLE_STR "This line of code is supposed to be unreachable. Please report this bug to the grug developers!"
 
 // "The problem is that you can't meaningfully define a constant like this
