@@ -67,10 +67,11 @@ static void fight() {
 	human *player = &data.humans[PLAYER_INDEX];
 	human *opponent = &data.humans[OPPONENT_INDEX];
 
+	void *player_tool_globals = data.tool_globals[PLAYER_INDEX];
+	void *opponent_tool_globals = data.tool_globals[OPPONENT_INDEX];
+
 	tool *player_tool = &data.tools[PLAYER_INDEX];
-	void *player_tool_globals = &data.tool_globals[PLAYER_INDEX];
 	tool *opponent_tool = &data.tools[OPPONENT_INDEX];
-	void *opponent_tool_globals = &data.tool_globals[OPPONENT_INDEX];
 
 	printf("You have %d health\n", player->health);
 	printf("The opponent has %d health\n\n", opponent->health);
