@@ -7,7 +7,7 @@
       "type": "shell",
       "args": [
         "main.c",
-        "grug.c",
+        "grug/grug.c",
         "data.c",
         "game/human.c",
         "-Wall",
@@ -17,6 +17,7 @@
         "-Wfatal-errors",
         "-g",
         "-I.",
+        "-Igrug",
         "-rdynamic",
         "-fsanitize=address,undefined",
         "-no-pie",
@@ -47,7 +48,7 @@
       "type": "shell",
       "args": [
         "main.c",
-        "grug.c",
+        "grug/grug.c",
         "data.c",
         "game/human.c",
         "-Wall",
@@ -57,6 +58,7 @@
         "-Wfatal-errors",
         "-g",
         "-I.",
+        "-Igrug",
         "-rdynamic",
         "-fsanitize=address,undefined",
         "-no-pie",
