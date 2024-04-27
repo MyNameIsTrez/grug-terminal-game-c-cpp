@@ -36006,31 +36006,35 @@ static grug_error_handler_fn grug_error_handler;
 static char *read_file(char *path) {
 	FILE *f = fopen(path, "rb");
 	if (!f) {
-		GRUG_ERROR("fopen");
+        GRUG_ERROR("fopen: %s", strerror(errno));
 	}
 
 	if (fseek(f, 0, SEEK_END)) {
-		GRUG_ERROR("fseek");
+        GRUG_ERROR("fseek: %s", strerror(errno));
 	}
 
 	long count = ftell(f);
 	if (count == -1) {
-		GRUG_ERROR("ftell");
+        GRUG_ERROR("ftell: %s", strerror(errno));
 	}
 
 	rewind(f);
 
 	char *text = malloc(count + 1);
 	if (!text) {
-		GRUG_ERROR("malloc");
+        GRUG_ERROR("malloc: %s", strerror(errno));
 	}
 
-	ssize_t bytes_read = fread(text, 1, count, f);
+	ssize_t bytes_read = fread(text, sizeof(char), count, f);
 	if (bytes_read != count) {
-		GRUG_ERROR("fread");
+        GRUG_ERROR("fread: %s", strerror(errno));
 	}
 
 	text[count] = '\0';
+
+    if (fclose(f)) {
+        GRUG_ERROR("fclose: %s", strerror(errno));
+    }
 
 	return text;
 }
@@ -38199,7 +38203,7 @@ static void reset() {
 	serialized_size = 0;
 }
 
-static void regenerate_dll(char *grug_file_path, char *dll_path) {
+static void regenerate_dll(char *grug_file_path, char *dll_path, char *c_path) {
 	printf("Regenerating %s\n", dll_path);
 
 	reset();
@@ -38222,6 +38226,20 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
 	serialize_to_c();
 	printf("\nserialized:\n%s\n", serialized);
 
+	FILE *f = fopen(c_path, "w");
+	if (!f) {
+        GRUG_ERROR("fopen: %s", strerror(errno));
+	}
+
+	ssize_t bytes_written = fwrite(serialized, sizeof(char), strlen(serialized), f);
+	if (bytes_written != strlen(serialized)) {
+		GRUG_ERROR("fwrite: %s", strerror(errno));
+	}
+
+    if (fclose(f)) {
+        GRUG_ERROR("fclose: %s", strerror(errno));
+    }
+
 	TCCState *s = tcc_new();
 	if (!s) {
 		GRUG_ERROR("tcc_new() error");
@@ -38231,11 +38249,13 @@ static void regenerate_dll(char *grug_file_path, char *dll_path) {
 
 	tcc_add_include_path(s, ".");
 
+    tcc_set_options(s, "-g2");
+
 	if (tcc_set_output_type(s, TCC_OUTPUT_DLL)) {
 		GRUG_ERROR("tcc_set_output_type() error");
 	}
 
-	if (tcc_compile_string(s, serialized) == -1) {
+	if (tcc_add_file(s, c_path) == -1) {
 		GRUG_ERROR("tcc_compile_string() error");
 	}
 
@@ -38263,7 +38283,7 @@ static void try_create_parent_dirs(char *file_path) {
 
 		if (*file_path == '/' || *file_path == '\\') {
 			if (mkdir(parent_dir_path, 0777) && errno != EEXIST) {
-				GRUG_ERROR("%s: %s", "mkdir", strerror(errno));
+				GRUG_ERROR("mkdir: %s", strerror(errno));
 			}
 		}
 
@@ -38278,6 +38298,15 @@ static char *get_file_extension(char *filename) {
 		return ext;
 	}
 	return "";
+}
+
+static void fill_as_path_with_c_extension(char *c_path, char *grug_file_path) {
+	c_path[0] = '\0';
+	strncat(c_path, grug_file_path, STUPID_MAX_PATH - 1);
+	char *ext = get_file_extension(c_path);
+	assert(*ext);
+	ext[1] = '\0';
+	strncat(ext + 1, "c", STUPID_MAX_PATH - 1 - strlen(c_path));
 }
 
 static void fill_as_path_with_dll_extension(char *dll_path, char *grug_file_path) {
@@ -38333,7 +38362,7 @@ static void push_reload(reload reload) {
         reloads_capacity = reloads_capacity == 0 ? 1 : reloads_capacity * 2;
         reloads = realloc(reloads, reloads_capacity * sizeof(*reloads));
         if (!reloads) {
-            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+            GRUG_ERROR("realloc: %s", strerror(errno));
         }
     }
     reloads[reloads_size++] = reload;
@@ -38344,7 +38373,7 @@ static void push_file(mod_directory *dir, grug_file file) {
         dir->files_capacity = dir->files_capacity == 0 ? 1 : dir->files_capacity * 2;
         dir->files = realloc(dir->files, dir->files_capacity * sizeof(*dir->files));
         if (!dir->files) {
-            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+            GRUG_ERROR("realloc: %s", strerror(errno));
         }
     }
     dir->files[dir->files_size++] = file;
@@ -38355,7 +38384,7 @@ static void push_subdir(mod_directory *dir, mod_directory subdir) {
         dir->dirs_capacity = dir->dirs_capacity == 0 ? 1 : dir->dirs_capacity * 2;
         dir->dirs = realloc(dir->dirs, dir->dirs_capacity * sizeof(*dir->dirs));
         if (!dir->dirs) {
-            GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+            GRUG_ERROR("realloc: %s", strerror(errno));
         }
     }
     dir->dirs[dir->dirs_size++] = subdir;
@@ -38394,7 +38423,7 @@ static bool has_been_seen(char *name, char **seen_names, size_t seen_names_size)
 static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_directory *dir) {
 	DIR *dirp = opendir(mods_dir_path);
 	if (!dirp) {
-		GRUG_ERROR("%s: %s", "opendir", strerror(errno));
+		GRUG_ERROR("opendir: %s", strerror(errno));
 	}
 
     char **seen_dir_names = NULL;
@@ -38415,20 +38444,20 @@ static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_di
 		char entry_path[STUPID_MAX_PATH];
 		snprintf(entry_path, sizeof(entry_path), "%s/%s", mods_dir_path, dp->d_name);
 
-		struct stat entry_stat;
-		if (stat(entry_path, &entry_stat) == -1) {
-			GRUG_ERROR("%s: %s", "stat", strerror(errno));
-		}
-
 		char dll_entry_path[STUPID_MAX_PATH];
 		snprintf(dll_entry_path, sizeof(dll_entry_path), "%s/%s", dll_dir_path, dp->d_name);
+
+		struct stat entry_stat;
+		if (stat(entry_path, &entry_stat) == -1) {
+			GRUG_ERROR("stat: %s", strerror(errno));
+		}
 
 		if (S_ISDIR(entry_stat.st_mode)) {
             if (seen_dir_names_size + 1 > seen_dir_names_capacity) {
                 seen_dir_names_capacity = seen_dir_names_capacity == 0 ? 1 : seen_dir_names_capacity * 2;
                 seen_dir_names = realloc(seen_dir_names, seen_dir_names_capacity * sizeof(*seen_dir_names));
                 if (!seen_dir_names) {
-                    GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+                    GRUG_ERROR("realloc: %s", strerror(errno));
                 }
             }
             seen_dir_names[seen_dir_names_size++] = strdup(dp->d_name);
@@ -38437,7 +38466,7 @@ static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_di
             if (!subdir) {
                 mod_directory inserted_subdir = {.name = strdup(dp->d_name)};
                 if (!inserted_subdir.name) {
-                    GRUG_ERROR("%s: %s", "strdup", strerror(errno));
+                    GRUG_ERROR("strdup: %s", strerror(errno));
                 }
                 push_subdir(dir, inserted_subdir);
                 subdir = dir->dirs + dir->dirs_size - 1;
@@ -38448,7 +38477,7 @@ static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_di
                 seen_file_names_capacity = seen_file_names_capacity == 0 ? 1 : seen_file_names_capacity * 2;
                 seen_file_names = realloc(seen_file_names, seen_file_names_capacity * sizeof(*seen_file_names));
                 if (!seen_file_names) {
-                    GRUG_ERROR("%s: %s", "realloc", strerror(errno));
+                    GRUG_ERROR("realloc: %s", strerror(errno));
                 }
             }
             seen_file_names[seen_file_names_size++] = strdup(dp->d_name);
@@ -38467,7 +38496,7 @@ static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_di
 					errno = 0;
 				}
 				if (errno != 0 && errno != ENOENT) {
-					GRUG_ERROR("errno was not 0 after access()");
+					GRUG_ERROR("access: %s", strerror(errno));
 				}
 			}
 
@@ -38487,7 +38516,10 @@ static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_di
                 }
 
                 if (needs_regeneration) {
-				    regenerate_dll(entry_path, dll_path);
+                    char c_path[STUPID_MAX_PATH];
+                    fill_as_path_with_c_extension(c_path, dll_entry_path);
+                    
+				    regenerate_dll(entry_path, dll_path, c_path);
                 }
 
                 grug_file file = {0};
@@ -38496,7 +38528,7 @@ static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_di
                 } else {
                     file.name = strdup(dp->d_name);
                     if (!file.name) {
-                        GRUG_ERROR("%s: %s", "strdup", strerror(errno));
+                        GRUG_ERROR("strdup: %s", strerror(errno));
                     }
                 }
 
@@ -38542,7 +38574,7 @@ static void reload_modified_mods(char *mods_dir_path, char *dll_dir_path, mod_di
 		}
 	}
 	if (errno != 0) {
-		GRUG_ERROR("%s: %s", "readdir", strerror(errno));
+		GRUG_ERROR("readdir: %s", strerror(errno));
 	}
 
 	closedir(dirp);
@@ -38595,7 +38627,7 @@ void grug_reload_modified_mods(void) {
     if (!mods.name) {
         mods.name = strdup(get_basename(MODS_DIR_PATH));
         if (!mods.name) {
-            GRUG_ERROR("%s: %s", "strdup", strerror(errno));
+            GRUG_ERROR("strdup: %s", strerror(errno));
         }
     }
 
