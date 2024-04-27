@@ -6,5 +6,5 @@ define_tool() tool {
 }
 
 on_tool_use(self: tool) {
-    change_human_health(get_human(self.human_parent_id).id, 30)
+    change_human_health(get_human(self.human_parent_id).id, 5)
 }

@@ -22,6 +22,6 @@ on_tool_use(self: tool) {
 }
 
 apply_damage(self: tool, damage: int) {
-    printf("damage: %d\n", damage)
+    ; printf("damage: %d\n", damage)
     change_human_health(get_human(self.human_parent_id).opponent_id, -damage)
 }

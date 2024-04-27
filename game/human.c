@@ -32,5 +32,5 @@ void change_human_health(id id, i32 health) {
 	h->health = min_i32(h->health + health, h->max_health);
 	h->health = max_i32(h->health, 0);
 
-	printf("Human with ID %d now has %d health\n", id, h->health);
+	// printf("Human with ID %d now has %d health\n", id, h->health);
 }
