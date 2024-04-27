@@ -4,7 +4,9 @@ See [my blog post](https://mynameistrez.github.io/2024/02/29/creating-the-perfec
 
 ## Running the game
 
-Clone this repository, open it in VS Code, and hit F5 to run the program.
+1. Clone this repository and open it in VS Code.
+2. Run `git submodule update --init` to clone the `grug.c` and `grug.h` files.
+3. Hit F5 to run the game.
 
 You can also manually compile it with the commands listed below.
 
