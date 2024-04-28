@@ -1,4 +1,4 @@
-define_human() human {
+define() human {
     return {
         .name = "Child",
         .health = 5,

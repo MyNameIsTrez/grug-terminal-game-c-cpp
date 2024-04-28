@@ -1,6 +1,11 @@
 #pragma once
 
+#include "mod.h"
 #include "typedefs.h"
+
+tool define_tool();
+
+void on_tool_use(void *globals, tool self);
 
 struct tool {
 	string name;
@@ -8,4 +13,9 @@ struct tool {
 
 	// These should not be initialized by mods
 	i32 human_parent_id;
+	tool_on_fns *on_fns;
+};
+
+struct tool_on_fns {
+	typeof(on_tool_use) *use;
 };

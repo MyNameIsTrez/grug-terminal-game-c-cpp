@@ -17,50 +17,29 @@ static void handle_poison(human *human) {
 	}
 }
 
-static void push_file_containing_fn(grug_file file) {
-	if (data.files_containing_fn_size + 1 > MAX_FILES_CONTAINING_FN) {
-		fprintf(stderr, "There are more than %d files containing the requested function, exceeding MAX_FILES_CONTAINING_FN", MAX_FILES_CONTAINING_FN);
+static void push_file_containing_fn(grug_file_t file) {
+	if (data.type_files_size + 1 > MAX_TYPE_FILES) {
+		fprintf(stderr, "There are more than %d files containing the requested type, exceeding MAX_TYPE_FILES", MAX_TYPE_FILES);
 		exit(EXIT_FAILURE);
 	}
-	data.files_containing_fn[data.files_containing_fn_size++] = file;
+	data.type_files[data.type_files_size++] = file;
 }
 
-static void get_files_containing_fn_impl(mod_directory dir, char *fn_name) {
+static void get_type_files_impl(grug_mod_dir_t dir, char *fn_name) {
 	for (size_t i = 0; i < dir.dirs_size; i++) {
-		get_files_containing_fn_impl(dir.dirs[i], fn_name);
+		get_type_files_impl(dir.dirs[i], fn_name);
 	}
 	for (size_t i = 0; i < dir.files_size; i++) {
-		if (grug_get_fn(dir.files[i].dll, fn_name)) {
+		if (strcmp(fn_name, dir.files[i].define_type) == 0) {
 			push_file_containing_fn(dir.files[i]);
 		}
 	}
 }
 
-static grug_file *get_files_containing_fn(char *fn_name) {
-	data.files_containing_fn_size = 0;
-	get_files_containing_fn_impl(mods, fn_name);
-	return data.files_containing_fn;
-}
-
-static typeof(define_human) *get_define_human_fn(void *dll) {
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wpedantic"
-	return grug_get_fn(dll, "define_human");
-	#pragma GCC diagnostic pop
-}
-
-static typeof(define_tool) *get_define_tool_fn(void *dll) {
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wpedantic"
-	return grug_get_fn(dll, "define_tool");
-	#pragma GCC diagnostic pop
-}
-
-static typeof(on_tool_use) *get_on_tool_use_fn(void *dll) {
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wpedantic"
-	return grug_get_fn(dll, "on_tool_use");
-	#pragma GCC diagnostic pop
+static grug_file_t *get_type_files(char *fn_name) {
+	data.type_files_size = 0;
+	get_type_files_impl(grug_mods, fn_name);
+	return data.type_files;
 }
 
 static void fight() {
@@ -76,11 +55,11 @@ static void fight() {
 	printf("You have %d health\n", player->health);
 	printf("The opponent has %d health\n\n", opponent->health);
 
-	typeof(on_tool_use) *fn = get_on_tool_use_fn(data.tool_dlls[PLAYER_INDEX]);
-	if (fn) {
+	typeof(on_tool_use) *use = player_tool->on_fns->use;
+	if (use) {
 		printf("You use your %s\n", player_tool->name);
 		sleep(1);
-		fn(player_tool_globals, *player_tool);
+		use(player_tool_globals, *player_tool);
 		sleep(1);
 	} else {
 		printf("You don't know what to do with your %s\n", player_tool->name);
@@ -96,11 +75,11 @@ static void fight() {
 		return;
 	}
 
-	fn = get_on_tool_use_fn(data.tool_dlls[OPPONENT_INDEX]);
-	if (fn) {
+	use = opponent_tool->on_fns->use;
+	if (use) {
 		printf("The opponent uses their %s\n", opponent_tool->name);
 		sleep(1);
-		fn(opponent_tool_globals, *opponent_tool);
+		use(opponent_tool_globals, *opponent_tool);
 		sleep(1);
 	} else {
 		printf("The opponent doesn't know what to do with their %s\n", opponent_tool->name);
@@ -154,10 +133,9 @@ static bool read_size(size_t *output) {
 	return true;
 }
 
-static void print_opponent_humans(grug_file *files_defining_human) {
-	for (size_t i = 0; i < data.files_containing_fn_size; i++) {
-		grug_file file = files_defining_human[i];
-		human human = get_define_human_fn(file.dll)();
+static void print_opponent_humans(grug_file_t *files_defining_human) {
+	for (size_t i = 0; i < data.type_files_size; i++) {
+		human human = *(struct human *)files_defining_human[i].define;
 		printf("%ld. %s, worth %d gold when killed\n", i + 1, human.name, human.kill_gold_value);
 	}
 	printf("\n");
@@ -166,7 +144,7 @@ static void print_opponent_humans(grug_file *files_defining_human) {
 static void pick_opponent() {
 	printf("You have %d gold\n\n", data.gold);
 
-	grug_file *files_defining_human = get_files_containing_fn("define_human");
+	grug_file_t *files_defining_human = get_type_files("human");
 
 	print_opponent_humans(files_defining_human);
 
@@ -181,16 +159,16 @@ static void pick_opponent() {
 		fprintf(stderr, "The minimum number you can enter is 1\n");
 		return;
 	}
-	if (opponent_number > data.files_containing_fn_size) {
-		fprintf(stderr, "The maximum number you can enter is %ld\n", data.files_containing_fn_size);
+	if (opponent_number > data.type_files_size) {
+		fprintf(stderr, "The maximum number you can enter is %ld\n", data.type_files_size);
 		return;
 	}
 
 	size_t opponent_index = opponent_number - 1;
 
-	grug_file file = files_defining_human[opponent_index];
+	grug_file_t file = files_defining_human[opponent_index];
 
-	human human = get_define_human_fn(file.dll)();
+	human human = *(struct human *)file.define;
 
 	human.id = OPPONENT_INDEX;
 	human.opponent_id = PLAYER_INDEX;
@@ -205,12 +183,14 @@ static void pick_opponent() {
 	file.init_globals_struct_fn(data.human_globals[OPPONENT_INDEX]);
 
 	// Give the opponent a random tool
-	grug_file *files_defining_tool = get_files_containing_fn("define_tool");
-	size_t tool_index = rand() % data.files_containing_fn_size;
+	grug_file_t *files_defining_tool = get_type_files("tool");
+	size_t tool_index = rand() % data.type_files_size;
 
 	file = files_defining_tool[tool_index];
 
-	tool tool = get_define_tool_fn(file.dll)();
+	tool tool = *(struct tool *)file.define;
+
+	tool.on_fns = file.on_fns;
 
 	tool.human_parent_id = OPPONENT_INDEX;
 
@@ -224,9 +204,9 @@ static void pick_opponent() {
 	data.state = STATE_FIGHTING;
 }
 
-static void print_tools(grug_file *files_defining_tool) {
-	for (size_t i = 0; i < data.files_containing_fn_size; i++) {
-		tool tool = get_define_tool_fn(files_defining_tool[i].dll)();
+static void print_tools(grug_file_t *files_defining_tool) {
+	for (size_t i = 0; i < data.type_files_size; i++) {
+		tool tool = *(struct tool *)files_defining_tool[i].define;
 		printf("%ld. %s costs %d gold\n", i + 1, tool.name, tool.buy_gold_value);
 	}
 	printf("\n");
@@ -235,7 +215,7 @@ static void print_tools(grug_file *files_defining_tool) {
 static void pick_tools() {
 	printf("You have %d gold\n\n", data.gold);
 
-	grug_file *files_defining_tool = get_files_containing_fn("define_tool");
+	grug_file_t *files_defining_tool = get_type_files("tool");
 
 	print_tools(files_defining_tool);
 
@@ -254,16 +234,18 @@ static void pick_tools() {
 		fprintf(stderr, "The minimum number you can enter is 1\n");
 		return;
 	}
-	if (tool_number > data.files_containing_fn_size) {
-		fprintf(stderr, "The maximum number you can enter is %ld\n", data.files_containing_fn_size);
+	if (tool_number > data.type_files_size) {
+		fprintf(stderr, "The maximum number you can enter is %ld\n", data.type_files_size);
 		return;
 	}
 
 	size_t tool_index = tool_number - 1;
 
-	grug_file file = files_defining_tool[tool_index];
+	grug_file_t file = files_defining_tool[tool_index];
 
-	tool tool = get_define_tool_fn(file.dll)();
+	tool tool = *(struct tool *)file.define;
+
+	tool.on_fns = file.on_fns;
 
 	if (tool.buy_gold_value > data.gold) {
 		fprintf(stderr, "You don't have enough gold to buy that tool\n");
@@ -284,9 +266,9 @@ static void pick_tools() {
 	data.player_has_tool = true;
 }
 
-static void print_playable_humans(grug_file *files_defining_human) {
-	for (size_t i = 0; i < data.files_containing_fn_size; i++) {
-		human human = get_define_human_fn(files_defining_human[i].dll)();
+static void print_playable_humans(grug_file_t *files_defining_human) {
+	for (size_t i = 0; i < data.type_files_size; i++) {
+		human human = *(struct human *)files_defining_human[i].define;
 		printf("%ld. %s, costing %d gold\n", i + 1, human.name, human.buy_gold_value);
 	}
 	printf("\n");
@@ -295,7 +277,7 @@ static void print_playable_humans(grug_file *files_defining_human) {
 static void pick_player() {
 	printf("You have %d gold\n\n", data.gold);
 
-	grug_file *files_defining_human = get_files_containing_fn("define_human");
+	grug_file_t *files_defining_human = get_type_files("human");
 
 	print_playable_humans(files_defining_human);
 
@@ -314,16 +296,16 @@ static void pick_player() {
 		fprintf(stderr, "The minimum number you can enter is 1\n");
 		return;
 	}
-	if (player_number > data.files_containing_fn_size) {
-		fprintf(stderr, "The maximum number you can enter is %ld\n", data.files_containing_fn_size);
+	if (player_number > data.type_files_size) {
+		fprintf(stderr, "The maximum number you can enter is %ld\n", data.type_files_size);
 		return;
 	}
 
 	size_t player_index = player_number - 1;
 
-	grug_file file = files_defining_human[player_index];
+	grug_file_t file = files_defining_human[player_index];
 
-	human human = get_define_human_fn(file.dll)();
+	human human = *(struct human *)file.define;
 
 	if (human.buy_gold_value > data.gold) {
 		fprintf(stderr, "You don't have enough gold to pick that human\n");
@@ -366,22 +348,19 @@ static void update() {
 	}
 }
 
-static void error_handler(char *error_msg, char *filename, int line_number) {
-	fprintf(stderr, "%s in %s:%d\n", error_msg, filename, line_number);
-	exit(EXIT_FAILURE);
-}
-
 int main() {
 	srand(time(NULL)); // Seed the random number generator with the number of seconds since 1970
 
 	init_data();
-	grug_init(error_handler);
 
 	while (true) {
-		grug_reload_modified_mods();
+		if (grug_reload_modified_mods()) {
+			fprintf(stderr, "%s in %s:%d\n", grug_error.msg, grug_error.filename, grug_error.line_number);
+			exit(EXIT_FAILURE);
+		}
 
-		for (size_t reload_index = 0; reload_index < reloads_size; reload_index++) {
-			reload reload = reloads[reload_index];
+		for (size_t reload_index = 0; reload_index < grug_reloads_size; reload_index++) {
+			grug_reload_t reload = grug_reloads[reload_index];
 
 			for (size_t i = 0; i < 2; i++) {
 				if (reload.old_dll == data.human_dlls[i]) {
@@ -399,11 +378,14 @@ int main() {
 					free(data.tool_globals[i]);
 					data.tool_globals[i] = malloc(reload.globals_struct_size);
 					reload.init_globals_struct_fn(data.tool_globals[i]);
+
+					data.tools[i].on_fns = reload.on_fns;
 				}
 			}
 		}
 
 		// grug_print_mods();
+		// printf("\n");
 
 		update();
 

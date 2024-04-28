@@ -7,7 +7,7 @@
 
 #include <stdbool.h>
 
-#define MAX_FILES_CONTAINING_FN 420420
+#define MAX_TYPE_FILES 420420
 
 #define PLAYER_INDEX 0
 #define OPPONENT_INDEX 1
@@ -19,8 +19,8 @@ struct data {
 		STATE_PICKING_OPPONENT,
 		STATE_FIGHTING,
 	} state;
-	grug_file files_containing_fn[MAX_FILES_CONTAINING_FN];
-	size_t files_containing_fn_size;
+	grug_file_t type_files[MAX_TYPE_FILES];
+	size_t type_files_size;
 	i32 gold;
 
 	human humans[2];

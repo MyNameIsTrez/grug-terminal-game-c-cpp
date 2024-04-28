@@ -2,6 +2,11 @@
 
 #include "typedefs.h"
 
+human define_human();
+
+human get_human(id id);
+void change_human_health(id id, i32 health);
+
 struct poison {
 	i32 ticks_left;
 	i32 damage_per_tick;

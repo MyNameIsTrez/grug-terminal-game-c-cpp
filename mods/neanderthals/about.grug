@@ -1,4 +1,4 @@
-define_about() about {
+define() about {
     return {
         .name = "neanderthals",
         .version = "1.0.0",

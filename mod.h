@@ -15,11 +15,3 @@ struct about {
     char *version;
 	char *author;
 };
-
-tool define_tool();
-human define_human();
-
-void on_tool_use(void *globals, tool self);
-
-human get_human(id id);
-void change_human_health(id id, i32 health);

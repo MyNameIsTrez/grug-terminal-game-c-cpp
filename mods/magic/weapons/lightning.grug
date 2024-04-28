@@ -1,4 +1,4 @@
-define_tool() tool {
+define() tool {
     return {
         .name = "Lightning",
         .buy_gold_value = 70,
@@ -7,7 +7,7 @@ define_tool() tool {
 
 uses: int = 0
 
-on_tool_use(self: tool) {
+on_use(self: tool) {
     uses = uses + 1
 
     damage: int
