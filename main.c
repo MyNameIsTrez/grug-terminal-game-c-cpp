@@ -354,13 +354,13 @@ int main() {
 	init_data();
 
 	while (true) {
-		if (grug_reload_modified_mods()) {
+		if (grug_regenerate_modified_mods()) {
 			fprintf(stderr, "%s in %s:%d\n", grug_error.msg, grug_error.filename, grug_error.line_number);
 			exit(EXIT_FAILURE);
 		}
 
 		for (size_t reload_index = 0; reload_index < grug_reloads_size; reload_index++) {
-			grug_reload_t reload = grug_reloads[reload_index];
+			grug_modified_t reload = grug_reloads[reload_index];
 
 			for (size_t i = 0; i < 2; i++) {
 				if (reload.old_dll == data.human_dlls[i]) {
