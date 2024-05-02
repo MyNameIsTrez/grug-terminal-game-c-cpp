@@ -58,7 +58,6 @@ static void fight() {
 	typeof(on_tool_use) *use = player_tool->on_fns->use;
 	if (use) {
 		printf("You use your %s\n", player_tool->name);
-		sleep(1);
 		use(player_tool_globals, *player_tool);
 		sleep(1);
 	} else {
@@ -78,7 +77,6 @@ static void fight() {
 	use = opponent_tool->on_fns->use;
 	if (use) {
 		printf("The opponent uses their %s\n", opponent_tool->name);
-		sleep(1);
 		use(opponent_tool_globals, *opponent_tool);
 		sleep(1);
 	} else {
