@@ -4,7 +4,3 @@ define() tool {
         .buy_gold_value = 1,
     }
 }
-
-on_use(self: tool) {
-    change_human_health(get_human(self.human_parent_id).opponent_id, -8)
-}

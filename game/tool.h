@@ -3,8 +3,6 @@
 #include "mod.h"
 #include "typedefs.h"
 
-tool define_tool();
-
 void on_tool_use(void *globals, tool self);
 
 struct tool {

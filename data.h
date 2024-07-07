@@ -19,7 +19,7 @@ struct data {
 		STATE_PICKING_OPPONENT,
 		STATE_FIGHTING,
 	} state;
-	grug_file_t type_files[MAX_TYPE_FILES];
+	struct grug_file type_files[MAX_TYPE_FILES];
 	size_t type_files_size;
 	i32 gold;
 

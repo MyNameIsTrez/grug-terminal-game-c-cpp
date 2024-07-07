@@ -2,8 +2,6 @@
 
 #include "typedefs.h"
 
-human define_human();
-
 human get_human(id id);
 void change_human_health(id id, i32 health);
 
@@ -17,7 +15,7 @@ struct human {
 	i32 health;
 	i32 buy_gold_value;
 	i32 kill_gold_value;
-	poison poison;
+	// poison poison;
 
 	// These should not be initialized by mods
 	id id;

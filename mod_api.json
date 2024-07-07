@@ -1,0 +1,39 @@
+{
+	"entities": {
+		"human": {
+			"description": "An actor that can fight.",
+			"fields": [
+				{
+					"name": "name",
+					"type": "string"
+				},
+				{
+					"name": "health",
+					"type": "i32"
+				},
+				{
+					"name": "buy_gold_value",
+					"type": "i32"
+				},
+				{
+					"name": "kill_gold_value",
+					"type": "i32"
+				}
+			]
+		},
+		"tool": {
+			"description": "Used by actors to fight each other.",
+			"fields": [
+				{
+					"name": "name",
+					"type": "string"
+				},
+				{
+					"name": "buy_gold_value",
+					"type": "i32"
+				}
+			]
+		}
+	},
+	"game_functions": {}
+}
