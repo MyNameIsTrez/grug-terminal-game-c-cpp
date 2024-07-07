@@ -4,3 +4,8 @@ define() tool {
         .buy_gold_value = 1,
     }
 }
+
+on_use(self: i32) {
+    ; TODO: Add this back!
+    ; change_human_health(get_human(self.human_parent_id).opponent_id, -8)
+}
