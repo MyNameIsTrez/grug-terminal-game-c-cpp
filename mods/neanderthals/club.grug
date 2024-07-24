@@ -6,6 +6,7 @@ define() tool {
 }
 
 on_use(self: i32) {
-    ; TODO: Add this back!
-    ; change_human_health(get_human(self.human_parent_id).opponent_id, -8)
+    human_parent: i32 = get_human_parent(self)
+    opponent: i32 = get_opponent(human_parent)
+    change_human_health(opponent, -8)
 }

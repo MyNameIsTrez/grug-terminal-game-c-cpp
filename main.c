@@ -65,8 +65,8 @@ static void fight() {
 	human *player = &data.humans[PLAYER_INDEX];
 	human *opponent = &data.humans[OPPONENT_INDEX];
 
-	void *player_tool_globals = data.tool_globals[PLAYER_INDEX];
-	void *opponent_tool_globals = data.tool_globals[OPPONENT_INDEX];
+	// void *player_tool_globals = data.tool_globals[PLAYER_INDEX];
+	// void *opponent_tool_globals = data.tool_globals[OPPONENT_INDEX];
 
 	tool *player_tool = &data.tools[PLAYER_INDEX];
 	tool *opponent_tool = &data.tools[OPPONENT_INDEX];
@@ -77,7 +77,8 @@ static void fight() {
 	typeof(on_tool_use) *use = player_tool->on_fns->use;
 	if (use) {
 		printf("You use your %s\n", player_tool->name);
-		use(player_tool_globals, *player_tool);
+		// use(player_tool_globals, *player_tool); // TODO: BRING THIS BACK
+		use(PLAYER_INDEX);
 		sleep(1);
 	} else {
 		printf("You don't know what to do with your %s\n", player_tool->name);
@@ -90,13 +91,15 @@ static void fight() {
 		sleep(1);
 		data.state = STATE_PICKING_PLAYER;
 		data.gold += opponent->kill_gold_value;
+		player->health = player->max_health;
 		return;
 	}
 
 	use = opponent_tool->on_fns->use;
 	if (use) {
 		printf("The opponent uses their %s\n", opponent_tool->name);
-		use(opponent_tool_globals, *opponent_tool);
+		// use(opponent_tool_globals, *opponent_tool); // TODO: BRING THIS BACK
+		use(OPPONENT_INDEX);
 		sleep(1);
 	} else {
 		printf("The opponent doesn't know what to do with their %s\n", opponent_tool->name);
@@ -108,6 +111,7 @@ static void fight() {
 		printf("You died!\n");
 		sleep(1);
 		data.state = STATE_PICKING_PLAYER;
+		player->health = player->max_health;
 		return;
 	}
 }

@@ -10,6 +10,7 @@
         "grug/grug.c",
         "data.c",
         "game/human.c",
+        "game/tool.c",
         "-Wall",
         "-Wextra",
         "-Werror",

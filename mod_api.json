@@ -46,5 +46,39 @@
 			}
 		}
 	},
-	"game_functions": {}
+	"game_functions": {
+		"get_human_parent": {
+			"description": "Get the human parent's ID",
+			"return_type": "i32",
+			"arguments": [
+				{
+					"name": "tool_id",
+					"type": "i32"
+				}
+			]
+		},
+		"get_opponent": {
+			"description": "Get the opponent's ID",
+			"return_type": "i32",
+			"arguments": [
+				{
+					"name": "human_id",
+					"type": "i32"
+				}
+			]
+		},
+		"change_human_health": {
+			"description": "Change a human's health",
+			"arguments": [
+				{
+					"name": "human_id",
+					"type": "i32"
+				},
+				{
+					"name": "added_health",
+					"type": "i32"
+				}
+			]
+		}
+	}
 }

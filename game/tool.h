@@ -3,7 +3,8 @@
 #include "mod.h"
 #include "typedefs.h"
 
-void on_tool_use(void *globals, tool self);
+// void on_tool_use(void *globals, tool self); // TODO: BRING THIS BACK
+void on_tool_use(i32 self);
 
 struct tool {
 	string name;
