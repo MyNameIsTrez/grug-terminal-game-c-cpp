@@ -19,7 +19,6 @@ void define_human(string name, i32 health, i32 buy_gold_value, i32 kill_gold_val
 		.health = health,
 		.buy_gold_value = buy_gold_value,
 		.kill_gold_value = kill_gold_value,
-		// TODO: Support its other fields
 	};
 }
 
@@ -27,7 +26,6 @@ void define_tool(string name, i32 buy_gold_value) {
 	tool_definition = (struct tool){
 		.name = name,
 		.buy_gold_value = buy_gold_value,
-		// TODO: Support its other fields
 	};
 }
 
@@ -374,7 +372,8 @@ static void update() {
 }
 
 int main() {
-	srand(time(NULL)); // Seed the random number generator with the number of seconds since 1970
+	// Seed the random number generator with the number of seconds since 1970
+	srand(time(NULL));
 
 	init_data();
 

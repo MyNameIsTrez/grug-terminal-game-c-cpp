@@ -4,7 +4,6 @@
 
 typedef char* string;
 typedef int32_t i32;
-typedef int32_t id;
 
 typedef struct poison poison;
 typedef struct human human;
