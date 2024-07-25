@@ -1,0 +1,26 @@
+define() tool {
+    return {
+        .name = "Lightning",
+        .buy_gold_value = 70,
+    }
+}
+
+uses: i32 = 0
+
+on_use(self: i32) {
+    uses = uses + 1
+
+    damage: i32 = 10
+    if uses == 2 {
+        damage = 15
+        uses = uses - 2
+    }
+
+    helper_apply_damage(self, damage)
+}
+
+helper_apply_damage(self: i32, damage: i32) {
+    human_parent: i32 = get_human_parent(self)
+    opponent: i32 = get_opponent(human_parent)
+    change_human_health(opponent, -damage)
+}
