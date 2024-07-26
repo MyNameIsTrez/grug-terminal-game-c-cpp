@@ -29,13 +29,6 @@ void define_tool(string name, i32 buy_gold_value) {
 	};
 }
 
-// static void handle_poison(human *human) {
-// 	if (human->poison.ticks_left > 0) {
-// 		change_human_health(human->id, -human->poison.damage_per_tick);
-// 		human->poison.ticks_left--;
-// 	}
-// }
-
 static void push_file_containing_fn(struct grug_file file) {
 	if (data.type_files_size + 1 > MAX_TYPE_FILES) {
 		fprintf(stderr, "There are more than %d files containing the requested type, exceeding MAX_TYPE_FILES", MAX_TYPE_FILES);
@@ -84,7 +77,6 @@ static void fight() {
 		sleep(1);
 	}
 
-	// handle_poison(opponent); // TODO: Bring back
 	if (opponent->health <= 0) {
 		printf("The opponent died!\n");
 		sleep(1);
@@ -104,7 +96,6 @@ static void fight() {
 		sleep(1);
 	}
 
-	// handle_poison(player); // TODO: Bring back
 	if (player->health <= 0) {
 		printf("You died!\n");
 		sleep(1);
