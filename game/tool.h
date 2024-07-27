@@ -1,6 +1,5 @@
 #pragma once
 
-#include "mod.h"
 #include "typedefs.h"
 
 void on_tool_use(void *globals, i32 self);

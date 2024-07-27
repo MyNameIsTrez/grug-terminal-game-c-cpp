@@ -1,12 +1,12 @@
 #include "data.h"
 #include "game/tool.h"
 #include "grug.h"
-#include "mod.h"
 
 #include <dlfcn.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
