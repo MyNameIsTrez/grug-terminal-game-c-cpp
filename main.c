@@ -13,7 +13,7 @@
 static struct human human_definition;
 static struct tool tool_definition;
 
-void define_human(string name, i32 health, i32 buy_gold_value, i32 kill_gold_value) {
+void game_fn_define_human(string name, i32 health, i32 buy_gold_value, i32 kill_gold_value) {
 	human_definition = (struct human){
 		.name = name,
 		.health = health,
@@ -22,7 +22,7 @@ void define_human(string name, i32 health, i32 buy_gold_value, i32 kill_gold_val
 	};
 }
 
-void define_tool(string name, i32 buy_gold_value) {
+void game_fn_define_tool(string name, i32 buy_gold_value) {
 	tool_definition = (struct tool){
 		.name = name,
 		.buy_gold_value = buy_gold_value,
@@ -372,8 +372,13 @@ int main() {
 
 	while (true) {
 		if (grug_regenerate_modified_mods()) {
-			fprintf(stderr, "%s in %s:%d\n", grug_error.msg, grug_error.filename, grug_error.line_number);
-			exit(EXIT_FAILURE);
+			if (grug_error.has_changed) {
+				fprintf(stderr, "%s:%d: %s (detected in grug.c:%d)\n", grug_error.path, grug_error.line_number, grug_error.msg, grug_error.grug_c_line_number);
+			}
+
+			sleep(1);
+
+			continue;
 		}
 
 		for (size_t reload_index = 0; reload_index < grug_reloads_size; reload_index++) {

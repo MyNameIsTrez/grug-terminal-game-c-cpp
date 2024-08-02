@@ -1,5 +1,6 @@
 {
-    "name": "neanderthals",
-    "version": "1.0.0",
-    "author": "MyNameIsTrez"
+	"name": "neanderthals",
+	"version": "1.0.0",
+	"game_version": "1.0.0",
+	"author": "MyNameIsTrez"
 }

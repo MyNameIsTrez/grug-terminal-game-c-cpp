@@ -5,7 +5,7 @@
 
 #include <assert.h>
 
-i32 get_human_parent(i32 tool_id) {
+i32 game_fn_get_human_parent(i32 tool_id) {
 	assert(tool_id >= 0 && tool_id < 2);
 	return data.tools[tool_id].human_parent_id;
 }

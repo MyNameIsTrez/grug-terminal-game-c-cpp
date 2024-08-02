@@ -35,7 +35,7 @@
 			],
 			"on_functions": {
 				"on_use": {
-					"description": "foo",
+					"description": "Called whenever this tool gets used in a fight.",
 					"arguments": [
 						{
 							"name": "self",
