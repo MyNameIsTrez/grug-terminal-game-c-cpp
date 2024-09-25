@@ -364,6 +364,33 @@ static void update() {
 	}
 }
 
+static void reload_modified_entities(void) {
+	for (size_t reload_index = 0; reload_index < grug_reloads_size; reload_index++) {
+		struct grug_modified reload = grug_reloads[reload_index];
+
+		for (size_t i = 0; i < 2; i++) {
+			if (reload.old_dll == data.human_dlls[i]) {
+				data.human_dlls[i] = reload.file->dll;
+
+				free(data.human_globals[i]);
+				data.human_globals[i] = malloc(reload.file->globals_size);
+				reload.file->init_globals_fn(data.human_globals[i]);
+			}
+		}
+		for (size_t i = 0; i < 2; i++) {
+			if (reload.old_dll == data.tool_dlls[i]) {
+				data.tool_dlls[i] = reload.file->dll;
+
+				free(data.tool_globals[i]);
+				data.tool_globals[i] = malloc(reload.file->globals_size);
+				reload.file->init_globals_fn(data.tool_globals[i]);
+
+				data.tools[i].on_fns = reload.file->on_fns;
+			}
+		}
+	}
+}
+
 int main() {
 	// Seed the random number generator with the number of seconds since 1970
 	srand(time(NULL));
@@ -381,30 +408,19 @@ int main() {
 			continue;
 		}
 
-		for (size_t reload_index = 0; reload_index < grug_reloads_size; reload_index++) {
-			struct grug_modified reload = grug_reloads[reload_index];
+		if (grug_mod_had_runtime_error()) {
+			fprintf(stderr, "Runtime error: %s\n", grug_get_runtime_error_reason());
+			fprintf(stderr, "Error occurred when the game called %s(), from %s\n", grug_on_fn_name, grug_on_fn_path);
 
-			for (size_t i = 0; i < 2; i++) {
-				if (reload.old_dll == data.human_dlls[i]) {
-					data.human_dlls[i] = reload.new_dll;
+			sleep(1);
 
-					free(data.human_globals[i]);
-					data.human_globals[i] = malloc(reload.globals_size);
-					reload.init_globals_fn(data.human_globals[i]);
-				}
-			}
-			for (size_t i = 0; i < 2; i++) {
-				if (reload.old_dll == data.tool_dlls[i]) {
-					data.tool_dlls[i] = reload.new_dll;
-
-					free(data.tool_globals[i]);
-					data.tool_globals[i] = malloc(reload.globals_size);
-					reload.init_globals_fn(data.tool_globals[i]);
-
-					data.tools[i].on_fns = reload.on_fns;
-				}
-			}
+			continue;
 		}
+
+		reload_modified_entities();
+
+		// Since this is a terminal game, there are no PNGs/MP3s/etc.
+		// reload_modified_resources();
 
 		update();
 
