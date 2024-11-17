@@ -7,7 +7,7 @@ define() tool {
 
 uses: i32 = 0
 
-on_use(self: i32) {
+on_use() {
     uses = uses + 1
 
     damage: i32 = 10
@@ -16,11 +16,11 @@ on_use(self: i32) {
         uses = 0
     }
 
-    helper_apply_damage(self, damage)
+    helper_apply_damage(damage)
 }
 
-helper_apply_damage(self: i32, damage: i32) {
-    human_parent: i32 = get_human_parent(self)
-    opponent: i32 = get_opponent(human_parent)
+helper_apply_damage(damage: i32) {
+    human_parent: id = get_human_parent(me)
+    opponent: id = get_opponent(human_parent)
     change_human_health(opponent, -damage)
 }

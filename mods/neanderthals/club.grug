@@ -5,8 +5,8 @@ define() tool {
     }
 }
 
-on_use(self: i32) {
-    human_parent: i32 = get_human_parent(self)
-    opponent: i32 = get_opponent(human_parent)
+on_use() {
+    human_parent: id = get_human_parent(me)
+    opponent: id = get_opponent(human_parent)
     change_human_health(opponent, -8)
 }

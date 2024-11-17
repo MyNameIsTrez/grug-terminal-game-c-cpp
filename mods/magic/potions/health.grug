@@ -5,7 +5,7 @@ define() tool {
     }
 }
 
-on_use(self: i32) {
-    human_parent: i32 = get_human_parent(self)
+on_use() {
+    human_parent: id = get_human_parent(me)
     change_human_health(human_parent, 5)
 }

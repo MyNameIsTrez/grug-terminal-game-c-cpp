@@ -2,8 +2,8 @@
 
 #include "typedefs.h"
 
-human get_human(i32 id);
-void change_human_health(i32 id, i32 health);
+human get_human(id id);
+void change_human_health(id id, i32 health);
 
 struct human {
 	string name;
@@ -12,7 +12,7 @@ struct human {
 	i32 kill_gold_value;
 
 	// These are not initialized by mods
-	i32 id;
-	i32 opponent_id;
+	id id;
+	id opponent_id;
 	i32 max_health;
 };

@@ -54,7 +54,7 @@ static struct grug_file *get_type_files(char *fn_name) {
 	return data.type_files;
 }
 
-static void fight() {
+static void fight(void) {
 	human *player = &data.humans[PLAYER_INDEX];
 	human *opponent = &data.humans[OPPONENT_INDEX];
 
@@ -70,7 +70,7 @@ static void fight() {
 	typeof(on_tool_use) *use = player_tool->on_fns->use;
 	if (use) {
 		printf("You use your %s\n", player_tool->name);
-		use(player_tool_globals, PLAYER_INDEX);
+		use(player_tool_globals);
 		sleep(1);
 	} else {
 		printf("You don't know what to do with your %s\n", player_tool->name);
@@ -89,7 +89,7 @@ static void fight() {
 	use = opponent_tool->on_fns->use;
 	if (use) {
 		printf("The opponent uses their %s\n", opponent_tool->name);
-		use(opponent_tool_globals, OPPONENT_INDEX);
+		use(opponent_tool_globals);
 		sleep(1);
 	} else {
 		printf("The opponent doesn't know what to do with their %s\n", opponent_tool->name);
@@ -105,7 +105,7 @@ static void fight() {
 	}
 }
 
-static void discard_unread() {
+static void discard_unread(void) {
 	int c;
 	while ((c = getchar()) != '\n' && c != EOF) {}
 }
@@ -151,7 +151,7 @@ static void print_opponent_humans(struct grug_file *files_defining_human) {
 	printf("\n");
 }
 
-static void pick_opponent() {
+static void pick_opponent(void) {
 	printf("You have %d gold\n\n", data.gold);
 
 	struct grug_file *files_defining_human = get_type_files("human");
@@ -191,7 +191,7 @@ static void pick_opponent() {
 
 	free(data.human_globals[OPPONENT_INDEX]);
 	data.human_globals[OPPONENT_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.human_globals[OPPONENT_INDEX]);
+	file.init_globals_fn(data.human_globals[OPPONENT_INDEX], OPPONENT_INDEX);
 
 	// Give the opponent a random tool
 	struct grug_file *files_defining_tool = get_type_files("tool");
@@ -211,7 +211,7 @@ static void pick_opponent() {
 
 	free(data.tool_globals[OPPONENT_INDEX]);
 	data.tool_globals[OPPONENT_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.tool_globals[OPPONENT_INDEX]);
+	file.init_globals_fn(data.tool_globals[OPPONENT_INDEX], OPPONENT_INDEX);
 
 	data.state = STATE_FIGHTING;
 }
@@ -225,7 +225,7 @@ static void print_tools(struct grug_file *files_defining_tool) {
 	printf("\n");
 }
 
-static void pick_tools() {
+static void pick_tools(void) {
 	printf("You have %d gold\n\n", data.gold);
 
 	struct grug_file *files_defining_tool = get_type_files("tool");
@@ -275,7 +275,7 @@ static void pick_tools() {
 
 	free(data.tool_globals[PLAYER_INDEX]);
 	data.tool_globals[PLAYER_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.tool_globals[PLAYER_INDEX]);
+	file.init_globals_fn(data.tool_globals[PLAYER_INDEX], PLAYER_INDEX);
 
 	data.player_has_tool = true;
 }
@@ -289,7 +289,7 @@ static void print_playable_humans(struct grug_file *files_defining_human) {
 	printf("\n");
 }
 
-static void pick_player() {
+static void pick_player(void) {
 	printf("You have %d gold\n\n", data.gold);
 
 	struct grug_file *files_defining_human = get_type_files("human");
@@ -340,14 +340,14 @@ static void pick_player() {
 
 	free(data.human_globals[PLAYER_INDEX]);
 	data.human_globals[PLAYER_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.human_globals[PLAYER_INDEX]);
+	file.init_globals_fn(data.human_globals[PLAYER_INDEX], PLAYER_INDEX);
 
 	data.player_has_human = true;
 
 	data.state = STATE_PICKING_TOOLS;
 }
 
-static void update() {
+static void update(void) {
 	switch (data.state) {
 	case STATE_PICKING_PLAYER:
 		pick_player();
@@ -374,7 +374,7 @@ static void reload_modified_entities(void) {
 
 				free(data.human_globals[i]);
 				data.human_globals[i] = malloc(reload.file->globals_size);
-				reload.file->init_globals_fn(data.human_globals[i]);
+				reload.file->init_globals_fn(data.human_globals[i], i);
 			}
 		}
 		for (size_t i = 0; i < 2; i++) {
@@ -383,7 +383,7 @@ static void reload_modified_entities(void) {
 
 				free(data.tool_globals[i]);
 				data.tool_globals[i] = malloc(reload.file->globals_size);
-				reload.file->init_globals_fn(data.tool_globals[i]);
+				reload.file->init_globals_fn(data.tool_globals[i], i);
 
 				data.tools[i].on_fns = reload.file->on_fns;
 			}
@@ -391,26 +391,25 @@ static void reload_modified_entities(void) {
 	}
 }
 
-int main() {
+static void runtime_error_handler(char *reason, enum grug_runtime_error_type type, char *on_fn_name, char *on_fn_path) {
+	(void)type;
+
+	fprintf(stderr, "grug runtime error in %s(): %s, in %s\n", on_fn_name, reason, on_fn_path);
+}
+
+int main(void) {
 	// Seed the random number generator with the number of seconds since 1970
 	srand(time(NULL));
+
+	grug_set_runtime_error_handler(runtime_error_handler);
 
 	init_data();
 
 	while (true) {
 		if (grug_regenerate_modified_mods()) {
 			if (grug_error.has_changed) {
-				fprintf(stderr, "%s:%d: %s (detected in grug.c:%d)\n", grug_error.path, grug_error.line_number, grug_error.msg, grug_error.grug_c_line_number);
+				fprintf(stderr, "grug loading error: %s, in %s (detected in grug.c:%d)\n", grug_error.msg, grug_error.path, grug_error.grug_c_line_number);
 			}
-
-			sleep(1);
-
-			continue;
-		}
-
-		if (grug_mod_had_runtime_error()) {
-			fprintf(stderr, "Runtime error: %s\n", grug_get_runtime_error_reason());
-			fprintf(stderr, "Error occurred when the game called %s(), from %s\n", grug_on_fn_name, grug_on_fn_path);
 
 			sleep(1);
 

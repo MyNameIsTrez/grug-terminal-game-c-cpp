@@ -4,6 +4,7 @@
 
 typedef char* string;
 typedef int32_t i32;
+typedef uint64_t id;
 
 typedef struct human human;
 typedef struct tool tool;

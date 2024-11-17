@@ -35,13 +35,7 @@
 			],
 			"on_functions": {
 				"on_use": {
-					"description": "Called whenever this tool gets used in a fight.",
-					"arguments": [
-						{
-							"name": "self",
-							"type": "i32"
-						}
-					]
+					"description": "Called whenever this tool gets used in a fight."
 				}
 			}
 		}
@@ -49,21 +43,21 @@
 	"game_functions": {
 		"get_human_parent": {
 			"description": "Get the human parent's ID",
-			"return_type": "i32",
+			"return_type": "id",
 			"arguments": [
 				{
 					"name": "tool_id",
-					"type": "i32"
+					"type": "id"
 				}
 			]
 		},
 		"get_opponent": {
 			"description": "Get the opponent's ID",
-			"return_type": "i32",
+			"return_type": "id",
 			"arguments": [
 				{
 					"name": "human_id",
-					"type": "i32"
+					"type": "id"
 				}
 			]
 		},
@@ -72,7 +66,7 @@
 			"arguments": [
 				{
 					"name": "human_id",
-					"type": "i32"
+					"type": "id"
 				},
 				{
 					"name": "added_health",
