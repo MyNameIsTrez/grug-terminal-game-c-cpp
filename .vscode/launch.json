@@ -2,20 +2,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "launch with gcc",
+      "name": "Launch",
       "type": "cppdbg",
       "request": "launch",
       "cwd": ".",
       "program": "${workspaceRoot}/a.out",
-      "preLaunchTask": "build with gcc"
-    },
-    {
-      "name": "launch with clang",
-      "type": "cppdbg",
-      "request": "launch",
-      "cwd": ".",
-      "program": "${workspaceRoot}/a.out",
-      "preLaunchTask": "build with clang"
+      "preLaunchTask": "Build"
     }
   ]
 }
