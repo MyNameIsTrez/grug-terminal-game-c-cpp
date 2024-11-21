@@ -377,6 +377,7 @@ static void reload_modified_entities(void) {
 				reload.file->init_globals_fn(data.human_globals[i], i);
 			}
 		}
+
 		for (size_t i = 0; i < 2; i++) {
 			if (reload.old_dll == data.tool_dlls[i]) {
 				data.tool_dlls[i] = reload.file->dll;
