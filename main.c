@@ -418,7 +418,7 @@ int main(void) {
 
 		reload_modified_entities();
 
-		// Since this is a terminal game, there are no PNGs/MP3s/etc.
+		// Since this is a simple terminal game, there are no PNGs/MP3s/etc.
 		// reload_modified_resources();
 
 		update();
