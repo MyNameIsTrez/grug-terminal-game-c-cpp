@@ -37,20 +37,20 @@ static void push_file_containing_fn(struct grug_file file) {
 	data.type_files[data.type_files_size++] = file;
 }
 
-static void get_type_files_impl(struct grug_mod_dir dir, char *fn_name) {
+static void get_type_files_impl(struct grug_mod_dir dir, char *define_type) {
 	for (size_t i = 0; i < dir.dirs_size; i++) {
-		get_type_files_impl(dir.dirs[i], fn_name);
+		get_type_files_impl(dir.dirs[i], define_type);
 	}
 	for (size_t i = 0; i < dir.files_size; i++) {
-		if (strcmp(fn_name, dir.files[i].define_type) == 0) {
+		if (strcmp(define_type, dir.files[i].define_type) == 0) {
 			push_file_containing_fn(dir.files[i]);
 		}
 	}
 }
 
-static struct grug_file *get_type_files(char *fn_name) {
+static struct grug_file *get_type_files(char *define_type) {
 	data.type_files_size = 0;
-	get_type_files_impl(grug_mods, fn_name);
+	get_type_files_impl(grug_mods, define_type);
 	return data.type_files;
 }
 
