@@ -101,7 +101,6 @@ static void fight(void) {
 		sleep(1);
 		data.state = STATE_PICKING_PLAYER;
 		player->health = player->max_health;
-		return;
 	}
 }
 
