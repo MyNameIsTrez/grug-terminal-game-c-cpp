@@ -408,7 +408,11 @@ int main(void) {
 	while (true) {
 		if (grug_regenerate_modified_mods()) {
 			if (grug_error.has_changed) {
-				fprintf(stderr, "grug loading error: %s, in %s (detected in grug.c:%d)\n", grug_error.msg, grug_error.path, grug_error.grug_c_line_number);
+				if (grug_loading_error_in_grug_file) {
+					fprintf(stderr, "grug loading error: %s, in %s (detected in grug.c:%d)\n", grug_error.msg, grug_error.path, grug_error.grug_c_line_number);
+				} else {
+					fprintf(stderr, "grug loading error: %s (detected in grug.c:%d)\n", grug_error.msg, grug_error.grug_c_line_number);
+				}
 			}
 
 			sleep(1);
