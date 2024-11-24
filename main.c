@@ -220,7 +220,7 @@ static void print_tools(struct grug_file *files_defining_tool) {
 	for (size_t i = 0; i < data.type_files_size; i++) {
 		files_defining_tool[i].define_fn();
 		tool tool = tool_definition;
-		printf("%ld. %s costs %d gold\n", i + 1, tool.name, tool.buy_gold_value);
+		printf("%ld. %s, costing %d gold\n", i + 1, tool.name, tool.buy_gold_value);
 	}
 	printf("\n");
 }
