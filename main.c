@@ -369,23 +369,23 @@ static void reload_modified_entities(void) {
 
 		for (size_t i = 0; i < 2; i++) {
 			if (reload.old_dll == data.human_dlls[i]) {
-				data.human_dlls[i] = reload.file->dll;
+				data.human_dlls[i] = reload.file.dll;
 
 				free(data.human_globals[i]);
-				data.human_globals[i] = malloc(reload.file->globals_size);
-				reload.file->init_globals_fn(data.human_globals[i], i);
+				data.human_globals[i] = malloc(reload.file.globals_size);
+				reload.file.init_globals_fn(data.human_globals[i], i);
 			}
 		}
 
 		for (size_t i = 0; i < 2; i++) {
 			if (reload.old_dll == data.tool_dlls[i]) {
-				data.tool_dlls[i] = reload.file->dll;
+				data.tool_dlls[i] = reload.file.dll;
 
 				free(data.tool_globals[i]);
-				data.tool_globals[i] = malloc(reload.file->globals_size);
-				reload.file->init_globals_fn(data.tool_globals[i], i);
+				data.tool_globals[i] = malloc(reload.file.globals_size);
+				reload.file.init_globals_fn(data.tool_globals[i], i);
 
-				data.tools[i].on_fns = reload.file->on_fns;
+				data.tools[i].on_fns = reload.file.on_fns;
 			}
 		}
 	}
