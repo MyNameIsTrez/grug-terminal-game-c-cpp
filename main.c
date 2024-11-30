@@ -41,8 +41,9 @@ static void get_type_files_impl(struct grug_mod_dir dir, char *define_type) {
 	for (size_t i = 0; i < dir.dirs_size; i++) {
 		get_type_files_impl(dir.dirs[i], define_type);
 	}
+
 	for (size_t i = 0; i < dir.files_size; i++) {
-		if (strcmp(define_type, dir.files[i].define_type) == 0) {
+		if (strcmp(dir.files[i].define_type, define_type) == 0) {
 			push_file_containing_fn(dir.files[i]);
 		}
 	}
