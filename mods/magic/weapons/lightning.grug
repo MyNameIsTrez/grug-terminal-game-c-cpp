@@ -10,7 +10,7 @@ uses: i32 = 0
 on_use() {
     uses = uses + 1
 
-    damage: i32 = 10
+    damage: i32 = 42
     if uses == 2 {
         damage = 15
         uses = 0
