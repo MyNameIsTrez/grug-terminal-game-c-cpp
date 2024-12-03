@@ -118,6 +118,12 @@ static bool read_size(size_t *output) {
 		exit(EXIT_FAILURE);
 	}
 
+	if (buffer[0] == 'f' && buffer[1] == '\n') {
+		grug_toggle_on_fns_mode();
+		printf("Toggled grug to %s mode\n", grug_are_on_fns_in_safe_mode() ? "safe" : "fast");
+		return false;
+	}
+
 	char *endptr;
 	errno = 0;
 	long l = strtol(buffer, &endptr, 10);
