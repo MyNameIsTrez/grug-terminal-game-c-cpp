@@ -408,7 +408,7 @@ int main(void) {
 	// Seed the random number generator with the number of seconds since 1970
 	srand(time(NULL));
 
-	grug_set_runtime_error_handler(runtime_error_handler);
+	grug_init(runtime_error_handler, "mod_api.json", "mods");
 
 	init_data();
 
