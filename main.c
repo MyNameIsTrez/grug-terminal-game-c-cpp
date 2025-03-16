@@ -156,11 +156,6 @@ static void fight(void) {
 
 	if (player->health <= 0) {
 		printf("You died!\n");
-		call_human_on_despawn(player->on_fns, player_human_globals);
-
-		// Prevents call_human_on_despawn() being called a second time by pick_player()
-		player->on_fns = NULL;
-
 		sleep(1);
 		data.state = STATE_PICKING_PLAYER;
 		player->health = player->max_health;
@@ -303,6 +298,8 @@ static void pick_opponent(void) {
 
 	human human = human_on_spawn_data;
 
+	human.on_fns = file.on_fns;
+
 	human.id = OPPONENT_INDEX;
 	human.opponent_id = PLAYER_INDEX;
 
@@ -409,10 +406,9 @@ static void pick_tools(void) {
 		fprintf(stderr, "You don't have enough gold to buy that tool\n");
 		return;
 	}
+	data.gold -= tool.buy_gold_value;
 
 	tool.on_fns = file.on_fns;
-
-	data.gold -= tool.buy_gold_value;
 
 	tool.human_parent_id = PLAYER_INDEX;
 
@@ -496,10 +492,9 @@ static void pick_player(void) {
 		fprintf(stderr, "You don't have enough gold to pick that human\n");
 		return;
 	}
+	data.gold -= human.buy_gold_value;
 
 	human.on_fns = file.on_fns;
-
-	data.gold -= human.buy_gold_value;
 
 	human.id = PLAYER_INDEX;
 	human.opponent_id = OPPONENT_INDEX;
