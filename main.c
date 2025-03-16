@@ -13,9 +13,10 @@
 #define SET_CALLED(property) { \
 	if (set_ ## property ## _called) { \
 		fprintf(stderr, "set_" #property "() was called twice by on_spawn()\n"); \
-	} else { \
-		set_ ## property ## _called = true; \
+		return; \
 	} \
+	set_ ## property ## _called = true; \
+	\
 }
 
 #define ASSERT_HAS_ON_SPAWN() { \
