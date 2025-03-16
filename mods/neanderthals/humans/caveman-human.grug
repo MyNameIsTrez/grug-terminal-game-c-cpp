@@ -1,0 +1,6 @@
+on_spawn() {
+    set_human_name("Caveman")
+    set_human_health(30)
+    set_human_buy_gold_value(15)
+    set_human_kill_gold_value(10)
+}

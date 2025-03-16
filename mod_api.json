@@ -2,38 +2,24 @@
 	"entities": {
 		"human": {
 			"description": "An actor that can fight.",
-			"fields": [
-				{
-					"name": "name",
-					"type": "string"
+			"on_functions": {
+				"on_spawn": {
+					"description": "Called when the entity is spawned."
 				},
-				{
-					"name": "health",
-					"type": "i32"
-				},
-				{
-					"name": "buy_gold_value",
-					"type": "i32"
-				},
-				{
-					"name": "kill_gold_value",
-					"type": "i32"
+				"on_despawn": {
+					"description": "Called when the entity is despawned."
 				}
-			]
+			}
 		},
 		"tool": {
 			"description": "Used by actors to fight each other.",
-			"fields": [
-				{
-					"name": "name",
-					"type": "string"
-				},
-				{
-					"name": "buy_gold_value",
-					"type": "i32"
-				}
-			],
 			"on_functions": {
+				"on_spawn": {
+					"description": "Called when the entity is spawned."
+				},
+				"on_despawn": {
+					"description": "Called when the entity is despawned."
+				},
 				"on_use": {
 					"description": "Called whenever this tool gets used in a fight."
 				}
@@ -41,8 +27,62 @@
 		}
 	},
 	"game_functions": {
+		"set_human_name": {
+			"description": "Sets the name of the spawned human",
+			"arguments": [
+				{
+					"name": "name",
+					"type": "string"
+				}
+			]
+		},
+		"set_human_health": {
+			"description": "Sets the health of the spawned human",
+			"arguments": [
+				{
+					"name": "health",
+					"type": "i32"
+				}
+			]
+		},
+		"set_human_buy_gold_value": {
+			"description": "Sets the buy gold value of the spawned human",
+			"arguments": [
+				{
+					"name": "buy_gold_value",
+					"type": "i32"
+				}
+			]
+		},
+		"set_human_kill_gold_value": {
+			"description": "Sets the kill gold value of the spawned human",
+			"arguments": [
+				{
+					"name": "kill_gold_value",
+					"type": "i32"
+				}
+			]
+		},
+		"set_tool_name": {
+			"description": "Sets the name of the spawned tool",
+			"arguments": [
+				{
+					"name": "name",
+					"type": "string"
+				}
+			]
+		},
+		"set_tool_buy_gold_value": {
+			"description": "Sets the buy gold value of the spawned tool",
+			"arguments": [
+				{
+					"name": "buy_gold_value",
+					"type": "i32"
+				}
+			]
+		},
 		"get_human_parent": {
-			"description": "Get the human parent's ID",
+			"description": "Gets the human parent's ID",
 			"return_type": "id",
 			"arguments": [
 				{
@@ -52,7 +92,7 @@
 			]
 		},
 		"get_opponent": {
-			"description": "Get the opponent's ID",
+			"description": "Gets the opponent's ID",
 			"return_type": "id",
 			"arguments": [
 				{
@@ -62,7 +102,7 @@
 			]
 		},
 		"change_human_health": {
-			"description": "Change a human's health",
+			"description": "Changes a human's health",
 			"arguments": [
 				{
 					"name": "human_id",
@@ -71,6 +111,15 @@
 				{
 					"name": "added_health",
 					"type": "i32"
+				}
+			]
+		},
+		"print_string": {
+			"description": "Prints a string",
+			"arguments": [
+				{
+					"name": "msg",
+					"type": "string"
 				}
 			]
 		}

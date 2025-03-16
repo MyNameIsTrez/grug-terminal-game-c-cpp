@@ -1,11 +1,9 @@
-define() tool {
-    return {
-        .name = "Lightning",
-        .buy_gold_value = 70,
-    }
-}
-
 uses: i32 = 0
+
+on_spawn() {
+    set_tool_name("Lightning")
+    set_tool_buy_gold_value(70)
+}
 
 on_use() {
     uses = uses + 1

@@ -1,0 +1,6 @@
+on_spawn() {
+    set_human_name("Child")
+    set_human_health(5)
+    set_human_buy_gold_value(5)
+    set_human_kill_gold_value(1)
+}

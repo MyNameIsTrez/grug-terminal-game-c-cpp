@@ -10,23 +10,64 @@
 #include <time.h>
 #include <unistd.h>
 
-static struct human human_definition;
-static struct tool tool_definition;
-
-void game_fn_define_human(string name, i32 health, i32 buy_gold_value, i32 kill_gold_value) {
-	human_definition = (struct human){
-		.name = name,
-		.health = health,
-		.buy_gold_value = buy_gold_value,
-		.kill_gold_value = kill_gold_value,
-	};
+#define SET_CALLED(property) { \
+	if (set_ ## property ## _called) { \
+		fprintf(stderr, "set_" #property "() was called twice by on_spawn()\n"); \
+	} else { \
+		set_ ## property ## _called = true; \
+	} \
 }
 
-void game_fn_define_tool(string name, i32 buy_gold_value) {
-	tool_definition = (struct tool){
-		.name = name,
-		.buy_gold_value = buy_gold_value,
-	};
+#define ASSERT_HAS_ON_SPAWN() { \
+	if (!on_fns->spawn) { \
+		fprintf(stderr, "%s is missing on_spawn()\n", entity); \
+		return true; \
+	} \
+}
+
+#define ASSERT_ON_SPAWN_PROPERTY_SET(property) { \
+	if (!property ## _called) { \
+		fprintf(stderr, "%s its on_spawn() did not call " #property "()\n", entity); \
+		return true; \
+	} \
+}
+
+void game_fn_print_string(char *msg) {
+	printf("%s\n", msg);
+}
+
+static struct human human_on_spawn_data;
+static bool set_human_name_called;
+void game_fn_set_human_name(char *name) {
+	SET_CALLED(human_name);
+	human_on_spawn_data.name = name;
+}
+static bool set_human_health_called;
+void game_fn_set_human_health(i32 health) {
+	SET_CALLED(human_health);
+	human_on_spawn_data.health = health;
+}
+static bool set_human_buy_gold_value_called;
+void game_fn_set_human_buy_gold_value(i32 buy_gold_value) {
+	SET_CALLED(human_buy_gold_value);
+	human_on_spawn_data.buy_gold_value = buy_gold_value;
+}
+static bool set_human_kill_gold_value_called;
+void game_fn_set_human_kill_gold_value(i32 kill_gold_value) {
+	SET_CALLED(human_kill_gold_value);
+	human_on_spawn_data.kill_gold_value = kill_gold_value;
+}
+
+static struct tool tool_on_spawn_data;
+static bool set_tool_name_called;
+void game_fn_set_tool_name(char *name) {
+	SET_CALLED(tool_name);
+	tool_on_spawn_data.name = name;
+}
+static bool set_tool_buy_gold_value_called;
+void game_fn_set_tool_buy_gold_value(i32 buy_gold_value) {
+	SET_CALLED(tool_buy_gold_value);
+	tool_on_spawn_data.buy_gold_value = buy_gold_value;
 }
 
 static void push_file_containing_fn(struct grug_file file) {
@@ -37,33 +78,48 @@ static void push_file_containing_fn(struct grug_file file) {
 	data.type_files[data.type_files_size++] = file;
 }
 
-static void get_type_files_impl(struct grug_mod_dir dir, char *define_type) {
+static void get_type_files_impl(struct grug_mod_dir dir, char *entity_type) {
 	for (size_t i = 0; i < dir.dirs_size; i++) {
-		get_type_files_impl(dir.dirs[i], define_type);
+		get_type_files_impl(dir.dirs[i], entity_type);
 	}
 
 	for (size_t i = 0; i < dir.files_size; i++) {
-		if (strcmp(dir.files[i].define_type, define_type) == 0) {
+		if (strcmp(dir.files[i].entity_type, entity_type) == 0) {
 			push_file_containing_fn(dir.files[i]);
 		}
 	}
 }
 
-static struct grug_file *get_type_files(char *define_type) {
+static struct grug_file *get_type_files(char *entity_type) {
 	data.type_files_size = 0;
-	get_type_files_impl(grug_mods, define_type);
+	get_type_files_impl(grug_mods, entity_type);
 	return data.type_files;
+}
+
+static void call_human_on_despawn(human_on_fns *on_fns, void *globals) {
+	if (on_fns->despawn) {
+		on_fns->despawn(globals);
+	}
+}
+
+static void call_tool_on_despawn(tool_on_fns *on_fns, void *globals) {
+	if (on_fns->despawn) {
+		on_fns->despawn(globals);
+	}
 }
 
 static void fight(void) {
 	human *player = &data.humans[PLAYER_INDEX];
 	human *opponent = &data.humans[OPPONENT_INDEX];
 
-	void *player_tool_globals = data.tool_globals[PLAYER_INDEX];
-	void *opponent_tool_globals = data.tool_globals[OPPONENT_INDEX];
-
 	tool *player_tool = &data.tools[PLAYER_INDEX];
 	tool *opponent_tool = &data.tools[OPPONENT_INDEX];
+
+	void *player_human_globals = data.human_globals[PLAYER_INDEX];
+	void *opponent_human_globals = data.human_globals[OPPONENT_INDEX];
+
+	void *player_tool_globals = data.tool_globals[PLAYER_INDEX];
+	void *opponent_tool_globals = data.tool_globals[OPPONENT_INDEX];
 
 	printf("You have %d health\n", player->health);
 	printf("The opponent has %d health\n\n", opponent->health);
@@ -80,6 +136,7 @@ static void fight(void) {
 
 	if (opponent->health <= 0) {
 		printf("The opponent died!\n");
+		call_human_on_despawn(opponent->on_fns, opponent_human_globals);
 		sleep(1);
 		data.state = STATE_PICKING_PLAYER;
 		data.gold += opponent->kill_gold_value;
@@ -99,6 +156,11 @@ static void fight(void) {
 
 	if (player->health <= 0) {
 		printf("You died!\n");
+		call_human_on_despawn(player->on_fns, player_human_globals);
+
+		// Prevents call_human_on_despawn() being called a second time by pick_player()
+		player->on_fns = NULL;
+
 		sleep(1);
 		data.state = STATE_PICKING_PLAYER;
 		player->health = player->max_health;
@@ -149,10 +211,57 @@ static bool read_size(size_t *output) {
 	return true;
 }
 
-static void print_opponent_humans(struct grug_file *files_defining_human) {
+static bool call_human_on_spawn(char *entity, human_on_fns *on_fns, void *globals) {
+	ASSERT_HAS_ON_SPAWN();
+
+	set_human_name_called = false;
+	set_human_health_called = false;
+	set_human_buy_gold_value_called = false;
+	set_human_kill_gold_value_called = false;
+
+	on_fns->spawn(globals);
+
+	ASSERT_ON_SPAWN_PROPERTY_SET(set_human_name);
+	ASSERT_ON_SPAWN_PROPERTY_SET(set_human_health);
+	ASSERT_ON_SPAWN_PROPERTY_SET(set_human_buy_gold_value);
+	ASSERT_ON_SPAWN_PROPERTY_SET(set_human_kill_gold_value);
+
+	return false;
+}
+
+static bool call_tool_on_spawn(char *entity, tool_on_fns *on_fns, void *globals) {
+	ASSERT_HAS_ON_SPAWN();
+
+	set_tool_name_called = false;
+	set_tool_buy_gold_value_called = false;
+
+	on_fns->spawn(globals);
+
+	ASSERT_ON_SPAWN_PROPERTY_SET(set_tool_name);
+	ASSERT_ON_SPAWN_PROPERTY_SET(set_tool_buy_gold_value);
+
+	return false;
+}
+
+static void print_opponent_humans(struct grug_file *human_files) {
 	for (size_t i = 0; i < data.type_files_size; i++) {
-		files_defining_human[i].define_fn();
-		printf("%ld. %s, worth %d gold when killed\n", i + 1, human_definition.name, human_definition.kill_gold_value);
+		struct grug_file file = human_files[i];
+
+		void *globals = malloc(file.globals_size);
+		file.init_globals_fn(globals, 0);
+
+		if (call_human_on_spawn(file.entity, file.on_fns, globals)) {
+			free(globals);
+			break;
+		}
+
+		human human = human_on_spawn_data;
+
+		printf("%ld. %s, worth %d gold when killed\n", i + 1, human.name, human.kill_gold_value);
+
+		call_human_on_despawn(file.on_fns, globals);
+
+		free(globals);
 	}
 	printf("\n");
 }
@@ -160,9 +269,9 @@ static void print_opponent_humans(struct grug_file *files_defining_human) {
 static void pick_opponent(void) {
 	printf("You have %d gold\n\n", data.gold);
 
-	struct grug_file *files_defining_human = get_type_files("human");
+	struct grug_file *human_files = get_type_files("human");
 
-	print_opponent_humans(files_defining_human);
+	print_opponent_humans(human_files);
 
 	printf("Type the number next to the human you want to fight:\n");
 
@@ -182,10 +291,17 @@ static void pick_opponent(void) {
 
 	size_t opponent_index = opponent_number - 1;
 
-	struct grug_file file = files_defining_human[opponent_index];
+	struct grug_file file = human_files[opponent_index];
 
-	file.define_fn();
-	human human = human_definition;
+	free(data.human_globals[OPPONENT_INDEX]);
+	data.human_globals[OPPONENT_INDEX] = malloc(file.globals_size);
+	file.init_globals_fn(data.human_globals[OPPONENT_INDEX], OPPONENT_INDEX);
+
+	if (call_human_on_spawn(file.entity, file.on_fns, data.human_globals[OPPONENT_INDEX])) {
+		return;
+	}
+
+	human human = human_on_spawn_data;
 
 	human.id = OPPONENT_INDEX;
 	human.opponent_id = PLAYER_INDEX;
@@ -195,18 +311,21 @@ static void pick_opponent(void) {
 	data.humans[OPPONENT_INDEX] = human;
 	data.human_dlls[OPPONENT_INDEX] = file.dll;
 
-	free(data.human_globals[OPPONENT_INDEX]);
-	data.human_globals[OPPONENT_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.human_globals[OPPONENT_INDEX], OPPONENT_INDEX);
-
 	// Give the opponent a random tool
-	struct grug_file *files_defining_tool = get_type_files("tool");
+	struct grug_file *tool_files = get_type_files("tool");
 	size_t tool_index = rand() % data.type_files_size;
 
-	file = files_defining_tool[tool_index];
+	file = tool_files[tool_index];
 
-	file.define_fn();
-	tool tool = tool_definition;
+	free(data.tool_globals[OPPONENT_INDEX]);
+	data.tool_globals[OPPONENT_INDEX] = malloc(file.globals_size);
+	file.init_globals_fn(data.tool_globals[OPPONENT_INDEX], OPPONENT_INDEX);
+
+	if (call_tool_on_spawn(file.entity, file.on_fns, data.tool_globals[OPPONENT_INDEX])) {
+		return;
+	}
+
+	tool tool = tool_on_spawn_data;
 
 	tool.on_fns = file.on_fns;
 
@@ -215,18 +334,28 @@ static void pick_opponent(void) {
 	data.tools[OPPONENT_INDEX] = tool;
 	data.tool_dlls[OPPONENT_INDEX] = file.dll;
 
-	free(data.tool_globals[OPPONENT_INDEX]);
-	data.tool_globals[OPPONENT_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.tool_globals[OPPONENT_INDEX], OPPONENT_INDEX);
-
 	data.state = STATE_FIGHTING;
 }
 
-static void print_tools(struct grug_file *files_defining_tool) {
+static void print_tools(struct grug_file *tool_files) {
 	for (size_t i = 0; i < data.type_files_size; i++) {
-		files_defining_tool[i].define_fn();
-		tool tool = tool_definition;
+		struct grug_file file = tool_files[i];
+
+		void *globals = malloc(file.globals_size);
+		file.init_globals_fn(globals, 0);
+
+		if (call_tool_on_spawn(file.entity, file.on_fns, globals)) {
+			free(globals);
+			break;
+		}
+
+		tool tool = tool_on_spawn_data;
+
 		printf("%ld. %s, costing %d gold\n", i + 1, tool.name, tool.buy_gold_value);
+
+		call_tool_on_despawn(file.on_fns, globals);
+
+		free(globals);
 	}
 	printf("\n");
 }
@@ -234,9 +363,9 @@ static void print_tools(struct grug_file *files_defining_tool) {
 static void pick_tools(void) {
 	printf("You have %d gold\n\n", data.gold);
 
-	struct grug_file *files_defining_tool = get_type_files("tool");
+	struct grug_file *tool_files = get_type_files("tool");
 
-	print_tools(files_defining_tool);
+	print_tools(tool_files);
 
 	printf("Type the number next to the tool you want to buy%s:\n", data.player_has_tool ? " (type 0 to skip)" : "");
 
@@ -258,19 +387,30 @@ static void pick_tools(void) {
 		return;
 	}
 
+	if (data.tools[PLAYER_INDEX].on_fns) {
+		call_tool_on_despawn(data.tools[PLAYER_INDEX].on_fns, data.tool_globals[PLAYER_INDEX]);
+	}
+
 	size_t tool_index = tool_number - 1;
 
-	struct grug_file file = files_defining_tool[tool_index];
+	struct grug_file file = tool_files[tool_index];
 
-	file.define_fn();
-	tool tool = tool_definition;
+	free(data.tool_globals[PLAYER_INDEX]);
+	data.tool_globals[PLAYER_INDEX] = malloc(file.globals_size);
+	file.init_globals_fn(data.tool_globals[PLAYER_INDEX], PLAYER_INDEX);
 
-	tool.on_fns = file.on_fns;
+	if (call_tool_on_spawn(file.entity, file.on_fns, data.tool_globals[PLAYER_INDEX])) {
+		return;
+	}
+
+	tool tool = tool_on_spawn_data;
 
 	if (tool.buy_gold_value > data.gold) {
 		fprintf(stderr, "You don't have enough gold to buy that tool\n");
 		return;
 	}
+
+	tool.on_fns = file.on_fns;
 
 	data.gold -= tool.buy_gold_value;
 
@@ -279,18 +419,30 @@ static void pick_tools(void) {
 	data.tools[PLAYER_INDEX] = tool;
 	data.tool_dlls[PLAYER_INDEX] = file.dll;
 
-	free(data.tool_globals[PLAYER_INDEX]);
-	data.tool_globals[PLAYER_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.tool_globals[PLAYER_INDEX], PLAYER_INDEX);
-
 	data.player_has_tool = true;
+
+	data.state = STATE_PICKING_OPPONENT;
 }
 
-static void print_playable_humans(struct grug_file *files_defining_human) {
+static void print_playable_humans(struct grug_file *human_files) {
 	for (size_t i = 0; i < data.type_files_size; i++) {
-		files_defining_human[i].define_fn();
-		human human = human_definition;
+		struct grug_file file = human_files[i];
+
+		void *globals = malloc(file.globals_size);
+		file.init_globals_fn(globals, 0);
+
+		if (call_human_on_spawn(file.entity, file.on_fns, globals)) {
+			free(globals);
+			break;
+		}
+
+		human human = human_on_spawn_data;
+
 		printf("%ld. %s, costing %d gold\n", i + 1, human.name, human.buy_gold_value);
+
+		call_human_on_despawn(file.on_fns, globals);
+
+		free(globals);
 	}
 	printf("\n");
 }
@@ -298,9 +450,9 @@ static void print_playable_humans(struct grug_file *files_defining_human) {
 static void pick_player(void) {
 	printf("You have %d gold\n\n", data.gold);
 
-	struct grug_file *files_defining_human = get_type_files("human");
+	struct grug_file *human_files = get_type_files("human");
 
-	print_playable_humans(files_defining_human);
+	print_playable_humans(human_files);
 
 	printf("Type the number next to the human you want to play as%s:\n", data.player_has_human ? " (type 0 to skip)" : "");
 
@@ -322,17 +474,30 @@ static void pick_player(void) {
 		return;
 	}
 
+	if (data.humans[PLAYER_INDEX].on_fns) {
+		call_human_on_despawn(data.humans[PLAYER_INDEX].on_fns, data.human_globals[PLAYER_INDEX]);
+	}
+
 	size_t player_index = player_number - 1;
 
-	struct grug_file file = files_defining_human[player_index];
+	struct grug_file file = human_files[player_index];
 
-	file.define_fn();
-	human human = human_definition;
+	free(data.human_globals[PLAYER_INDEX]);
+	data.human_globals[PLAYER_INDEX] = malloc(file.globals_size);
+	file.init_globals_fn(data.human_globals[PLAYER_INDEX], PLAYER_INDEX);
+
+	if (call_human_on_spawn(file.entity, file.on_fns, data.human_globals[PLAYER_INDEX])) {
+		return;
+	}
+
+	human human = human_on_spawn_data;
 
 	if (human.buy_gold_value > data.gold) {
 		fprintf(stderr, "You don't have enough gold to pick that human\n");
 		return;
 	}
+
+	human.on_fns = file.on_fns;
 
 	data.gold -= human.buy_gold_value;
 
@@ -343,10 +508,6 @@ static void pick_player(void) {
 
 	data.humans[PLAYER_INDEX] = human;
 	data.human_dlls[PLAYER_INDEX] = file.dll;
-
-	free(data.human_globals[PLAYER_INDEX]);
-	data.human_globals[PLAYER_INDEX] = malloc(file.globals_size);
-	file.init_globals_fn(data.human_globals[PLAYER_INDEX], PLAYER_INDEX);
 
 	data.player_has_human = true;
 
@@ -381,6 +542,8 @@ static void reload_modified_entities(void) {
 				free(data.human_globals[i]);
 				data.human_globals[i] = malloc(reload.file.globals_size);
 				reload.file.init_globals_fn(data.human_globals[i], i);
+
+				data.humans[i].on_fns = reload.file.on_fns;
 			}
 		}
 
@@ -408,7 +571,10 @@ int main(void) {
 	// Seed the random number generator with the number of seconds since 1970
 	srand(time(NULL));
 
-	grug_init(runtime_error_handler, "mod_api.json", "mods");
+	if (grug_init(runtime_error_handler, "mod_api.json", "mods")) {
+		fprintf(stderr, "grug_init() error: %s (detected by grug.c:%d)\n", grug_error.msg, grug_error.grug_c_line_number);
+		return EXIT_FAILURE;
+	}
 
 	init_data();
 
