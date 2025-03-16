@@ -238,7 +238,7 @@ static bool call_tool_on_spawn(char *entity, tool_on_fns *on_fns, void *globals)
 	return false;
 }
 
-static void print_opponent_humans(struct grug_file *human_files) {
+static bool print_opponent_humans(struct grug_file *human_files) {
 	for (size_t i = 0; i < data.type_files_size; i++) {
 		struct grug_file file = human_files[i];
 
@@ -247,7 +247,7 @@ static void print_opponent_humans(struct grug_file *human_files) {
 
 		if (call_human_on_spawn(file.entity, file.on_fns, globals)) {
 			free(globals);
-			break;
+			return true;
 		}
 
 		human human = human_on_spawn_data;
@@ -259,6 +259,7 @@ static void print_opponent_humans(struct grug_file *human_files) {
 		free(globals);
 	}
 	printf("\n");
+	return false;
 }
 
 static void pick_opponent(void) {
@@ -266,7 +267,9 @@ static void pick_opponent(void) {
 
 	struct grug_file *human_files = get_type_files("human");
 
-	print_opponent_humans(human_files);
+	if (print_opponent_humans(human_files)) {
+		return;
+	}
 
 	printf("Type the number next to the human you want to fight:\n");
 
@@ -334,7 +337,7 @@ static void pick_opponent(void) {
 	data.state = STATE_FIGHTING;
 }
 
-static void print_tools(struct grug_file *tool_files) {
+static bool print_tools(struct grug_file *tool_files) {
 	for (size_t i = 0; i < data.type_files_size; i++) {
 		struct grug_file file = tool_files[i];
 
@@ -343,7 +346,7 @@ static void print_tools(struct grug_file *tool_files) {
 
 		if (call_tool_on_spawn(file.entity, file.on_fns, globals)) {
 			free(globals);
-			break;
+			return true;
 		}
 
 		tool tool = tool_on_spawn_data;
@@ -355,6 +358,7 @@ static void print_tools(struct grug_file *tool_files) {
 		free(globals);
 	}
 	printf("\n");
+	return false;
 }
 
 static void pick_tools(void) {
@@ -362,7 +366,9 @@ static void pick_tools(void) {
 
 	struct grug_file *tool_files = get_type_files("tool");
 
-	print_tools(tool_files);
+	if (print_tools(tool_files)) {
+		return;
+	}
 
 	printf("Type the number next to the tool you want to buy%s:\n", data.player_has_tool ? " (type 0 to skip)" : "");
 
@@ -420,7 +426,7 @@ static void pick_tools(void) {
 	data.state = STATE_PICKING_OPPONENT;
 }
 
-static void print_playable_humans(struct grug_file *human_files) {
+static bool print_playable_humans(struct grug_file *human_files) {
 	for (size_t i = 0; i < data.type_files_size; i++) {
 		struct grug_file file = human_files[i];
 
@@ -429,7 +435,7 @@ static void print_playable_humans(struct grug_file *human_files) {
 
 		if (call_human_on_spawn(file.entity, file.on_fns, globals)) {
 			free(globals);
-			break;
+			return true;
 		}
 
 		human human = human_on_spawn_data;
@@ -441,6 +447,7 @@ static void print_playable_humans(struct grug_file *human_files) {
 		free(globals);
 	}
 	printf("\n");
+	return false;
 }
 
 static void pick_player(void) {
@@ -448,7 +455,9 @@ static void pick_player(void) {
 
 	struct grug_file *human_files = get_type_files("human");
 
-	print_playable_humans(human_files);
+	if (print_playable_humans(human_files)) {
+		return;
+	}
 
 	printf("Type the number next to the human you want to play as%s:\n", data.player_has_human ? " (type 0 to skip)" : "");
 
