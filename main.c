@@ -115,7 +115,6 @@ static void fight(void) {
 	tool *player_tool = &data.tools[PLAYER_INDEX];
 	tool *opponent_tool = &data.tools[OPPONENT_INDEX];
 
-	void *player_human_globals = data.human_globals[PLAYER_INDEX];
 	void *opponent_human_globals = data.human_globals[OPPONENT_INDEX];
 
 	void *player_tool_globals = data.tool_globals[PLAYER_INDEX];
