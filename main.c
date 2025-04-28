@@ -1,6 +1,7 @@
 #include "data.h"
 #include "game/tool.h"
 #include "grug.h"
+#include "macros.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -9,6 +10,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+char game_function_error[MAX_GAME_FUNCTION_ERROR_CHARS];
 
 #define SET_CALLED(property) { \
 	if (set_ ## property ## _called) { \
@@ -575,7 +578,7 @@ int main(void) {
 	// Seed the random number generator with the number of seconds since 1970
 	srand(time(NULL));
 
-	if (grug_init(runtime_error_handler, "mod_api.json", "mods")) {
+	if (grug_init(runtime_error_handler, "mod_api.json", "mods", 10)) {
 		fprintf(stderr, "grug_init() error: %s (detected by grug.c:%d)\n", grug_error.msg, grug_error.grug_c_line_number);
 		return EXIT_FAILURE;
 	}
