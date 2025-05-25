@@ -10,11 +10,3 @@ void init_data() {
 
 	data.gold = 400;
 }
-
-void free_data() {
-	free(data.human_globals[0]);
-	free(data.human_globals[1]);
-
-	free(data.tool_globals[0]);
-	free(data.tool_globals[1]);
-}

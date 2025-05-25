@@ -578,7 +578,7 @@ int main(void) {
 	// Seed the random number generator with the number of seconds since 1970
 	srand(time(NULL));
 
-	if (grug_init(runtime_error_handler, "mod_api.json", "mods", 10)) {
+	if (grug_init(runtime_error_handler, "mod_api.json", "mods", "mod_dlls", 10)) {
 		fprintf(stderr, "grug_init() error: %s (detected by grug.c:%d)\n", grug_error.msg, grug_error.grug_c_line_number);
 		return EXIT_FAILURE;
 	}
@@ -611,7 +611,4 @@ int main(void) {
 
 		sleep(1);
 	}
-
-	grug_free_mods();
-	free_data();
 }

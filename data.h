@@ -38,4 +38,3 @@ struct data {
 extern struct data data;
 
 void init_data();
-void free_data();
