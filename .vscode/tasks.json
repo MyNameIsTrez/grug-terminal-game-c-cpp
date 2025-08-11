@@ -21,6 +21,7 @@
         "-Igrug",
         "-rdynamic",
         "-fsanitize=address,undefined",
+        "-z execstack"
       ],
       "problemMatcher": [
         "$tsc"
