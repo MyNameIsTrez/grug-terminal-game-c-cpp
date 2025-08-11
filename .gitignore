@@ -4,3 +4,4 @@ a.exe
 a.out
 log.log
 foo.so
+*.o
