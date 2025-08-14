@@ -209,7 +209,7 @@ static bool read_size(size_t *output) {
 	return true;
 }
 
-static bool call_human_on_spawn(char *entity, human_on_fns *on_fns, void *globals) {
+static bool call_human_on_spawn(const char *entity, human_on_fns *on_fns, void *globals) {
 	ASSERT_HAS_ON_SPAWN();
 
 	set_human_name_called = false;
@@ -227,7 +227,7 @@ static bool call_human_on_spawn(char *entity, human_on_fns *on_fns, void *global
 	return false;
 }
 
-static bool call_tool_on_spawn(char *entity, tool_on_fns *on_fns, void *globals) {
+static bool call_tool_on_spawn(const char *entity, tool_on_fns *on_fns, void *globals) {
 	ASSERT_HAS_ON_SPAWN();
 
 	set_tool_name_called = false;
@@ -568,7 +568,7 @@ static void reload_modified_entities(void) {
 	}
 }
 
-static void runtime_error_handler(char *reason, enum grug_runtime_error_type type, char *on_fn_name, char *on_fn_path) {
+static void runtime_error_handler(const char *reason, enum grug_runtime_error_type type, const char *on_fn_name, const char *on_fn_path) {
 	(void)type;
 
 	fprintf(stderr, "grug runtime error in %s(): %s, in %s\n", on_fn_name, reason, on_fn_path);
