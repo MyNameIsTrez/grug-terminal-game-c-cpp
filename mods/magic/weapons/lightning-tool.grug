@@ -8,9 +8,11 @@ on_spawn() {
 on_use() {
     uses = uses + 1
 
-    damage: i32 = 42
+    damage: i32 = 20
+
+    # Critical hit
     if uses == 2 {
-        damage = 15
+        damage = 30
         uses = 0
     }
 

@@ -32,10 +32,6 @@ void game_fn_change_human_health(id human_id, i32 added_health) {
 		GAME_FUNCTION_ERROR("change_human_health(): the human_id argument was %zu, while the function only expects it to be up to 2", human_id);
 		return;
 	}
-	if (added_health == -42) {
-		GAME_FUNCTION_ERROR("change_human_health(): the added_health argument was -42, while the function deems that number to be forbidden");
-		return;
-	}
 	human *h = &data.humans[human_id];
 	h->health = clamp_i32(h->health + added_health, 0, h->max_health);
 }
